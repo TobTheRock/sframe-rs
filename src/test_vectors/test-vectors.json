@@ -3,1485 +3,1479 @@
     {
       "kid": 0,
       "ctr": 0,
-      "encoded": "0000"
+      "encoded": "00"
     },
     {
       "kid": 0,
       "ctr": 1,
-      "encoded": "0001"
+      "encoded": "01"
     },
     {
       "kid": 0,
       "ctr": 255,
-      "encoded": "00ff"
+      "encoded": "08ff"
     },
     {
       "kid": 0,
       "ctr": 256,
-      "encoded": "100100"
+      "encoded": "090100"
     },
     {
       "kid": 0,
       "ctr": 65535,
-      "encoded": "10ffff"
+      "encoded": "09ffff"
     },
     {
       "kid": 0,
       "ctr": 65536,
-      "encoded": "20010000"
+      "encoded": "0a010000"
     },
     {
       "kid": 0,
       "ctr": 16777215,
-      "encoded": "20ffffff"
+      "encoded": "0affffff"
     },
     {
       "kid": 0,
       "ctr": 16777216,
-      "encoded": "3001000000"
+      "encoded": "0b01000000"
     },
     {
       "kid": 0,
       "ctr": 4294967295,
-      "encoded": "30ffffffff"
+      "encoded": "0bffffffff"
     },
     {
       "kid": 0,
       "ctr": 4294967296,
-      "encoded": "400100000000"
+      "encoded": "0c0100000000"
     },
     {
       "kid": 0,
       "ctr": 1099511627775,
-      "encoded": "40ffffffffff"
+      "encoded": "0cffffffffff"
     },
     {
       "kid": 0,
       "ctr": 1099511627776,
-      "encoded": "50010000000000"
+      "encoded": "0d010000000000"
     },
     {
       "kid": 0,
       "ctr": 281474976710655,
-      "encoded": "50ffffffffffff"
+      "encoded": "0dffffffffffff"
     },
     {
       "kid": 0,
       "ctr": 281474976710656,
-      "encoded": "6001000000000000"
+      "encoded": "0e01000000000000"
     },
     {
       "kid": 0,
       "ctr": 72057594037927935,
-      "encoded": "60ffffffffffffff"
+      "encoded": "0effffffffffffff"
     },
     {
       "kid": 0,
       "ctr": 72057594037927936,
-      "encoded": "700100000000000000"
+      "encoded": "0f0100000000000000"
     },
     {
       "kid": 0,
       "ctr": 18446744073709551615,
-      "encoded": "70ffffffffffffffff"
+      "encoded": "0fffffffffffffffff"
     },
     {
       "kid": 1,
       "ctr": 0,
-      "encoded": "0100"
+      "encoded": "10"
     },
     {
       "kid": 1,
       "ctr": 1,
-      "encoded": "0101"
+      "encoded": "11"
     },
     {
       "kid": 1,
       "ctr": 255,
-      "encoded": "01ff"
+      "encoded": "18ff"
     },
     {
       "kid": 1,
       "ctr": 256,
-      "encoded": "110100"
+      "encoded": "190100"
     },
     {
       "kid": 1,
       "ctr": 65535,
-      "encoded": "11ffff"
+      "encoded": "19ffff"
     },
     {
       "kid": 1,
       "ctr": 65536,
-      "encoded": "21010000"
+      "encoded": "1a010000"
     },
     {
       "kid": 1,
       "ctr": 16777215,
-      "encoded": "21ffffff"
+      "encoded": "1affffff"
     },
     {
       "kid": 1,
       "ctr": 16777216,
-      "encoded": "3101000000"
+      "encoded": "1b01000000"
     },
     {
       "kid": 1,
       "ctr": 4294967295,
-      "encoded": "31ffffffff"
+      "encoded": "1bffffffff"
     },
     {
       "kid": 1,
       "ctr": 4294967296,
-      "encoded": "410100000000"
+      "encoded": "1c0100000000"
     },
     {
       "kid": 1,
       "ctr": 1099511627775,
-      "encoded": "41ffffffffff"
+      "encoded": "1cffffffffff"
     },
     {
       "kid": 1,
       "ctr": 1099511627776,
-      "encoded": "51010000000000"
+      "encoded": "1d010000000000"
     },
     {
       "kid": 1,
       "ctr": 281474976710655,
-      "encoded": "51ffffffffffff"
+      "encoded": "1dffffffffffff"
     },
     {
       "kid": 1,
       "ctr": 281474976710656,
-      "encoded": "6101000000000000"
+      "encoded": "1e01000000000000"
     },
     {
       "kid": 1,
       "ctr": 72057594037927935,
-      "encoded": "61ffffffffffffff"
+      "encoded": "1effffffffffffff"
     },
     {
       "kid": 1,
       "ctr": 72057594037927936,
-      "encoded": "710100000000000000"
+      "encoded": "1f0100000000000000"
     },
     {
       "kid": 1,
       "ctr": 18446744073709551615,
-      "encoded": "71ffffffffffffffff"
+      "encoded": "1fffffffffffffffff"
     },
     {
       "kid": 255,
       "ctr": 0,
-      "encoded": "08ff00"
+      "encoded": "80ff"
     },
     {
       "kid": 255,
       "ctr": 1,
-      "encoded": "08ff01"
+      "encoded": "81ff"
     },
     {
       "kid": 255,
       "ctr": 255,
-      "encoded": "08ffff"
+      "encoded": "88ffff"
     },
     {
       "kid": 255,
       "ctr": 256,
-      "encoded": "18ff0100"
+      "encoded": "89ff0100"
     },
     {
       "kid": 255,
       "ctr": 65535,
-      "encoded": "18ffffff"
+      "encoded": "89ffffff"
     },
     {
       "kid": 255,
       "ctr": 65536,
-      "encoded": "28ff010000"
+      "encoded": "8aff010000"
     },
     {
       "kid": 255,
       "ctr": 16777215,
-      "encoded": "28ffffffff"
+      "encoded": "8affffffff"
     },
     {
       "kid": 255,
       "ctr": 16777216,
-      "encoded": "38ff01000000"
+      "encoded": "8bff01000000"
     },
     {
       "kid": 255,
       "ctr": 4294967295,
-      "encoded": "38ffffffffff"
+      "encoded": "8bffffffffff"
     },
     {
       "kid": 255,
       "ctr": 4294967296,
-      "encoded": "48ff0100000000"
+      "encoded": "8cff0100000000"
     },
     {
       "kid": 255,
       "ctr": 1099511627775,
-      "encoded": "48ffffffffffff"
+      "encoded": "8cffffffffffff"
     },
     {
       "kid": 255,
       "ctr": 1099511627776,
-      "encoded": "58ff010000000000"
+      "encoded": "8dff010000000000"
     },
     {
       "kid": 255,
       "ctr": 281474976710655,
-      "encoded": "58ffffffffffffff"
+      "encoded": "8dffffffffffffff"
     },
     {
       "kid": 255,
       "ctr": 281474976710656,
-      "encoded": "68ff01000000000000"
+      "encoded": "8eff01000000000000"
     },
     {
       "kid": 255,
       "ctr": 72057594037927935,
-      "encoded": "68ffffffffffffffff"
+      "encoded": "8effffffffffffffff"
     },
     {
       "kid": 255,
       "ctr": 72057594037927936,
-      "encoded": "78ff0100000000000000"
+      "encoded": "8fff0100000000000000"
     },
     {
       "kid": 255,
       "ctr": 18446744073709551615,
-      "encoded": "78ffffffffffffffffff"
+      "encoded": "8fffffffffffffffffff"
     },
     {
       "kid": 256,
       "ctr": 0,
-      "encoded": "09010000"
+      "encoded": "900100"
     },
     {
       "kid": 256,
       "ctr": 1,
-      "encoded": "09010001"
+      "encoded": "910100"
     },
     {
       "kid": 256,
       "ctr": 255,
-      "encoded": "090100ff"
+      "encoded": "980100ff"
     },
     {
       "kid": 256,
       "ctr": 256,
-      "encoded": "1901000100"
+      "encoded": "9901000100"
     },
     {
       "kid": 256,
       "ctr": 65535,
-      "encoded": "190100ffff"
+      "encoded": "990100ffff"
     },
     {
       "kid": 256,
       "ctr": 65536,
-      "encoded": "290100010000"
+      "encoded": "9a0100010000"
     },
     {
       "kid": 256,
       "ctr": 16777215,
-      "encoded": "290100ffffff"
+      "encoded": "9a0100ffffff"
     },
     {
       "kid": 256,
       "ctr": 16777216,
-      "encoded": "39010001000000"
+      "encoded": "9b010001000000"
     },
     {
       "kid": 256,
       "ctr": 4294967295,
-      "encoded": "390100ffffffff"
+      "encoded": "9b0100ffffffff"
     },
     {
       "kid": 256,
       "ctr": 4294967296,
-      "encoded": "4901000100000000"
+      "encoded": "9c01000100000000"
     },
     {
       "kid": 256,
       "ctr": 1099511627775,
-      "encoded": "490100ffffffffff"
+      "encoded": "9c0100ffffffffff"
     },
     {
       "kid": 256,
       "ctr": 1099511627776,
-      "encoded": "590100010000000000"
+      "encoded": "9d0100010000000000"
     },
     {
       "kid": 256,
       "ctr": 281474976710655,
-      "encoded": "590100ffffffffffff"
+      "encoded": "9d0100ffffffffffff"
     },
     {
       "kid": 256,
       "ctr": 281474976710656,
-      "encoded": "69010001000000000000"
+      "encoded": "9e010001000000000000"
     },
     {
       "kid": 256,
       "ctr": 72057594037927935,
-      "encoded": "690100ffffffffffffff"
+      "encoded": "9e0100ffffffffffffff"
     },
     {
       "kid": 256,
       "ctr": 72057594037927936,
-      "encoded": "7901000100000000000000"
+      "encoded": "9f01000100000000000000"
     },
     {
       "kid": 256,
       "ctr": 18446744073709551615,
-      "encoded": "790100ffffffffffffffff"
+      "encoded": "9f0100ffffffffffffffff"
     },
     {
       "kid": 65535,
       "ctr": 0,
-      "encoded": "09ffff00"
+      "encoded": "90ffff"
     },
     {
       "kid": 65535,
       "ctr": 1,
-      "encoded": "09ffff01"
+      "encoded": "91ffff"
     },
     {
       "kid": 65535,
       "ctr": 255,
-      "encoded": "09ffffff"
+      "encoded": "98ffffff"
     },
     {
       "kid": 65535,
       "ctr": 256,
-      "encoded": "19ffff0100"
+      "encoded": "99ffff0100"
     },
     {
       "kid": 65535,
       "ctr": 65535,
-      "encoded": "19ffffffff"
+      "encoded": "99ffffffff"
     },
     {
       "kid": 65535,
       "ctr": 65536,
-      "encoded": "29ffff010000"
+      "encoded": "9affff010000"
     },
     {
       "kid": 65535,
       "ctr": 16777215,
-      "encoded": "29ffffffffff"
+      "encoded": "9affffffffff"
     },
     {
       "kid": 65535,
       "ctr": 16777216,
-      "encoded": "39ffff01000000"
+      "encoded": "9bffff01000000"
     },
     {
       "kid": 65535,
       "ctr": 4294967295,
-      "encoded": "39ffffffffffff"
+      "encoded": "9bffffffffffff"
     },
     {
       "kid": 65535,
       "ctr": 4294967296,
-      "encoded": "49ffff0100000000"
+      "encoded": "9cffff0100000000"
     },
     {
       "kid": 65535,
       "ctr": 1099511627775,
-      "encoded": "49ffffffffffffff"
+      "encoded": "9cffffffffffffff"
     },
     {
       "kid": 65535,
       "ctr": 1099511627776,
-      "encoded": "59ffff010000000000"
+      "encoded": "9dffff010000000000"
     },
     {
       "kid": 65535,
       "ctr": 281474976710655,
-      "encoded": "59ffffffffffffffff"
+      "encoded": "9dffffffffffffffff"
     },
     {
       "kid": 65535,
       "ctr": 281474976710656,
-      "encoded": "69ffff01000000000000"
+      "encoded": "9effff01000000000000"
     },
     {
       "kid": 65535,
       "ctr": 72057594037927935,
-      "encoded": "69ffffffffffffffffff"
+      "encoded": "9effffffffffffffffff"
     },
     {
       "kid": 65535,
       "ctr": 72057594037927936,
-      "encoded": "79ffff0100000000000000"
+      "encoded": "9fffff0100000000000000"
     },
     {
       "kid": 65535,
       "ctr": 18446744073709551615,
-      "encoded": "79ffffffffffffffffffff"
+      "encoded": "9fffffffffffffffffffff"
     },
     {
       "kid": 65536,
       "ctr": 0,
-      "encoded": "0a01000000"
+      "encoded": "a0010000"
     },
     {
       "kid": 65536,
       "ctr": 1,
-      "encoded": "0a01000001"
+      "encoded": "a1010000"
     },
     {
       "kid": 65536,
       "ctr": 255,
-      "encoded": "0a010000ff"
+      "encoded": "a8010000ff"
     },
     {
       "kid": 65536,
       "ctr": 256,
-      "encoded": "1a0100000100"
+      "encoded": "a90100000100"
     },
     {
       "kid": 65536,
       "ctr": 65535,
-      "encoded": "1a010000ffff"
+      "encoded": "a9010000ffff"
     },
     {
       "kid": 65536,
       "ctr": 65536,
-      "encoded": "2a010000010000"
+      "encoded": "aa010000010000"
     },
     {
       "kid": 65536,
       "ctr": 16777215,
-      "encoded": "2a010000ffffff"
+      "encoded": "aa010000ffffff"
     },
     {
       "kid": 65536,
       "ctr": 16777216,
-      "encoded": "3a01000001000000"
+      "encoded": "ab01000001000000"
     },
     {
       "kid": 65536,
       "ctr": 4294967295,
-      "encoded": "3a010000ffffffff"
+      "encoded": "ab010000ffffffff"
     },
     {
       "kid": 65536,
       "ctr": 4294967296,
-      "encoded": "4a0100000100000000"
+      "encoded": "ac0100000100000000"
     },
     {
       "kid": 65536,
       "ctr": 1099511627775,
-      "encoded": "4a010000ffffffffff"
+      "encoded": "ac010000ffffffffff"
     },
     {
       "kid": 65536,
       "ctr": 1099511627776,
-      "encoded": "5a010000010000000000"
+      "encoded": "ad010000010000000000"
     },
     {
       "kid": 65536,
       "ctr": 281474976710655,
-      "encoded": "5a010000ffffffffffff"
+      "encoded": "ad010000ffffffffffff"
     },
     {
       "kid": 65536,
       "ctr": 281474976710656,
-      "encoded": "6a01000001000000000000"
+      "encoded": "ae01000001000000000000"
     },
     {
       "kid": 65536,
       "ctr": 72057594037927935,
-      "encoded": "6a010000ffffffffffffff"
+      "encoded": "ae010000ffffffffffffff"
     },
     {
       "kid": 65536,
       "ctr": 72057594037927936,
-      "encoded": "7a0100000100000000000000"
+      "encoded": "af0100000100000000000000"
     },
     {
       "kid": 65536,
       "ctr": 18446744073709551615,
-      "encoded": "7a010000ffffffffffffffff"
+      "encoded": "af010000ffffffffffffffff"
     },
     {
       "kid": 16777215,
       "ctr": 0,
-      "encoded": "0affffff00"
+      "encoded": "a0ffffff"
     },
     {
       "kid": 16777215,
       "ctr": 1,
-      "encoded": "0affffff01"
+      "encoded": "a1ffffff"
     },
     {
       "kid": 16777215,
       "ctr": 255,
-      "encoded": "0affffffff"
+      "encoded": "a8ffffffff"
     },
     {
       "kid": 16777215,
       "ctr": 256,
-      "encoded": "1affffff0100"
+      "encoded": "a9ffffff0100"
     },
     {
       "kid": 16777215,
       "ctr": 65535,
-      "encoded": "1affffffffff"
+      "encoded": "a9ffffffffff"
     },
     {
       "kid": 16777215,
       "ctr": 65536,
-      "encoded": "2affffff010000"
+      "encoded": "aaffffff010000"
     },
     {
       "kid": 16777215,
       "ctr": 16777215,
-      "encoded": "2affffffffffff"
+      "encoded": "aaffffffffffff"
     },
     {
       "kid": 16777215,
       "ctr": 16777216,
-      "encoded": "3affffff01000000"
+      "encoded": "abffffff01000000"
     },
     {
       "kid": 16777215,
       "ctr": 4294967295,
-      "encoded": "3affffffffffffff"
+      "encoded": "abffffffffffffff"
     },
     {
       "kid": 16777215,
       "ctr": 4294967296,
-      "encoded": "4affffff0100000000"
+      "encoded": "acffffff0100000000"
     },
     {
       "kid": 16777215,
       "ctr": 1099511627775,
-      "encoded": "4affffffffffffffff"
+      "encoded": "acffffffffffffffff"
     },
     {
       "kid": 16777215,
       "ctr": 1099511627776,
-      "encoded": "5affffff010000000000"
+      "encoded": "adffffff010000000000"
     },
     {
       "kid": 16777215,
       "ctr": 281474976710655,
-      "encoded": "5affffffffffffffffff"
+      "encoded": "adffffffffffffffffff"
     },
     {
       "kid": 16777215,
       "ctr": 281474976710656,
-      "encoded": "6affffff01000000000000"
+      "encoded": "aeffffff01000000000000"
     },
     {
       "kid": 16777215,
       "ctr": 72057594037927935,
-      "encoded": "6affffffffffffffffffff"
+      "encoded": "aeffffffffffffffffffff"
     },
     {
       "kid": 16777215,
       "ctr": 72057594037927936,
-      "encoded": "7affffff0100000000000000"
+      "encoded": "afffffff0100000000000000"
     },
     {
       "kid": 16777215,
       "ctr": 18446744073709551615,
-      "encoded": "7affffffffffffffffffffff"
+      "encoded": "afffffffffffffffffffffff"
     },
     {
       "kid": 16777216,
       "ctr": 0,
-      "encoded": "0b0100000000"
+      "encoded": "b001000000"
     },
     {
       "kid": 16777216,
       "ctr": 1,
-      "encoded": "0b0100000001"
+      "encoded": "b101000000"
     },
     {
       "kid": 16777216,
       "ctr": 255,
-      "encoded": "0b01000000ff"
+      "encoded": "b801000000ff"
     },
     {
       "kid": 16777216,
       "ctr": 256,
-      "encoded": "1b010000000100"
+      "encoded": "b9010000000100"
     },
     {
       "kid": 16777216,
       "ctr": 65535,
-      "encoded": "1b01000000ffff"
+      "encoded": "b901000000ffff"
     },
     {
       "kid": 16777216,
       "ctr": 65536,
-      "encoded": "2b01000000010000"
+      "encoded": "ba01000000010000"
     },
     {
       "kid": 16777216,
       "ctr": 16777215,
-      "encoded": "2b01000000ffffff"
+      "encoded": "ba01000000ffffff"
     },
     {
       "kid": 16777216,
       "ctr": 16777216,
-      "encoded": "3b0100000001000000"
+      "encoded": "bb0100000001000000"
     },
     {
       "kid": 16777216,
       "ctr": 4294967295,
-      "encoded": "3b01000000ffffffff"
+      "encoded": "bb01000000ffffffff"
     },
     {
       "kid": 16777216,
       "ctr": 4294967296,
-      "encoded": "4b010000000100000000"
+      "encoded": "bc010000000100000000"
     },
     {
       "kid": 16777216,
       "ctr": 1099511627775,
-      "encoded": "4b01000000ffffffffff"
+      "encoded": "bc01000000ffffffffff"
     },
     {
       "kid": 16777216,
       "ctr": 1099511627776,
-      "encoded": "5b01000000010000000000"
+      "encoded": "bd01000000010000000000"
     },
     {
       "kid": 16777216,
       "ctr": 281474976710655,
-      "encoded": "5b01000000ffffffffffff"
+      "encoded": "bd01000000ffffffffffff"
     },
     {
       "kid": 16777216,
       "ctr": 281474976710656,
-      "encoded": "6b0100000001000000000000"
+      "encoded": "be0100000001000000000000"
     },
     {
       "kid": 16777216,
       "ctr": 72057594037927935,
-      "encoded": "6b01000000ffffffffffffff"
+      "encoded": "be01000000ffffffffffffff"
     },
     {
       "kid": 16777216,
       "ctr": 72057594037927936,
-      "encoded": "7b010000000100000000000000"
+      "encoded": "bf010000000100000000000000"
     },
     {
       "kid": 16777216,
       "ctr": 18446744073709551615,
-      "encoded": "7b01000000ffffffffffffffff"
+      "encoded": "bf01000000ffffffffffffffff"
     },
     {
       "kid": 4294967295,
       "ctr": 0,
-      "encoded": "0bffffffff00"
+      "encoded": "b0ffffffff"
     },
     {
       "kid": 4294967295,
       "ctr": 1,
-      "encoded": "0bffffffff01"
+      "encoded": "b1ffffffff"
     },
     {
       "kid": 4294967295,
       "ctr": 255,
-      "encoded": "0bffffffffff"
+      "encoded": "b8ffffffffff"
     },
     {
       "kid": 4294967295,
       "ctr": 256,
-      "encoded": "1bffffffff0100"
+      "encoded": "b9ffffffff0100"
     },
     {
       "kid": 4294967295,
       "ctr": 65535,
-      "encoded": "1bffffffffffff"
+      "encoded": "b9ffffffffffff"
     },
     {
       "kid": 4294967295,
       "ctr": 65536,
-      "encoded": "2bffffffff010000"
+      "encoded": "baffffffff010000"
     },
     {
       "kid": 4294967295,
       "ctr": 16777215,
-      "encoded": "2bffffffffffffff"
+      "encoded": "baffffffffffffff"
     },
     {
       "kid": 4294967295,
       "ctr": 16777216,
-      "encoded": "3bffffffff01000000"
+      "encoded": "bbffffffff01000000"
     },
     {
       "kid": 4294967295,
       "ctr": 4294967295,
-      "encoded": "3bffffffffffffffff"
+      "encoded": "bbffffffffffffffff"
     },
     {
       "kid": 4294967295,
       "ctr": 4294967296,
-      "encoded": "4bffffffff0100000000"
+      "encoded": "bcffffffff0100000000"
     },
     {
       "kid": 4294967295,
       "ctr": 1099511627775,
-      "encoded": "4bffffffffffffffffff"
+      "encoded": "bcffffffffffffffffff"
     },
     {
       "kid": 4294967295,
       "ctr": 1099511627776,
-      "encoded": "5bffffffff010000000000"
+      "encoded": "bdffffffff010000000000"
     },
     {
       "kid": 4294967295,
       "ctr": 281474976710655,
-      "encoded": "5bffffffffffffffffffff"
+      "encoded": "bdffffffffffffffffffff"
     },
     {
       "kid": 4294967295,
       "ctr": 281474976710656,
-      "encoded": "6bffffffff01000000000000"
+      "encoded": "beffffffff01000000000000"
     },
     {
       "kid": 4294967295,
       "ctr": 72057594037927935,
-      "encoded": "6bffffffffffffffffffffff"
+      "encoded": "beffffffffffffffffffffff"
     },
     {
       "kid": 4294967295,
       "ctr": 72057594037927936,
-      "encoded": "7bffffffff0100000000000000"
+      "encoded": "bfffffffff0100000000000000"
     },
     {
       "kid": 4294967295,
       "ctr": 18446744073709551615,
-      "encoded": "7bffffffffffffffffffffffff"
+      "encoded": "bfffffffffffffffffffffffff"
     },
     {
       "kid": 4294967296,
       "ctr": 0,
-      "encoded": "0c010000000000"
+      "encoded": "c00100000000"
     },
     {
       "kid": 4294967296,
       "ctr": 1,
-      "encoded": "0c010000000001"
+      "encoded": "c10100000000"
     },
     {
       "kid": 4294967296,
       "ctr": 255,
-      "encoded": "0c0100000000ff"
+      "encoded": "c80100000000ff"
     },
     {
       "kid": 4294967296,
       "ctr": 256,
-      "encoded": "1c01000000000100"
+      "encoded": "c901000000000100"
     },
     {
       "kid": 4294967296,
       "ctr": 65535,
-      "encoded": "1c0100000000ffff"
+      "encoded": "c90100000000ffff"
     },
     {
       "kid": 4294967296,
       "ctr": 65536,
-      "encoded": "2c0100000000010000"
+      "encoded": "ca0100000000010000"
     },
     {
       "kid": 4294967296,
       "ctr": 16777215,
-      "encoded": "2c0100000000ffffff"
+      "encoded": "ca0100000000ffffff"
     },
     {
       "kid": 4294967296,
       "ctr": 16777216,
-      "encoded": "3c010000000001000000"
+      "encoded": "cb010000000001000000"
     },
     {
       "kid": 4294967296,
       "ctr": 4294967295,
-      "encoded": "3c0100000000ffffffff"
+      "encoded": "cb0100000000ffffffff"
     },
     {
       "kid": 4294967296,
       "ctr": 4294967296,
-      "encoded": "4c01000000000100000000"
+      "encoded": "cc01000000000100000000"
     },
     {
       "kid": 4294967296,
       "ctr": 1099511627775,
-      "encoded": "4c0100000000ffffffffff"
+      "encoded": "cc0100000000ffffffffff"
     },
     {
       "kid": 4294967296,
       "ctr": 1099511627776,
-      "encoded": "5c0100000000010000000000"
+      "encoded": "cd0100000000010000000000"
     },
     {
       "kid": 4294967296,
       "ctr": 281474976710655,
-      "encoded": "5c0100000000ffffffffffff"
+      "encoded": "cd0100000000ffffffffffff"
     },
     {
       "kid": 4294967296,
       "ctr": 281474976710656,
-      "encoded": "6c010000000001000000000000"
+      "encoded": "ce010000000001000000000000"
     },
     {
       "kid": 4294967296,
       "ctr": 72057594037927935,
-      "encoded": "6c0100000000ffffffffffffff"
+      "encoded": "ce0100000000ffffffffffffff"
     },
     {
       "kid": 4294967296,
       "ctr": 72057594037927936,
-      "encoded": "7c01000000000100000000000000"
+      "encoded": "cf01000000000100000000000000"
     },
     {
       "kid": 4294967296,
       "ctr": 18446744073709551615,
-      "encoded": "7c0100000000ffffffffffffffff"
+      "encoded": "cf0100000000ffffffffffffffff"
     },
     {
       "kid": 1099511627775,
       "ctr": 0,
-      "encoded": "0cffffffffff00"
+      "encoded": "c0ffffffffff"
     },
     {
       "kid": 1099511627775,
       "ctr": 1,
-      "encoded": "0cffffffffff01"
+      "encoded": "c1ffffffffff"
     },
     {
       "kid": 1099511627775,
       "ctr": 255,
-      "encoded": "0cffffffffffff"
+      "encoded": "c8ffffffffffff"
     },
     {
       "kid": 1099511627775,
       "ctr": 256,
-      "encoded": "1cffffffffff0100"
+      "encoded": "c9ffffffffff0100"
     },
     {
       "kid": 1099511627775,
       "ctr": 65535,
-      "encoded": "1cffffffffffffff"
+      "encoded": "c9ffffffffffffff"
     },
     {
       "kid": 1099511627775,
       "ctr": 65536,
-      "encoded": "2cffffffffff010000"
+      "encoded": "caffffffffff010000"
     },
     {
       "kid": 1099511627775,
       "ctr": 16777215,
-      "encoded": "2cffffffffffffffff"
+      "encoded": "caffffffffffffffff"
     },
     {
       "kid": 1099511627775,
       "ctr": 16777216,
-      "encoded": "3cffffffffff01000000"
+      "encoded": "cbffffffffff01000000"
     },
     {
       "kid": 1099511627775,
       "ctr": 4294967295,
-      "encoded": "3cffffffffffffffffff"
+      "encoded": "cbffffffffffffffffff"
     },
     {
       "kid": 1099511627775,
       "ctr": 4294967296,
-      "encoded": "4cffffffffff0100000000"
+      "encoded": "ccffffffffff0100000000"
     },
     {
       "kid": 1099511627775,
       "ctr": 1099511627775,
-      "encoded": "4cffffffffffffffffffff"
+      "encoded": "ccffffffffffffffffffff"
     },
     {
       "kid": 1099511627775,
       "ctr": 1099511627776,
-      "encoded": "5cffffffffff010000000000"
+      "encoded": "cdffffffffff010000000000"
     },
     {
       "kid": 1099511627775,
       "ctr": 281474976710655,
-      "encoded": "5cffffffffffffffffffffff"
+      "encoded": "cdffffffffffffffffffffff"
     },
     {
       "kid": 1099511627775,
       "ctr": 281474976710656,
-      "encoded": "6cffffffffff01000000000000"
+      "encoded": "ceffffffffff01000000000000"
     },
     {
       "kid": 1099511627775,
       "ctr": 72057594037927935,
-      "encoded": "6cffffffffffffffffffffffff"
+      "encoded": "ceffffffffffffffffffffffff"
     },
     {
       "kid": 1099511627775,
       "ctr": 72057594037927936,
-      "encoded": "7cffffffffff0100000000000000"
+      "encoded": "cfffffffffff0100000000000000"
     },
     {
       "kid": 1099511627775,
       "ctr": 18446744073709551615,
-      "encoded": "7cffffffffffffffffffffffffff"
+      "encoded": "cfffffffffffffffffffffffffff"
     },
     {
       "kid": 1099511627776,
       "ctr": 0,
-      "encoded": "0d01000000000000"
+      "encoded": "d0010000000000"
     },
     {
       "kid": 1099511627776,
       "ctr": 1,
-      "encoded": "0d01000000000001"
+      "encoded": "d1010000000000"
     },
     {
       "kid": 1099511627776,
       "ctr": 255,
-      "encoded": "0d010000000000ff"
+      "encoded": "d8010000000000ff"
     },
     {
       "kid": 1099511627776,
       "ctr": 256,
-      "encoded": "1d0100000000000100"
+      "encoded": "d90100000000000100"
     },
     {
       "kid": 1099511627776,
       "ctr": 65535,
-      "encoded": "1d010000000000ffff"
+      "encoded": "d9010000000000ffff"
     },
     {
       "kid": 1099511627776,
       "ctr": 65536,
-      "encoded": "2d010000000000010000"
+      "encoded": "da010000000000010000"
     },
     {
       "kid": 1099511627776,
       "ctr": 16777215,
-      "encoded": "2d010000000000ffffff"
+      "encoded": "da010000000000ffffff"
     },
     {
       "kid": 1099511627776,
       "ctr": 16777216,
-      "encoded": "3d01000000000001000000"
+      "encoded": "db01000000000001000000"
     },
     {
       "kid": 1099511627776,
       "ctr": 4294967295,
-      "encoded": "3d010000000000ffffffff"
+      "encoded": "db010000000000ffffffff"
     },
     {
       "kid": 1099511627776,
       "ctr": 4294967296,
-      "encoded": "4d0100000000000100000000"
+      "encoded": "dc0100000000000100000000"
     },
     {
       "kid": 1099511627776,
       "ctr": 1099511627775,
-      "encoded": "4d010000000000ffffffffff"
+      "encoded": "dc010000000000ffffffffff"
     },
     {
       "kid": 1099511627776,
       "ctr": 1099511627776,
-      "encoded": "5d010000000000010000000000"
+      "encoded": "dd010000000000010000000000"
     },
     {
       "kid": 1099511627776,
       "ctr": 281474976710655,
-      "encoded": "5d010000000000ffffffffffff"
+      "encoded": "dd010000000000ffffffffffff"
     },
     {
       "kid": 1099511627776,
       "ctr": 281474976710656,
-      "encoded": "6d01000000000001000000000000"
+      "encoded": "de01000000000001000000000000"
     },
     {
       "kid": 1099511627776,
       "ctr": 72057594037927935,
-      "encoded": "6d010000000000ffffffffffffff"
+      "encoded": "de010000000000ffffffffffffff"
     },
     {
       "kid": 1099511627776,
       "ctr": 72057594037927936,
-      "encoded": "7d0100000000000100000000000000"
+      "encoded": "df0100000000000100000000000000"
     },
     {
       "kid": 1099511627776,
       "ctr": 18446744073709551615,
-      "encoded": "7d010000000000ffffffffffffffff"
+      "encoded": "df010000000000ffffffffffffffff"
     },
     {
       "kid": 281474976710655,
       "ctr": 0,
-      "encoded": "0dffffffffffff00"
+      "encoded": "d0ffffffffffff"
     },
     {
       "kid": 281474976710655,
       "ctr": 1,
-      "encoded": "0dffffffffffff01"
+      "encoded": "d1ffffffffffff"
     },
     {
       "kid": 281474976710655,
       "ctr": 255,
-      "encoded": "0dffffffffffffff"
+      "encoded": "d8ffffffffffffff"
     },
     {
       "kid": 281474976710655,
       "ctr": 256,
-      "encoded": "1dffffffffffff0100"
+      "encoded": "d9ffffffffffff0100"
     },
     {
       "kid": 281474976710655,
       "ctr": 65535,
-      "encoded": "1dffffffffffffffff"
+      "encoded": "d9ffffffffffffffff"
     },
     {
       "kid": 281474976710655,
       "ctr": 65536,
-      "encoded": "2dffffffffffff010000"
+      "encoded": "daffffffffffff010000"
     },
     {
       "kid": 281474976710655,
       "ctr": 16777215,
-      "encoded": "2dffffffffffffffffff"
+      "encoded": "daffffffffffffffffff"
     },
     {
       "kid": 281474976710655,
       "ctr": 16777216,
-      "encoded": "3dffffffffffff01000000"
+      "encoded": "dbffffffffffff01000000"
     },
     {
       "kid": 281474976710655,
       "ctr": 4294967295,
-      "encoded": "3dffffffffffffffffffff"
+      "encoded": "dbffffffffffffffffffff"
     },
     {
       "kid": 281474976710655,
       "ctr": 4294967296,
-      "encoded": "4dffffffffffff0100000000"
+      "encoded": "dcffffffffffff0100000000"
     },
     {
       "kid": 281474976710655,
       "ctr": 1099511627775,
-      "encoded": "4dffffffffffffffffffffff"
+      "encoded": "dcffffffffffffffffffffff"
     },
     {
       "kid": 281474976710655,
       "ctr": 1099511627776,
-      "encoded": "5dffffffffffff010000000000"
+      "encoded": "ddffffffffffff010000000000"
     },
     {
       "kid": 281474976710655,
       "ctr": 281474976710655,
-      "encoded": "5dffffffffffffffffffffffff"
+      "encoded": "ddffffffffffffffffffffffff"
     },
     {
       "kid": 281474976710655,
       "ctr": 281474976710656,
-      "encoded": "6dffffffffffff01000000000000"
+      "encoded": "deffffffffffff01000000000000"
     },
     {
       "kid": 281474976710655,
       "ctr": 72057594037927935,
-      "encoded": "6dffffffffffffffffffffffffff"
+      "encoded": "deffffffffffffffffffffffffff"
     },
     {
       "kid": 281474976710655,
       "ctr": 72057594037927936,
-      "encoded": "7dffffffffffff0100000000000000"
+      "encoded": "dfffffffffffff0100000000000000"
     },
     {
       "kid": 281474976710655,
       "ctr": 18446744073709551615,
-      "encoded": "7dffffffffffffffffffffffffffff"
+      "encoded": "dfffffffffffffffffffffffffffff"
     },
     {
       "kid": 281474976710656,
       "ctr": 0,
-      "encoded": "0e0100000000000000"
+      "encoded": "e001000000000000"
     },
     {
       "kid": 281474976710656,
       "ctr": 1,
-      "encoded": "0e0100000000000001"
+      "encoded": "e101000000000000"
     },
     {
       "kid": 281474976710656,
       "ctr": 255,
-      "encoded": "0e01000000000000ff"
+      "encoded": "e801000000000000ff"
     },
     {
       "kid": 281474976710656,
       "ctr": 256,
-      "encoded": "1e010000000000000100"
+      "encoded": "e9010000000000000100"
     },
     {
       "kid": 281474976710656,
       "ctr": 65535,
-      "encoded": "1e01000000000000ffff"
+      "encoded": "e901000000000000ffff"
     },
     {
       "kid": 281474976710656,
       "ctr": 65536,
-      "encoded": "2e01000000000000010000"
+      "encoded": "ea01000000000000010000"
     },
     {
       "kid": 281474976710656,
       "ctr": 16777215,
-      "encoded": "2e01000000000000ffffff"
+      "encoded": "ea01000000000000ffffff"
     },
     {
       "kid": 281474976710656,
       "ctr": 16777216,
-      "encoded": "3e0100000000000001000000"
+      "encoded": "eb0100000000000001000000"
     },
     {
       "kid": 281474976710656,
       "ctr": 4294967295,
-      "encoded": "3e01000000000000ffffffff"
+      "encoded": "eb01000000000000ffffffff"
     },
     {
       "kid": 281474976710656,
       "ctr": 4294967296,
-      "encoded": "4e010000000000000100000000"
+      "encoded": "ec010000000000000100000000"
     },
     {
       "kid": 281474976710656,
       "ctr": 1099511627775,
-      "encoded": "4e01000000000000ffffffffff"
+      "encoded": "ec01000000000000ffffffffff"
     },
     {
       "kid": 281474976710656,
       "ctr": 1099511627776,
-      "encoded": "5e01000000000000010000000000"
+      "encoded": "ed01000000000000010000000000"
     },
     {
       "kid": 281474976710656,
       "ctr": 281474976710655,
-      "encoded": "5e01000000000000ffffffffffff"
+      "encoded": "ed01000000000000ffffffffffff"
     },
     {
       "kid": 281474976710656,
       "ctr": 281474976710656,
-      "encoded": "6e0100000000000001000000000000"
+      "encoded": "ee0100000000000001000000000000"
     },
     {
       "kid": 281474976710656,
       "ctr": 72057594037927935,
-      "encoded": "6e01000000000000ffffffffffffff"
+      "encoded": "ee01000000000000ffffffffffffff"
     },
     {
       "kid": 281474976710656,
       "ctr": 72057594037927936,
-      "encoded": "7e010000000000000100000000000000"
+      "encoded": "ef010000000000000100000000000000"
     },
     {
       "kid": 281474976710656,
       "ctr": 18446744073709551615,
-      "encoded": "7e01000000000000ffffffffffffffff"
+      "encoded": "ef01000000000000ffffffffffffffff"
     },
     {
       "kid": 72057594037927935,
       "ctr": 0,
-      "encoded": "0effffffffffffff00"
+      "encoded": "e0ffffffffffffff"
     },
     {
       "kid": 72057594037927935,
       "ctr": 1,
-      "encoded": "0effffffffffffff01"
+      "encoded": "e1ffffffffffffff"
     },
     {
       "kid": 72057594037927935,
       "ctr": 255,
-      "encoded": "0effffffffffffffff"
+      "encoded": "e8ffffffffffffffff"
     },
     {
       "kid": 72057594037927935,
       "ctr": 256,
-      "encoded": "1effffffffffffff0100"
+      "encoded": "e9ffffffffffffff0100"
     },
     {
       "kid": 72057594037927935,
       "ctr": 65535,
-      "encoded": "1effffffffffffffffff"
+      "encoded": "e9ffffffffffffffffff"
     },
     {
       "kid": 72057594037927935,
       "ctr": 65536,
-      "encoded": "2effffffffffffff010000"
+      "encoded": "eaffffffffffffff010000"
     },
     {
       "kid": 72057594037927935,
       "ctr": 16777215,
-      "encoded": "2effffffffffffffffffff"
+      "encoded": "eaffffffffffffffffffff"
     },
     {
       "kid": 72057594037927935,
       "ctr": 16777216,
-      "encoded": "3effffffffffffff01000000"
+      "encoded": "ebffffffffffffff01000000"
     },
     {
       "kid": 72057594037927935,
       "ctr": 4294967295,
-      "encoded": "3effffffffffffffffffffff"
+      "encoded": "ebffffffffffffffffffffff"
     },
     {
       "kid": 72057594037927935,
       "ctr": 4294967296,
-      "encoded": "4effffffffffffff0100000000"
+      "encoded": "ecffffffffffffff0100000000"
     },
     {
       "kid": 72057594037927935,
       "ctr": 1099511627775,
-      "encoded": "4effffffffffffffffffffffff"
+      "encoded": "ecffffffffffffffffffffffff"
     },
     {
       "kid": 72057594037927935,
       "ctr": 1099511627776,
-      "encoded": "5effffffffffffff010000000000"
+      "encoded": "edffffffffffffff010000000000"
     },
     {
       "kid": 72057594037927935,
       "ctr": 281474976710655,
-      "encoded": "5effffffffffffffffffffffffff"
+      "encoded": "edffffffffffffffffffffffffff"
     },
     {
       "kid": 72057594037927935,
       "ctr": 281474976710656,
-      "encoded": "6effffffffffffff01000000000000"
+      "encoded": "eeffffffffffffff01000000000000"
     },
     {
       "kid": 72057594037927935,
       "ctr": 72057594037927935,
-      "encoded": "6effffffffffffffffffffffffffff"
+      "encoded": "eeffffffffffffffffffffffffffff"
     },
     {
       "kid": 72057594037927935,
       "ctr": 72057594037927936,
-      "encoded": "7effffffffffffff0100000000000000"
+      "encoded": "efffffffffffffff0100000000000000"
     },
     {
       "kid": 72057594037927935,
       "ctr": 18446744073709551615,
-      "encoded": "7effffffffffffffffffffffffffffff"
+      "encoded": "efffffffffffffffffffffffffffffff"
     },
     {
       "kid": 72057594037927936,
       "ctr": 0,
-      "encoded": "0f010000000000000000"
+      "encoded": "f00100000000000000"
     },
     {
       "kid": 72057594037927936,
       "ctr": 1,
-      "encoded": "0f010000000000000001"
+      "encoded": "f10100000000000000"
     },
     {
       "kid": 72057594037927936,
       "ctr": 255,
-      "encoded": "0f0100000000000000ff"
+      "encoded": "f80100000000000000ff"
     },
     {
       "kid": 72057594037927936,
       "ctr": 256,
-      "encoded": "1f01000000000000000100"
+      "encoded": "f901000000000000000100"
     },
     {
       "kid": 72057594037927936,
       "ctr": 65535,
-      "encoded": "1f0100000000000000ffff"
+      "encoded": "f90100000000000000ffff"
     },
     {
       "kid": 72057594037927936,
       "ctr": 65536,
-      "encoded": "2f0100000000000000010000"
+      "encoded": "fa0100000000000000010000"
     },
     {
       "kid": 72057594037927936,
       "ctr": 16777215,
-      "encoded": "2f0100000000000000ffffff"
+      "encoded": "fa0100000000000000ffffff"
     },
     {
       "kid": 72057594037927936,
       "ctr": 16777216,
-      "encoded": "3f010000000000000001000000"
+      "encoded": "fb010000000000000001000000"
     },
     {
       "kid": 72057594037927936,
       "ctr": 4294967295,
-      "encoded": "3f0100000000000000ffffffff"
+      "encoded": "fb0100000000000000ffffffff"
     },
     {
       "kid": 72057594037927936,
       "ctr": 4294967296,
-      "encoded": "4f01000000000000000100000000"
+      "encoded": "fc01000000000000000100000000"
     },
     {
       "kid": 72057594037927936,
       "ctr": 1099511627775,
-      "encoded": "4f0100000000000000ffffffffff"
+      "encoded": "fc0100000000000000ffffffffff"
     },
     {
       "kid": 72057594037927936,
       "ctr": 1099511627776,
-      "encoded": "5f0100000000000000010000000000"
+      "encoded": "fd0100000000000000010000000000"
     },
     {
       "kid": 72057594037927936,
       "ctr": 281474976710655,
-      "encoded": "5f0100000000000000ffffffffffff"
+      "encoded": "fd0100000000000000ffffffffffff"
     },
     {
       "kid": 72057594037927936,
       "ctr": 281474976710656,
-      "encoded": "6f010000000000000001000000000000"
+      "encoded": "fe010000000000000001000000000000"
     },
     {
       "kid": 72057594037927936,
       "ctr": 72057594037927935,
-      "encoded": "6f0100000000000000ffffffffffffff"
+      "encoded": "fe0100000000000000ffffffffffffff"
     },
     {
       "kid": 72057594037927936,
       "ctr": 72057594037927936,
-      "encoded": "7f01000000000000000100000000000000"
+      "encoded": "ff01000000000000000100000000000000"
     },
     {
       "kid": 72057594037927936,
       "ctr": 18446744073709551615,
-      "encoded": "7f0100000000000000ffffffffffffffff"
+      "encoded": "ff0100000000000000ffffffffffffffff"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 0,
-      "encoded": "0fffffffffffffffff00"
+      "encoded": "f0ffffffffffffffff"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 1,
-      "encoded": "0fffffffffffffffff01"
+      "encoded": "f1ffffffffffffffff"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 255,
-      "encoded": "0fffffffffffffffffff"
+      "encoded": "f8ffffffffffffffffff"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 256,
-      "encoded": "1fffffffffffffffff0100"
+      "encoded": "f9ffffffffffffffff0100"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 65535,
-      "encoded": "1fffffffffffffffffffff"
+      "encoded": "f9ffffffffffffffffffff"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 65536,
-      "encoded": "2fffffffffffffffff010000"
+      "encoded": "faffffffffffffffff010000"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 16777215,
-      "encoded": "2fffffffffffffffffffffff"
+      "encoded": "faffffffffffffffffffffff"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 16777216,
-      "encoded": "3fffffffffffffffff01000000"
+      "encoded": "fbffffffffffffffff01000000"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 4294967295,
-      "encoded": "3fffffffffffffffffffffffff"
+      "encoded": "fbffffffffffffffffffffffff"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 4294967296,
-      "encoded": "4fffffffffffffffff0100000000"
+      "encoded": "fcffffffffffffffff0100000000"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 1099511627775,
-      "encoded": "4fffffffffffffffffffffffffff"
+      "encoded": "fcffffffffffffffffffffffffff"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 1099511627776,
-      "encoded": "5fffffffffffffffff010000000000"
+      "encoded": "fdffffffffffffffff010000000000"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 281474976710655,
-      "encoded": "5fffffffffffffffffffffffffffff"
+      "encoded": "fdffffffffffffffffffffffffffff"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 281474976710656,
-      "encoded": "6fffffffffffffffff01000000000000"
+      "encoded": "feffffffffffffffff01000000000000"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 72057594037927935,
-      "encoded": "6fffffffffffffffffffffffffffffff"
+      "encoded": "feffffffffffffffffffffffffffffff"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 72057594037927936,
-      "encoded": "7fffffffffffffffff0100000000000000"
+      "encoded": "ffffffffffffffffff0100000000000000"
     },
     {
       "kid": 18446744073709551615,
       "ctr": 18446744073709551615,
-      "encoded": "7fffffffffffffffffffffffffffffffff"
+      "encoded": "ffffffffffffffffffffffffffffffffff"
     }
   ],
   "aes_ctr_hmac": [
     {
       "cipher_suite": 1,
-      "key": "000102030405060708090a0b0c0d0e0f",
-      "aead_label": "534672616d6520312e302041455320435452204145414420000000000000000a",
-      "aead_secret": "fda0fef7af62639ae1c6440f430395f54623f9a49db659201312ed6d9999a580",
-      "enc_key": "d6a61ca11fe8397b24954cda8b9543cf",
-      "auth_key": "0a43277c91120b7c7b6584bede06fcdfe0d07f9d1c9f15fcf0cad50aaecdd585",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+      "enc_key": "000102030405060708090a0b0c0d0e0f",
+      "auth_key": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
       "nonce": "101112131415161718191a1b",
       "aad": "4945544620534672616d65205747",
       "pt": "64726166742d696574662d736672616d652d656e63",
-      "ct": "1075c7114e10c12f20a709450ef8a891e9f070d4fae7b01f558599c929fdfd"
+      "ct": "6339af04ada1d064688a442b8dc69d5b6bfa40f4bef0583e8081069cc60705"
     },
     {
       "cipher_suite": 2,
-      "key": "000102030405060708090a0b0c0d0e0f",
-      "aead_label": "534672616d6520312e3020414553204354522041454144200000000000000008",
-      "aead_secret": "a0d71a69b2033a5a246eefbed19d95aee712a7639a752e5ad3a2b44c9f331caa",
-      "enc_key": "0ef75d1dd74b81e4d2252e6daa7226da",
-      "auth_key": "5584d32db18ede79fe8071a334ff31eb2ca0249a7845a61965d2ec620a50c59e",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+      "enc_key": "000102030405060708090a0b0c0d0e0f",
+      "auth_key": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
       "nonce": "101112131415161718191a1b",
       "aad": "4945544620534672616d65205747",
       "pt": "64726166742d696574662d736672616d652d656e63",
-      "ct": "f8551395579efc8dfdda575ed1a048f8b6cbf0e85653f0a514dea191e4"
+      "ct": "6339af04ada1d064688a442b8dc69d5b6bfa40f4be6e93b7da076927bb"
     },
     {
       "cipher_suite": 3,
-      "key": "000102030405060708090a0b0c0d0e0f",
-      "aead_label": "534672616d6520312e3020414553204354522041454144200000000000000004",
-      "aead_secret": "ff69640f46d50930ce38bcf5aa5f6417a5bff98a991c79da06a0be460211dd36",
-      "enc_key": "96a673a94981bd85e71fcf05c79f2a01",
-      "auth_key": "bbf3b39da1eb8ed31fc5e0b26896a070f1a43e5ad3009b4c9d6c32e77ac68fce",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+      "enc_key": "000102030405060708090a0b0c0d0e0f",
+      "auth_key": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
       "nonce": "101112131415161718191a1b",
       "aad": "4945544620534672616d65205747",
       "pt": "64726166742d696574662d736672616d652d656e63",
-      "ct": "d6455bdbe7b5e8cdda861a8e90835637c0f7990349ce9052e6"
+      "ct": "6339af04ada1d064688a442b8dc69d5b6bfa40f4be09480509"
     }
   ],
   "sframe": [
@@ -1490,80 +1484,80 @@
       "kid": 291,
       "ctr": 17767,
       "base_key": "000102030405060708090a0b0c0d0e0f",
-      "sframe_key_label": "534672616d6520312e3020536563726574206b6579200000000000000123",
-      "sframe_salt_label": "534672616d6520312e30205365637265742073616c74200000000000000123",
+      "sframe_key_label": "534672616d6520312e3020536563726574206b65792000000000000001230001",
+      "sframe_salt_label": "534672616d6520312e30205365637265742073616c742000000000000001230001",
       "sframe_secret": "d926952ca8b7ec4a95941d1ada3a5203ceff8cceee34f574d23909eb314c40c0",
-      "sframe_key": "73bb177a9fe6c02597132fe430ca2d99",
-      "sframe_salt": "55582aa5aaced36a74544d91",
+      "sframe_key": "3f7d9a7c83ae8e1c8a11ae695ab59314b367e359fadac7b9c46b2bc6f81f46e16b96f0811868d59402b7e870102720b3",
+      "sframe_salt": "50b29329a04dc0f184ac3168",
       "metadata": "4945544620534672616d65205747",
-      "nonce": "55582aa5aaced36a745408f6",
-      "aad": "19012345674945544620534672616d65205747",
+      "nonce": "50b29329a04dc0f184ac740f",
+      "aad": "99012345674945544620534672616d65205747",
       "pt": "64726166742d696574662d736672616d652d656e63",
-      "ct": "190123456740043f25262c0ca52e9374b070f24b02764715c2e303388c9495324037d043"
+      "ct": "9901234567449408b6f490086165b9d6f62b24ae1a59a56486b4ae8ed036b88912e24f11"
     },
     {
       "cipher_suite": 2,
       "kid": 291,
       "ctr": 17767,
       "base_key": "000102030405060708090a0b0c0d0e0f",
-      "sframe_key_label": "534672616d6520312e3020536563726574206b6579200000000000000123",
-      "sframe_salt_label": "534672616d6520312e30205365637265742073616c74200000000000000123",
+      "sframe_key_label": "534672616d6520312e3020536563726574206b65792000000000000001230002",
+      "sframe_salt_label": "534672616d6520312e30205365637265742073616c742000000000000001230002",
       "sframe_secret": "d926952ca8b7ec4a95941d1ada3a5203ceff8cceee34f574d23909eb314c40c0",
-      "sframe_key": "73bb177a9fe6c02597132fe430ca2d99",
-      "sframe_salt": "55582aa5aaced36a74544d91",
+      "sframe_key": "e2ec5c797540310483b16bf6e7a570d2a27d192fe869c7ccd8584a8d9dab91549fbe553f5113461ec6aa83bf3865553e",
+      "sframe_salt": "e68ac8dd3d02fbcd368c5577",
       "metadata": "4945544620534672616d65205747",
-      "nonce": "55582aa5aaced36a745408f6",
-      "aad": "19012345674945544620534672616d65205747",
+      "nonce": "e68ac8dd3d02fbcd368c1010",
+      "aad": "99012345674945544620534672616d65205747",
       "pt": "64726166742d696574662d736672616d652d656e63",
-      "ct": "1901234567729eef4910d734abfd392cdff0f67d2a8d06041eef5f895e4cecc03a6d"
+      "ct": "99012345673f31438db4d09434e43afa0f8a2f00867a2be085046a9f5cb4f101d607"
     },
     {
       "cipher_suite": 3,
       "kid": 291,
       "ctr": 17767,
       "base_key": "000102030405060708090a0b0c0d0e0f",
-      "sframe_key_label": "534672616d6520312e3020536563726574206b6579200000000000000123",
-      "sframe_salt_label": "534672616d6520312e30205365637265742073616c74200000000000000123",
+      "sframe_key_label": "534672616d6520312e3020536563726574206b65792000000000000001230003",
+      "sframe_salt_label": "534672616d6520312e30205365637265742073616c742000000000000001230003",
       "sframe_secret": "d926952ca8b7ec4a95941d1ada3a5203ceff8cceee34f574d23909eb314c40c0",
-      "sframe_key": "73bb177a9fe6c02597132fe430ca2d99",
-      "sframe_salt": "55582aa5aaced36a74544d91",
+      "sframe_key": "2c5703089cbb8c583475e4fc461d97d18809df79b6d550f78eb6d50ffa80d89211d57909934f46f5405e38cd583c69fe",
+      "sframe_salt": "38c16e4f5159700c00c7f350",
       "metadata": "4945544620534672616d65205747",
-      "nonce": "55582aa5aaced36a745408f6",
-      "aad": "19012345674945544620534672616d65205747",
+      "nonce": "38c16e4f5159700c00c7b637",
+      "aad": "99012345674945544620534672616d65205747",
       "pt": "64726166742d696574662d736672616d652d656e63",
-      "ct": "190123456717fd0a325fdcd5f0d68089ee5bd17df6296b69b6b0e70c8d73"
+      "ct": "990123456717fc8af28a5a695afcfc6c8df6358a17e26b2fcb3bae32e443"
     },
     {
       "cipher_suite": 4,
       "kid": 291,
       "ctr": 17767,
       "base_key": "000102030405060708090a0b0c0d0e0f",
-      "sframe_key_label": "534672616d6520312e3020536563726574206b6579200000000000000123",
-      "sframe_salt_label": "534672616d6520312e30205365637265742073616c74200000000000000123",
+      "sframe_key_label": "534672616d6520312e3020536563726574206b65792000000000000001230004",
+      "sframe_salt_label": "534672616d6520312e30205365637265742073616c742000000000000001230004",
       "sframe_secret": "d926952ca8b7ec4a95941d1ada3a5203ceff8cceee34f574d23909eb314c40c0",
-      "sframe_key": "73bb177a9fe6c02597132fe430ca2d99",
-      "sframe_salt": "55582aa5aaced36a74544d91",
+      "sframe_key": "d34f547f4ca4f9a7447006fe7fcbf768",
+      "sframe_salt": "75234edefe07819026751816",
       "metadata": "4945544620534672616d65205747",
-      "nonce": "55582aa5aaced36a745408f6",
-      "aad": "19012345674945544620534672616d65205747",
+      "nonce": "75234edefe07819026755d71",
+      "aad": "99012345674945544620534672616d65205747",
       "pt": "64726166742d696574662d736672616d652d656e63",
-      "ct": "1901234567b8bf87709717f709a35b4e91b2109e5c1ca4f76179415f8bb15d70a9be7eb89c7adb76d300"
+      "ct": "9901234567b7412c2513a1b66dbb48841bbaf17f598751176ad847681a69c6d0b091c07018ce4adb34eb"
     },
     {
       "cipher_suite": 5,
       "kid": 291,
       "ctr": 17767,
       "base_key": "000102030405060708090a0b0c0d0e0f",
-      "sframe_key_label": "534672616d6520312e3020536563726574206b6579200000000000000123",
-      "sframe_salt_label": "534672616d6520312e30205365637265742073616c74200000000000000123",
+      "sframe_key_label": "534672616d6520312e3020536563726574206b65792000000000000001230005",
+      "sframe_salt_label": "534672616d6520312e30205365637265742073616c742000000000000001230005",
       "sframe_secret": "0fc3ea6de6aac97a35f194cf9bed94d4b5230f1cb45a785c9fe5dce9c188938ab6ba005bc4c0a19181599e9d1bcf7b74aca48b60bf5e254e546d809313e083a3",
-      "sframe_key": "e9e405efb7cd325030760935bf49fd5669d7c19eb84ca74b419a1487cf835107",
-      "sframe_salt": "11007b537a1cf728a4c544c1",
+      "sframe_key": "d3e27b0d4a5ae9e55df01a70e6d4d28d969b246e2936f4b7a5d9b494da6b9633",
+      "sframe_salt": "84991c167b8cd23c93708ec7",
       "metadata": "4945544620534672616d65205747",
-      "nonce": "11007b537a1cf728a4c501a6",
-      "aad": "19012345674945544620534672616d65205747",
+      "nonce": "84991c167b8cd23c9370cba0",
+      "aad": "99012345674945544620534672616d65205747",
       "pt": "64726166742d696574662d736672616d652d656e63",
-      "ct": "19012345671e11c62748536fd55fdbc9560daea4825bfecbb05489cd41cb7a1556e001989a4485e8a02f"
+      "ct": "990123456794f509d36e9beacb0e261d99c7d1e972f1fed787d4049f17ca21353c1cc24d56ceabced279"
     }
   ]
 }

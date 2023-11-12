@@ -155,10 +155,8 @@ mod test {
         let cipher_suite = CipherSuite::from(variant);
 
         let aead_salt = get_hkdf_aead_label(cipher_suite.auth_tag_len);
-        assert_bytes_eq(&aead_salt, &test_vec.aead_label);
-
         let prk = extract_pseudo_random_key(&cipher_suite, &test_vec.base_key, &aead_salt).unwrap();
-        assert_bytes_eq(&prk, &test_vec.aead_secret);
+        assert_bytes_eq(&prk, &test_vec.enc_key);
 
         let (key, auth) = expand_subsecret(&cipher_suite, &test_vec.base_key).unwrap();
         assert_bytes_eq(&key, &test_vec.enc_key);
