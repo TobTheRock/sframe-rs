@@ -24,12 +24,12 @@ impl KeyDerivation for Secret {
 
         let key = expand_key(
             &pseudo_random_key,
-            &get_hkdf_key_expand_info(key_id),
+            &get_hkdf_key_expand_info(key_id, cipher_suite.id),
             cipher_suite.key_len,
         )?;
         let salt = expand_key(
             &pseudo_random_key,
-            &get_hkdf_salt_expand_info(key_id),
+            &get_hkdf_salt_expand_info(key_id, cipher_suite.id),
             cipher_suite.nonce_len,
         )?;
 

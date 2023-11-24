@@ -4,10 +4,7 @@
 use crate::{
     crypto::{
         cipher_suite::{CipherSuite, CipherSuiteVariant},
-        key_derivation::{
-            get_hkdf_aead_label, get_hkdf_key_expand_info, get_hkdf_salt_expand_info,
-            KeyDerivation, SFRAME_HDKF_SUB_AUTH_EXPAND_INFO, SFRAME_HKDF_SUB_ENC_EXPAND_INFO,
-        },
+        key_derivation::{get_hkdf_key_expand_info, get_hkdf_salt_expand_info, KeyDerivation},
         secret::Secret,
     },
     error::{Result, SframeError},
@@ -46,13 +43,13 @@ fn expand_secret(
     let key = expand_key(
         cipher_suite,
         &prk,
-        &get_hkdf_key_expand_info(key_id),
+        &get_hkdf_key_expand_info(key_id, cipher_suite.id),
         cipher_suite.key_len,
     )?;
     let salt = expand_key(
         cipher_suite,
         &prk,
-        &get_hkdf_salt_expand_info(key_id),
+        &get_hkdf_salt_expand_info(key_id, cipher_suite.id),
         cipher_suite.nonce_len,
     )?;
 
@@ -63,22 +60,11 @@ fn expand_subsecret(
     cipher_suite: &CipherSuite,
     key: &[u8],
 ) -> std::result::Result<(Vec<u8>, Vec<u8>), openssl::error::ErrorStack> {
-    let salt = get_hkdf_aead_label(cipher_suite.auth_tag_len);
-    let prk = extract_pseudo_random_key(cipher_suite, key, &salt)?;
-    let key = expand_key(
-        cipher_suite,
-        &prk,
-        SFRAME_HKDF_SUB_ENC_EXPAND_INFO,
-        cipher_suite.key_len,
-    )?;
-    let auth = expand_key(
-        cipher_suite,
-        &prk,
-        SFRAME_HDKF_SUB_AUTH_EXPAND_INFO,
-        cipher_suite.hash_len,
-    )?;
+    let aes_keysize = key.len() - cipher_suite.hash_len;
+    let enc_key = key[..aes_keysize].to_vec();
+    let auth_key = key[aes_keysize..].to_vec();
 
-    Ok((key, auth))
+    Ok((enc_key, auth_key))
 }
 
 fn extract_pseudo_random_key(
@@ -153,10 +139,6 @@ mod test {
     fn derive_correct_sub_keys(variant: CipherSuiteVariant) {
         let test_vec = get_aes_ctr_test_vector(&variant.to_string());
         let cipher_suite = CipherSuite::from(variant);
-
-        let aead_salt = get_hkdf_aead_label(cipher_suite.auth_tag_len);
-        let prk = extract_pseudo_random_key(&cipher_suite, &test_vec.base_key, &aead_salt).unwrap();
-        assert_bytes_eq(&prk, &test_vec.enc_key);
 
         let (key, auth) = expand_subsecret(&cipher_suite, &test_vec.base_key).unwrap();
         assert_bytes_eq(&key, &test_vec.enc_key);
