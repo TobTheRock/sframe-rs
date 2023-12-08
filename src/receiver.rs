@@ -11,8 +11,7 @@ use crate::{
         secret::Secret,
     },
     error::{Result, SframeError},
-    frame_validation::{FrameValidation, ReplayAttackProtection},
-    header::{Deserialization, Header, HeaderFields, KeyId},
+    frame_validation::{FrameValidation, ReplayAttackProtection}, header::{SframeHeader, KeyId},
 };
 
 pub struct ReceiverOptions {
@@ -67,7 +66,7 @@ impl Receiver {
         EncryptedFrame: AsRef<[u8]>,
     {
         let encrypted_frame = encrypted_frame.as_ref();
-        let header = Header::deserialize(&encrypted_frame[skip..])?;
+        let header = SframeHeader::deserialize(&encrypted_frame[skip..])?;
 
         self.options.frame_validation.validate(&header)?;
         let key_id = header.key_id();
@@ -79,7 +78,7 @@ impl Receiver {
                 header.key_id()
             );
 
-            let payload_begin = skip + header.size();
+            let payload_begin = skip + header.len();
             self.buffer.clear();
             self.buffer.extend(&encrypted_frame[..skip]);
             self.buffer.extend(&encrypted_frame[payload_begin..]);

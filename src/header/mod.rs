@@ -1,267 +1,201 @@
 // Copyright (c) 2023 GoTo Group, Inc
 // SPDX-License-Identifier: Apache-2.0 AND MIT
 
-mod basic_header;
-mod extended_header;
-mod frame_count;
-mod keyid;
+mod config_byte;
+mod header_field;
 mod util;
 
-pub use frame_count::FrameCount;
-pub(crate) use frame_count::FrameCountGenerator;
-pub use keyid::KeyId;
-
-use self::keyid::{BasicKeyId, ExtendedKeyId};
-
 use super::error::{Result, SframeError};
+use config_byte::ConfigByte;
+use header_field::{HeaderField, VariableLengthField};
 
-/// Allows to deserialze and validate a sframe header from a byte buffer.
-pub trait Deserialization {
-    /// The derialized type
-    type DeserializedOutput;
-    /// Tries to deserialize [`DeserializedOutput`], returns an error if this is not successful
-    fn deserialize(data: &[u8]) -> Result<Self::DeserializedOutput>;
-    /// Returns `true` if [`DeserializedOutput`] can be derialized from the given buffer
-    fn is_valid(data: &[u8]) -> bool;
-}
+pub type KeyId = u64;
+pub type FrameCount = u64;
 
-/// Allows to serialze a type from a byte buffer. This is used for our sframe header implementations.
-pub trait Serialization {
-    /// serializes a sframe header into the given buffer.
-    fn serialize(&self, buffer: &mut [u8]) -> Result<()>;
-}
-
-/// Represents the accessible fields in a sframe header
-pub trait HeaderFields {
-    /// associated key ID type (basic/extended)
-    type KeyIdType;
-    /// the frame count field (CTR)
-    fn frame_count(&self) -> FrameCount;
-    /// the key id field (KID)
-    fn key_id(&self) -> Self::KeyIdType;
-    /// size in bytes of the header
-    fn size(&self) -> usize;
-}
-
-/// Sframe header with a KID with a length of up to 3bits
-/// modeled after [sframe draft 03 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-03#name-sframe-header)
+#[derive(Copy, Clone, Debug)]
+/// Modeled after [sframe draft 04 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04#name-sframe-header)
+/// The SFrame header specifies a Key ID (KID) and a counter (CTR) from which encryption parameters are derived.
+///
+/// Both are encoded as compact usigned integers in big-endian order. If the value of one of these fields is in the range 0-7,
+/// then the value is carried in the corresponding bits of the config byte (K or C) and the corresponding flag (X or Y) is set to zero.
+///
+/// The SFrame header has the following format:
 /// ```txt
-///  0 1 2 3 4 5 6 7
-/// +-+-+-+-+-+-+-+-+---------------------------------+
-/// |R|LEN  |0| KID |    CTR... (length=LEN)          |
-/// +-+-+-+-+-+-+-+-+---------------------------------+
-/// ```
-#[derive(Copy, Clone, Debug)]
-pub struct BasicHeader {
-    key_id: BasicKeyId,
-    frame_count: FrameCount,
+///     Config Byte
+///          |
+///   .-----' '-----.
+///  |               |
+///   0 1 2 3 4 5 6 7
+///  +-+-+-+-+-+-+-+-+------------+------------+
+///  |X|  K  |Y|  C  |   KID...   |   CTR...   |
+///  +-+-+-+-+-+-+-+-+------------+------------+
+///
+/// X: Extended Key ID Flag
+/// K: Key ID Value (KID) or Length (KLEN)
+/// Y: Extended Counter Flag
+/// C: Counter Value (CTR) or Length (CLEN)
+pub struct SframeHeader {
+    key_id: HeaderField,
+    frame_count: HeaderField,
 }
 
-impl BasicHeader {
-    /// Maximum length of the KID field in bits
-    pub const MAX_KEY_ID_LEN_BIT: u32 = 3;
-    /// Maximum value of the KID
-    pub const MAX_KEY_ID: u64 = (1 << Self::MAX_KEY_ID_LEN_BIT) - 1;
-    const STATIC_HEADER_LENGHT_BYTE: usize = 1;
+impl SframeHeader {
+    const LEN_OFFSET: u8 = 1; // a length of 1 is encoded as 0, etc.
+    const STATIC_HEADER_LENGTH: usize = 1;
 
-    /// Create a new [`BasicHeader`] from key id and frame count
-    pub fn new(key_id: BasicKeyId, frame_count: FrameCount) -> BasicHeader {
-        BasicHeader {
-            key_id,
-            frame_count,
-        }
-    }
-}
-/// Extended sframe header with a KID with a length of up to 8 bytes
-/// modeled after [sframe draft 03 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-03#name-sframe-header)
-/// ```txt
-///  0 1 2 3 4 5 6 7
-/// +-+-+-+-+-+-+-+-+---------------------------+---------------------------+
-/// |R|LEN  |1|KLEN |   KID... (length=KLEN)    |    CTR... (length=LEN)    |
-/// +-+-----+-+-----+---------------------------+---------------------------+
-#[derive(Copy, Clone, Debug)]
-pub struct ExtendedHeader {
-    key_id: ExtendedKeyId,
-    frame_count: FrameCount,
-}
-
-impl ExtendedHeader {
-    /// Maximum length of the KID field in bits
-    pub const MAX_KEY_ID_LEN_BIT: u32 = u64::BITS;
-    /// Maximum value of the KID
-    pub const MAX_KEY_ID: u64 = u64::MAX;
-    const STATIC_HEADER_LENGHT_BYTE: usize = 1;
-
-    /// Create a new [`ExtendedHeader`] from key id and frame count
-    pub fn new(key_id: ExtendedKeyId, frame_count: FrameCount) -> ExtendedHeader {
-        ExtendedHeader {
-            key_id,
-            frame_count,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-/// Represents an Sframe header modeled after [sframe draft 03 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-03#name-sframe-header)
-/// containing the key id of the sender (KID) and the current frame count (CTR).
-/// There are two variants, either with a KID represented by 3 bits (Basic) and an extended version with a KID of up to 8 bytes (Extended).
-/// The CTR field has a variable length of up to 8 bytes where the size is represented with LEN. Here LEN=0 represents a length of 1.
-/// Same holds for the extended HEADER with the fields KID and KLEN.
-pub enum Header {
-    /// see [`BasicHeader`]
-    Basic(BasicHeader),
-    /// see [`ExtendedHeader`]
-    Extended(ExtendedHeader),
-}
-
-impl Header {
-    /// Creates a new [`Header`] from a given key ID with frame count 0
-    pub fn new<K: Into<KeyId>>(key_id: K) -> Header {
-        Self::with_frame_count(key_id.into(), FrameCount::default())
-    }
-
-    /// Creates a new [`Header`] from a given key ID and frame count
-    pub fn with_frame_count<K: Into<KeyId>, F: Into<FrameCount>>(
-        key_id: K,
-        frame_count: F,
-    ) -> Header {
-        let key_id = key_id.into();
-        let frame_count = frame_count.into();
-        match key_id {
-            KeyId::Basic(key_id) => Header::Basic(BasicHeader::new(key_id, frame_count)),
-            KeyId::Extended(key_id) => Header::Extended(ExtendedHeader::new(key_id, frame_count)),
+    pub fn new(key_id: KeyId, frame_count: FrameCount) -> Self {
+        Self {
+            key_id: key_id.into(),
+            frame_count: frame_count.into(),
         }
     }
 
-    /// Returns true if the header is [`Header::Extended`]
-    pub fn is_extended(&self) -> bool {
-        matches!(self, Header::Extended(_))
-    }
-}
+    pub fn deserialize<T: AsRef<[u8]>>(buffer: T) -> Result<SframeHeader> {
+        let buffer = buffer.as_ref();
+        let buffer_len = buffer.len();
+        let buffer_it = &mut buffer.iter();
 
-impl Default for Header {
-    fn default() -> Self {
-        Header::with_frame_count(KeyId::default(), FrameCount::default())
-    }
-}
+        let config_byte = buffer_it
+            .next()
+            .ok_or(SframeError::InvalidBuffer(buffer_len))?;
+        let config_byte = ConfigByte::from(config_byte);
+        if buffer_len < config_byte.header_len() {
+            return Err(SframeError::InvalidBuffer(buffer_len));
+        }
 
-impl TryFrom<&[u8]> for Header {
-    type Error = SframeError;
-
-    fn try_from(value: &[u8]) -> Result<Self> {
-        Header::deserialize(value)
-    }
-}
-
-impl Deserialization for Header {
-    type DeserializedOutput = Self;
-
-    fn deserialize(data: &[u8]) -> Result<Self::DeserializedOutput> {
-        if BasicHeader::is_valid(data) {
-            BasicHeader::deserialize(data).map(Header::Basic)
+        let key_id = if config_byte.extended_key_flag() {
+            let key_len = (config_byte.key_or_klen() + Self::LEN_OFFSET) as usize;
+            VariableLengthField::from_iter(buffer_it.take(key_len)).into()
         } else {
-            ExtendedHeader::deserialize(data).map(Header::Extended)
-        }
+            HeaderField::FixedLen(config_byte.key_or_klen())
+        };
+
+        let frame_count = if config_byte.extended_ctr_flag() {
+            let ctr_len = (config_byte.ctr_or_clen() + Self::LEN_OFFSET) as usize;
+            VariableLengthField::from_iter(buffer_it.take(ctr_len)).into()
+        } else {
+            HeaderField::FixedLen(config_byte.ctr_or_clen())
+        };
+
+        Ok(Self {
+            key_id,
+            frame_count,
+        })
     }
 
-    fn is_valid(data: &[u8]) -> bool {
-        BasicHeader::is_valid(data) || ExtendedHeader::is_valid(data)
+    pub fn serialize<T: AsMut<[u8]>>(&self, mut buffer: T) -> Result<()> {
+        let buffer = buffer.as_mut();
+        let buffer_len = buffer.len();
+
+        if buffer_len < self.len() {
+            return Err(SframeError::InvalidBuffer(buffer_len));
+        }
+
+        let buffer_it = &mut buffer.iter_mut();
+
+        let config_byte = buffer_it
+            .next()
+            .ok_or(SframeError::InvalidBuffer(buffer_len))?;
+        let mut config_byte = ConfigByte::from(config_byte);
+
+        match self.key_id {
+            HeaderField::FixedLen(key) => {
+                config_byte.set_extended_key_flag(false);
+                config_byte.set_key_or_klen(key);
+            }
+            HeaderField::VariableLen(field) => {
+                let len = field.len();
+                field.write_to_iter(buffer_it.take(len as usize));
+
+                config_byte.set_extended_key_flag(true);
+                config_byte.set_key_or_klen(len - Self::LEN_OFFSET);
+            }
+        }
+
+        match self.frame_count {
+            HeaderField::FixedLen(ctr) => {
+                config_byte.set_extended_ctr_flag(false);
+                config_byte.set_ctr_or_clen(ctr);
+            }
+            HeaderField::VariableLen(field) => {
+                let len = field.len();
+                field.write_to_iter(buffer_it.take(len as usize));
+
+                config_byte.set_extended_ctr_flag(true);
+                config_byte.set_ctr_or_clen(len - Self::LEN_OFFSET);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn key_id(&self) -> KeyId {
+        self.key_id.into()
+    }
+
+    pub fn frame_count(&self) -> FrameCount {
+        self.frame_count.into()
+    }
+
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        let mut len = Self::STATIC_HEADER_LENGTH;
+
+        if let HeaderField::VariableLen(field) = self.key_id {
+            len += field.len() as usize;
+        }
+
+        if let HeaderField::VariableLen(field) = self.frame_count {
+            len += field.len() as usize;
+        }
+
+        len
     }
 }
 
-impl Serialization for Header {
-    fn serialize(&self, buffer: &mut [u8]) -> Result<()> {
-        match self {
-            Header::Basic(basic) => basic.serialize(buffer),
-            Header::Extended(extended) => extended.serialize(buffer),
-        }
-    }
-}
-
-impl HeaderFields for Header {
-    type KeyIdType = KeyId;
-
-    fn frame_count(&self) -> FrameCount {
-        match self {
-            Header::Basic(basic) => basic.frame_count(),
-            Header::Extended(extended) => extended.frame_count(),
-        }
-    }
-
-    fn key_id(&self) -> Self::KeyIdType {
-        match self {
-            Header::Basic(basic) => KeyId::Basic(basic.key_id()),
-            Header::Extended(extended) => KeyId::Extended(extended.key_id()),
-        }
-    }
-
-    fn size(&self) -> usize {
-        match self {
-            Header::Basic(basic) => basic.size(),
-            Header::Extended(extended) => extended.size(),
-        }
-    }
-}
-
-impl From<&Header> for Vec<u8> {
-    fn from(header: &Header) -> Self {
-        let mut buffer = vec![0u8; header.size()];
+impl From<&SframeHeader> for Vec<u8> {
+    fn from(header: &SframeHeader) -> Self {
+        let mut buffer = vec![0u8; header.len()];
+        // we guarantee that the buffer is large enough, so it is safe to unwrap
         header.serialize(buffer.as_mut_slice()).unwrap();
         buffer
     }
 }
 
-const LEN_OFFSET: u8 = 1;
 #[cfg(test)]
 mod test {
-
-    use super::{frame_count::FrameCount, keyid::KeyId, Header};
-    use crate::header::{Deserialization, HeaderFields};
+    use super::SframeHeader;
     use crate::util::test::assert_bytes_eq;
 
     use pretty_assertions::assert_eq;
-
-    #[test]
-    fn create_basic_header_from_basic_key_id_with_correct_fields() {
-        let key_id = KeyId::Basic(0);
-        let frame_count = FrameCount::from(0);
-        let header = Header::with_frame_count(key_id, frame_count);
-        assert!(matches!(header, Header::Basic(_)));
-
-        assert_eq!(key_id, header.key_id());
-        assert_eq!(frame_count, header.frame_count());
-        assert_eq!(2, header.size());
-    }
-
-    #[test]
-    fn create_extended_header_from_extended_key_id_with_correct_fields() {
-        let key_id = KeyId::Extended(666);
-        let frame_count = FrameCount::from(0);
-        let header = Header::with_frame_count(key_id, frame_count);
-        assert!(matches!(header, Header::Extended(_)));
-
-        assert_eq!(key_id, header.key_id());
-        assert_eq!(frame_count, header.frame_count());
-    }
-
-    #[test]
-    fn deserialize_basic_header() {
-        let data = [0b00010110, 0b00000010, 0b10011010];
-        let header = Header::deserialize(&data).unwrap();
-        assert!(matches!(header, Header::Basic(_)));
-    }
 
     #[test]
     fn serialize_test_vectors() {
         crate::test_vectors::get_header_test_vectors()
             .iter()
             .for_each(|test_vector| {
-                let header = Header::with_frame_count(
-                    KeyId::from(test_vector.key_id),
-                    FrameCount::from(test_vector.frame_count),
-                );
-                assert_bytes_eq(Vec::from(&header).as_slice(), &test_vector.encoded);
+                let header = SframeHeader::new(test_vector.key_id, test_vector.frame_count);
+                let serialized = Vec::from(&header);
+                assert_bytes_eq(&serialized, &test_vector.encoded);
             });
+    }
+
+    #[test]
+    fn fail_to_serialize_when_buffer_is_empty() {
+        let buffer = [];
+        let result = SframeHeader::deserialize(buffer);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn fail_to_serialize_when_buffer_is_too_small() {
+        let buffer = [0b0000_1111]; // variable counter which is not present
+        let result = SframeHeader::deserialize(buffer);
+        assert!(result.is_err());
+
+        let buffer = [0b1111_0000]; // variable key which is not present
+        let result = SframeHeader::deserialize(buffer);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -269,9 +203,28 @@ mod test {
         crate::test_vectors::get_header_test_vectors()
             .iter()
             .for_each(|test_vector| {
-                let header = Header::deserialize(&test_vector.encoded).unwrap();
-                assert_eq!(header.key_id(), KeyId::from(test_vector.key_id));
+                let header = SframeHeader::deserialize(&test_vector.encoded).unwrap();
+                assert_eq!(header.len(), test_vector.encoded.len());
+                assert_eq!(header.key_id(), test_vector.key_id);
                 assert_eq!(header.frame_count(), test_vector.frame_count);
             });
+    }
+
+    #[test]
+    fn fail_to_deserialize_when_buffer_is_empty() {
+        let buffer = [];
+        let result = SframeHeader::deserialize(buffer);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn fail_to_deserialize_when_buffer_is_too_small() {
+        let buffer = [0b0000_1111]; // variable counter which is not present
+        let result = SframeHeader::deserialize(buffer);
+        assert!(result.is_err());
+
+        let buffer = [0b1111_0000]; // variable key which is not present
+        let result = SframeHeader::deserialize(buffer);
+        assert!(result.is_err());
     }
 }

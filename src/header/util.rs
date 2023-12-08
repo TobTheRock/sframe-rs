@@ -1,10 +1,4 @@
-pub fn as_min_be_bytes(x: u64) -> impl DoubleEndedIterator<Item = u8> {
-    let be_bytes = x.to_be_bytes();
-    let length_in_bytes = min_len_in_bytes(x);
-    be_bytes
-        .into_iter()
-        .skip(be_bytes.len() - length_in_bytes as usize)
-}
+pub const U64_LEN: usize = std::mem::size_of::<u64>();
 
 pub fn min_len_in_bytes(value: u64) -> u8 {
     if value == 0 {
@@ -15,8 +9,9 @@ pub fn min_len_in_bytes(value: u64) -> u8 {
         .to_be_bytes()
         .iter()
         .take_while(|&&value| value == 0)
-        .count() as u8; // never panics as u64 has only 8 bytes
-    8 - leading_zeros
+        .count();
+
+    (U64_LEN - leading_zeros ) as u8 // never panics as u64 has only 8 bytes
 }
 
 #[cfg(test)]

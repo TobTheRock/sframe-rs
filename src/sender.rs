@@ -9,7 +9,7 @@ use crate::{
         secret::Secret,
     },
     error::{Result, SframeError},
-    header::{FrameCountGenerator, Header, HeaderFields, KeyId},
+    header::{ SframeHeader, KeyId}, frame_count_generator::FrameCountGenerator,
 };
 
 pub struct Sender {
@@ -67,14 +67,11 @@ impl Sender {
             log::trace!("frame count: {:?}", frame_count);
 
             log::trace!("Creating SFrame Header");
-            let header = Header::with_frame_count(self.key_id, frame_count);
+            let header = SframeHeader::new(self.key_id, frame_count);
 
             log::trace!(
-                "Sender: FrameCount: {:?}, FrameCount length: {:?}, KeyId: {:?}, Extend: {:?}",
-                header.frame_count(),
-                header.frame_count().length_in_bytes(),
-                header.key_id(),
-                header.is_extended()
+                "Sender: header: {:?}",
+                header
             );
 
             let skipped_payload = &unencrypted_payload[0..skip];
@@ -86,7 +83,7 @@ impl Sender {
             frame.extend(Vec::from(&header));
             frame.extend(to_be_encrypted_payload);
 
-            let (leading_buffer, encrypt_buffer) = frame.split_at_mut(skip + header.size());
+            let (leading_buffer, encrypt_buffer) = frame.split_at_mut(skip + header.len());
 
             log::trace!("Encrypting Frame of size {}", unencrypted_payload.len(),);
             let tag = self.cipher_suite.encrypt(

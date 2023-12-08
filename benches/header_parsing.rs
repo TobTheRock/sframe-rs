@@ -3,26 +3,25 @@
 
 use criterion::{black_box, criterion_group, Criterion};
 
-use sframe::header::{Deserialization, FrameCount, Header, KeyId, Serialization};
+use sframe::header::{SframeHeader};
 
 fn header_serialization(c: &mut Criterion) {
-    c.bench_function("serialize basic header", |b| {
+    c.bench_function("serialize header with short key", |b| {
         let mut buffer = vec![0_u8; 4];
-        let basic_header = Header::new(7_u8);
+        let basic_header = SframeHeader::new(7, 0);
         b.iter(|| black_box(basic_header.serialize(&mut buffer)))
     });
 
     c.bench_function("serialize extended header", |b| {
         let mut buffer = vec![0_u8; 4];
-        let extended_header = Header::new(128_u64);
+        let extended_header = SframeHeader::new(128, 0);
         b.iter(|| black_box(extended_header.serialize(&mut buffer)))
     });
 
-    c.bench_function("deserialize 1000 basic headers", |b| {
+    c.bench_function("deserialize 1000 headers", |b| {
         let serialized_headers = (0..1000_u64)
             .map(|i| {
-                let k: u8 = (i % 8) as u8;
-                let header = Header::with_frame_count(KeyId::Basic(k), FrameCount::from(1000 - i));
+                let header = SframeHeader::new(i, i);
                 let mut buffer = vec![0_u8; 4];
                 header.serialize(&mut buffer).unwrap();
                 buffer
@@ -31,25 +30,7 @@ fn header_serialization(c: &mut Criterion) {
 
         b.iter(move || {
             serialized_headers.iter().for_each(|header| {
-                let h = Header::deserialize(header).unwrap();
-                black_box(h);
-            })
-        })
-    });
-
-    c.bench_function("deserialize 1000 extended headers", |b| {
-        let serialized_headers = (0..1000_u64)
-            .map(|k| {
-                let header = Header::with_frame_count(k, FrameCount::from(1000 - k));
-                let mut buffer = vec![0_u8; 7];
-                header.serialize(&mut buffer).unwrap();
-                buffer
-            })
-            .collect::<Vec<_>>();
-
-        b.iter(move || {
-            serialized_headers.iter().for_each(|header| {
-                let h = Header::deserialize(header).unwrap();
+                let h = SframeHeader::deserialize(header).unwrap();
                 black_box(h);
             })
         })

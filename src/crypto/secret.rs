@@ -7,8 +7,9 @@ pub struct Secret {
 }
 
 impl Secret {
-    pub(crate) fn create_nonce<const LEN: usize>(&self, frame_count: &FrameCount) -> [u8; LEN] {
-        let mut counter = frame_count.as_be_bytes().rev();
+    pub(crate) fn create_nonce<const LEN: usize>(&self, frame_count: FrameCount) -> [u8; LEN] {
+        let be_frame_count = frame_count.to_be_bytes();
+        let mut counter = be_frame_count.iter().rev();
         let mut iv = [0u8; LEN];
         let n = self.salt.len().min(LEN);
         for i in (0..n).rev() {
@@ -26,7 +27,7 @@ impl Secret {
 mod test {
     use crate::test_vectors::get_sframe_test_vector;
     use crate::{
-        crypto::cipher_suite::CipherSuiteVariant, header::FrameCount, util::test::assert_bytes_eq,
+        crypto::cipher_suite::CipherSuiteVariant, util::test::assert_bytes_eq,
     };
 
     use super::Secret;
@@ -47,7 +48,7 @@ mod test {
             auth: None,
         };
 
-        let nonce: [u8; NONCE_LEN] = secret.create_nonce(&FrameCount::from(test_vec.frame_count));
+        let nonce: [u8; NONCE_LEN] = secret.create_nonce(test_vec.frame_count);
         assert_bytes_eq(&nonce, &test_vec.nonce);
     }
 }

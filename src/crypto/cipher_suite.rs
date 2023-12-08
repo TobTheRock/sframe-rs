@@ -3,7 +3,7 @@
 
 /// Depicts which AEAD algorithm is used for encryption
 /// and which hashing function is used for the key expansion,
-/// see [sframe draft 03 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-03#name-cipher-suites)
+/// see [sframe draft 04 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04#name-cipher-suites)
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(test, derive(strum_macros::Display))]
 pub enum CipherSuiteVariant {

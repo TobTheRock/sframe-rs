@@ -33,6 +33,10 @@ pub enum SframeError {
     #[error("{0}")]
     FrameValidationFailed(String),
 
+    /// buffer was too small to deserialize into/ serialize from
+    #[error("buffer with size {0} is too small")]
+    InvalidBuffer(usize),
+
     /// any arbitrary error
     #[error("{0}")]
     Other(String),

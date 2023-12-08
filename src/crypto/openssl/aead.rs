@@ -84,7 +84,7 @@ impl AeadDecrypt for CipherSuite {
                 tag,
             )
         } else {
-            let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(&frame_count);
+            let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(frame_count);
             openssl::symm::decrypt_aead(
                 cipher,
                 &secret.key,
@@ -117,7 +117,7 @@ impl CipherSuite {
         aad: &[u8],
         frame_count: FrameCount,
     ) -> Result<(Vec<u8>, Tag)> {
-        let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(&frame_count);
+        let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(frame_count);
 
         let mut tag = Tag::new(self.auth_tag_len);
         let out = openssl::symm::encrypt_aead(
@@ -140,7 +140,7 @@ impl CipherSuite {
     ) -> Result<(Vec<u8>, Tag)> {
         let auth_key = secret.auth.as_ref().ok_or(SframeError::EncryptionFailure)?;
         // openssl expects a fixed iv length of 16 byte, thus we needed to pad the sframe nonce
-        let iv = secret.create_nonce::<AES_CTR_IVS_LEN>(&frame_count);
+        let iv = secret.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
         let nonce = &iv[..self.nonce_len];
 
         let encrypted =
@@ -158,7 +158,7 @@ impl CipherSuite {
         encrypted: &[u8],
         tag: &[u8],
     ) -> Result<Vec<u8>> {
-        let iv: [u8; 16] = secret.create_nonce::<AES_CTR_IVS_LEN>(&frame_count);
+        let iv: [u8; 16] = secret.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
         let nonce = &iv[..self.nonce_len];
         let auth_key = secret.auth.as_ref().ok_or(SframeError::DecryptionFailure)?;
 

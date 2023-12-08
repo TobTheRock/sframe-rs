@@ -2,15 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0 AND MIT
 
 use crate::{
-    error::{Result, SframeError},
-    header::{FrameCount, Header, HeaderFields},
+    error::{Result, SframeError}, header::{SframeHeader, FrameCount}
 };
 use std::cell::Cell;
 
 /// Allows to validate frames by their sframe header before the decryption
 pub trait FrameValidation {
     /// checks if the new header is valid, returns an [`SframeError`] if not
-    fn validate(&self, header: &Header) -> Result<()>;
+    fn validate(&self, header: &SframeHeader) -> Result<()>;
 }
 
 /// This implementation allows to detect replay attacks by omitting frames with
@@ -26,13 +25,13 @@ impl ReplayAttackProtection {
     pub fn with_tolerance(tolerance: u64) -> Self {
         ReplayAttackProtection {
             tolerance,
-            last_frame_count: Cell::new(0.into()),
+            last_frame_count: Cell::new(0u64),
         }
     }
 }
 
 impl FrameValidation for ReplayAttackProtection {
-    fn validate(&self, header: &Header) -> Result<()> {
+    fn validate(&self, header: &SframeHeader) -> Result<()> {
         let last_frame_count = self.last_frame_count.get();
         let current_frame_count = header.frame_count();
 
@@ -73,8 +72,8 @@ mod test {
     #[test]
     fn accept_newer_headers() {
         let validator = ReplayAttackProtection::with_tolerance(128);
-        let first_header = Header::with_frame_count(23456789u64, 2400);
-        let second_header = Header::with_frame_count(23456789u64, 2480);
+        let first_header = SframeHeader::new(23456789u64, 2400);
+        let second_header = SframeHeader::new(23456789u64, 2480);
 
         assert_eq!(validator.validate(&first_header), Ok(()));
         assert_eq!(validator.validate(&second_header), Ok(()));
@@ -83,8 +82,8 @@ mod test {
     #[test]
     fn accept_older_headers_in_tolerance() {
         let validator = ReplayAttackProtection::with_tolerance(128);
-        let first_header = Header::with_frame_count(23456789u64, 2480);
-        let late_header = Header::with_frame_count(23456789u64, 2400);
+        let first_header = SframeHeader::new(23456789u64, 2480);
+        let late_header = SframeHeader::new(23456789u64, 2400);
 
         assert_eq!(validator.validate(&first_header), Ok(()));
         assert_eq!(validator.validate(&late_header), Ok(()));
@@ -93,8 +92,8 @@ mod test {
     #[test]
     fn reject_too_old_headers() {
         let validator = ReplayAttackProtection::with_tolerance(128);
-        let first_header = Header::with_frame_count(23456789u64, 2480);
-        let too_late_header = Header::with_frame_count(23456789u64, 1024);
+        let first_header = SframeHeader::new(23456789u64, 2480);
+        let too_late_header = SframeHeader::new(23456789u64, 1024);
 
         assert_eq!(validator.validate(&first_header), Ok(()));
         assert!(matches!(
@@ -107,13 +106,13 @@ mod test {
     fn handle_overflowing_counters() {
         let validator = ReplayAttackProtection::with_tolerance(128);
         let start_count = u64::MAX - 3;
-        let first_header = Header::with_frame_count(23456789u64, start_count);
+        let first_header = SframeHeader::new(23456789u64, start_count);
 
         assert_eq!(validator.validate(&first_header), Ok(()));
 
         for step in 0..10 {
             let late_count = start_count.wrapping_add(step); // using this instead of `+` to avoid overflow panic in debug
-            let too_late_header = Header::with_frame_count(23456789u64, late_count);
+            let too_late_header = SframeHeader::new(23456789u64, late_count);
             assert_eq!(validator.validate(&too_late_header), Ok(()));
         }
     }
