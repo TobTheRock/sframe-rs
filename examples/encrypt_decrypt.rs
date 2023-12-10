@@ -7,11 +7,7 @@ use std::{
 };
 
 use clap::{Parser, ValueEnum};
-use sframe::{
-    receiver::Receiver,
-    sender::Sender,
-    CipherSuiteVariant, header::SframeHeader,
-};
+use sframe::{header::SframeHeader, receiver::Receiver, sender::Sender, CipherSuiteVariant};
 
 fn main() {
     let Args {
@@ -69,61 +65,9 @@ fn main() {
 
 fn display_encrypted(encrypted: &[u8]) {
     let header = SframeHeader::deserialize(encrypted).unwrap();
+    println!("- Sframe Header: {}", header);
+
     let header_len = header.len();
-    // let first_byte = bin2string(&encrypted[0..1]);
-
-    println!("- Sframe Header: ");
-    // TODO 
-    // match header {
-    //     Header::Basic(_) => {
-    //         let frame_count = bin2string(&encrypted[1..header_len]);
-    //         let ctr_field_len = frame_count.len() + 1;
-
-    //         println!("+-+-+-+-+-+-+-+-+{:-^1$}+", "", ctr_field_len);
-    //         println!("|R| LEN |0| KID |{:^1$}|", "CTR", ctr_field_len);
-    //         println!(
-    //             "|{}|{:^5}|{}|{:^5}| {:^}|",
-    //             first_byte.get(0..1).unwrap(),
-    //             first_byte.get(1..4).unwrap(),
-    //             first_byte.get(4..5).unwrap(),
-    //             first_byte.get(5..8).unwrap(),
-    //             frame_count
-    //         );
-    //         println!("+-+-+-+-+-+-+-+-+{:-^1$}+", "", ctr_field_len);
-    //     }
-
-    //     Header::Extended(_) => {
-    //         let frame_count_len = header.frame_count().length_in_bytes() as usize;
-    //         let frame_count = bin2string(&encrypted[header_len - frame_count_len..header_len]);
-    //         let ctr_field_len = frame_count.len() + 1;
-
-    //         let key_id = bin2string(&encrypted[1..header_len - frame_count_len]);
-    //         let kid_field_len = key_id.len() + 1;
-
-    //         println!(
-    //             "+-+-+-+-+-+-+-+--+{:-^2$}+{:-^3$}+",
-    //             "", "", kid_field_len, ctr_field_len
-    //         );
-    //         println!(
-    //             "|R| LEN |1| KLEN |{:^2$}|{:^3$}|",
-    //             "KID", "CTR", kid_field_len, ctr_field_len
-    //         );
-    //         println!(
-    //             "|{}|{:^5}|{}|{:^6}| {:^}| {:^}|",
-    //             first_byte.get(0..1).unwrap(),
-    //             first_byte.get(1..4).unwrap(),
-    //             first_byte.get(4..5).unwrap(),
-    //             first_byte.get(5..8).unwrap(),
-    //             key_id,
-    //             frame_count
-    //         );
-    //         println!(
-    //             "+-+-+-+-+-+-+-+--+{:-^2$}+{:-^3$}+",
-    //             "", "", ctr_field_len, kid_field_len
-    //         );
-    //     }
-    // }
-
     let payload = bin2string(&encrypted[header_len..]);
     println!("- Encrypted Payload: {}", payload)
 }

@@ -9,6 +9,8 @@ use super::error::{Result, SframeError};
 use config_byte::ConfigByte;
 use header_field::{HeaderField, VariableLengthField};
 
+use std::fmt::Write;
+
 pub type KeyId = u64;
 pub type FrameCount = u64;
 
@@ -159,6 +161,64 @@ impl From<&SframeHeader> for Vec<u8> {
         // we guarantee that the buffer is large enough, so it is safe to unwrap
         header.serialize(buffer.as_mut_slice()).unwrap();
         buffer
+    }
+}
+
+impl std::fmt::Display for SframeHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let error = std::fmt::Error {};
+
+        let mut first_fourth_line = "+-+-+-+-+-+-+-+-+".to_string();
+
+        let kid_field_label = match self.key_id {
+            HeaderField::FixedLen(_) => "KID",
+            HeaderField::VariableLen(_) => "KLEN",
+        };
+        let ctr_field_label = match self.frame_count {
+            HeaderField::FixedLen(_) => "CTR",
+            HeaderField::VariableLen(_) => "CLEN",
+        };
+        let mut second_line = format!("|X|{:^5}|Y|{:^5}|", kid_field_label, ctr_field_label);
+
+        let mut serialized = Vec::from(self).into_iter().map(|x| format!("{x:08b} "));
+        let first_byte = serialized.next().ok_or(error)?;
+        let mut third_line = format!(
+            "|{}|{:^5}|{}|{:^5}|",
+            first_byte.get(0..1).ok_or(error)?,
+            first_byte.get(1..4).ok_or(error)?,
+            first_byte.get(4..5).ok_or(error)?,
+            first_byte.get(5..8).ok_or(error)?,
+        );
+
+        match self.key_id {
+            HeaderField::FixedLen(_) => {}
+            HeaderField::VariableLen(field) => {
+                let length = field.len() as usize;
+                let variable_key: String = serialized.by_ref().take(length).collect();
+
+                write!(first_fourth_line, "{:-^1$}+", "", variable_key.len() + 1)?;
+                write!(second_line, "{:^1$}|", "KID", variable_key.len() + 1)?;
+                write!(third_line, " {:^}|", variable_key)?;
+            }
+        };
+
+        match self.frame_count {
+            HeaderField::FixedLen(_) => {}
+            HeaderField::VariableLen(field) => {
+                let length = field.len() as usize;
+                let variable_ctr: String = serialized.take(length).collect();
+
+                write!(first_fourth_line, "{:-^1$}+", "", variable_ctr.len() + 1)?;
+                write!(second_line, "{:^1$}|", "CTR", variable_ctr.len() + 1)?;
+                write!(third_line, " {:^}|", variable_ctr)?;
+            }
+        };
+
+        writeln!(f, "")?;
+        writeln!(f, "{}", first_fourth_line)?;
+        writeln!(f, "{}", second_line)?;
+        writeln!(f, "{}", third_line)?;
+        write!(f, "{}", first_fourth_line)
     }
 }
 
