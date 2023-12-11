@@ -26,9 +26,7 @@ impl Secret {
 #[cfg(test)]
 mod test {
     use crate::test_vectors::get_sframe_test_vector;
-    use crate::{
-        crypto::cipher_suite::CipherSuiteVariant, util::test::assert_bytes_eq,
-    };
+    use crate::{crypto::cipher_suite::CipherSuiteVariant, util::test::assert_bytes_eq};
 
     use super::Secret;
     use test_case::test_case;

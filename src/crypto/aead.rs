@@ -35,15 +35,15 @@ pub trait AeadDecrypt {
 mod test {
 
     use crate::crypto::key_derivation::KeyDerivation;
+    use crate::crypto::{
+        aead::AeadDecrypt,
+        aead::AeadEncrypt,
+        cipher_suite::{CipherSuite, CipherSuiteVariant},
+        secret::Secret,
+    };
     use crate::header::{KeyId, SframeHeader};
     use crate::test_vectors::{get_sframe_test_vector, SframeTest};
     use crate::util::test::assert_bytes_eq;
-    use crate::crypto::{
-            aead::AeadDecrypt,
-            aead::AeadEncrypt,
-            cipher_suite::{CipherSuite, CipherSuiteVariant},
-            secret::Secret,
-        };
 
     use test_case::test_case;
 
@@ -55,7 +55,7 @@ mod test {
     fn encrypt_random_frame() {
         let mut data = vec![0u8; 1024];
         thread_rng().fill(data.as_mut_slice());
-        let header = SframeHeader::new(0,0);
+        let header = SframeHeader::new(0, 0);
         let cipher_suite = CipherSuite::from(CipherSuiteVariant::AesGcm256Sha512);
         let secret =
             Secret::expand_from(&cipher_suite, KEY_MATERIAL.as_bytes(), KeyId::default()).unwrap();
@@ -83,10 +83,7 @@ mod test {
 
         let mut data_buffer = test_vec.plain_text.clone();
 
-        let header = SframeHeader::new(
-            test_vec.key_id,
-            test_vec.frame_count,
-        );
+        let header = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
         let header_buffer = Vec::from(&header);
 
         let aad_buffer = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
@@ -115,9 +112,7 @@ mod test {
         let cipher_suite = CipherSuite::from(variant);
 
         let secret = prepare_secret(&cipher_suite, test_vec);
-        let header = SframeHeader::new(test_vec.key_id,
-            test_vec.frame_count
-        );
+        let header = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
         let header_buffer = Vec::from(&header);
 
         let aad_buffer = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();

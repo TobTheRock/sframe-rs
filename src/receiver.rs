@@ -11,7 +11,8 @@ use crate::{
         secret::Secret,
     },
     error::{Result, SframeError},
-    frame_validation::{FrameValidation, ReplayAttackProtection}, header::{SframeHeader, KeyId},
+    frame_validation::{FrameValidation, ReplayAttackProtection},
+    header::{KeyId, SframeHeader},
 };
 
 pub struct ReceiverOptions {

@@ -11,7 +11,7 @@ pub fn min_len_in_bytes(value: u64) -> u8 {
         .take_while(|&&value| value == 0)
         .count();
 
-    (U64_LEN - leading_zeros ) as u8 // never panics as u64 has only 8 bytes
+    (U64_LEN - leading_zeros) as u8 // never panics as u64 has only 8 bytes
 }
 
 #[cfg(test)]

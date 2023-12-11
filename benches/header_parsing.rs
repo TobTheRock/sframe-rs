@@ -3,7 +3,7 @@
 
 use criterion::{black_box, criterion_group, Criterion};
 
-use sframe::header::{SframeHeader};
+use sframe::header::SframeHeader;
 
 fn header_serialization(c: &mut Criterion) {
     c.bench_function("serialize header with short key", |b| {

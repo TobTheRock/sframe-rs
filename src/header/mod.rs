@@ -16,12 +16,12 @@ pub type FrameCount = u64;
 
 #[derive(Copy, Clone, Debug)]
 /// Modeled after [sframe draft 04 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04#name-sframe-header)
-/// The SFrame header specifies a Key ID (KID) and a counter (CTR) from which encryption parameters are derived.
+/// The `SFrame` header specifies a Key ID (KID) and a counter (CTR) from which encryption parameters are derived.
 ///
 /// Both are encoded as compact usigned integers in big-endian order. If the value of one of these fields is in the range 0-7,
 /// then the value is carried in the corresponding bits of the config byte (K or C) and the corresponding flag (X or Y) is set to zero.
 ///
-/// The SFrame header has the following format:
+/// The `SFrame` header has the following format:
 /// ```txt
 ///     Config Byte
 ///          |
@@ -214,7 +214,7 @@ impl std::fmt::Display for SframeHeader {
             }
         };
 
-        writeln!(f, "")?;
+        writeln!(f)?;
         writeln!(f, "{}", first_fourth_line)?;
         writeln!(f, "{}", second_line)?;
         writeln!(f, "{}", third_line)?;

@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0 AND MIT
 
 use crate::{
-    error::{Result, SframeError}, header::{SframeHeader, FrameCount}
+    error::{Result, SframeError},
+    header::{FrameCount, SframeHeader},
 };
 use std::cell::Cell;
 

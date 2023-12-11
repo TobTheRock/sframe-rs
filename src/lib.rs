@@ -37,15 +37,14 @@
 )]
 
 mod crypto;
-mod util;
 mod frame_count_generator;
+mod util;
 
 pub mod error;
 pub mod frame_validation;
 pub mod header;
 pub mod receiver;
 pub mod sender;
-
 
 pub use crypto::cipher_suite::CipherSuiteVariant;
 

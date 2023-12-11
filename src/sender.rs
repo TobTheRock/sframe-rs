@@ -9,7 +9,8 @@ use crate::{
         secret::Secret,
     },
     error::{Result, SframeError},
-    header::{ SframeHeader, KeyId}, frame_count_generator::FrameCountGenerator,
+    frame_count_generator::FrameCountGenerator,
+    header::{KeyId, SframeHeader},
 };
 
 pub struct Sender {
@@ -69,10 +70,7 @@ impl Sender {
             log::trace!("Creating SFrame Header");
             let header = SframeHeader::new(self.key_id, frame_count);
 
-            log::trace!(
-                "Sender: header: {:?}",
-                header
-            );
+            log::trace!("Sender: header: {:?}", header);
 
             let skipped_payload = &unencrypted_payload[0..skip];
             let to_be_encrypted_payload = &unencrypted_payload[skip..];

@@ -83,11 +83,11 @@ impl<'a> FromIterator<&'a u8> for VariableLengthField {
     fn from_iter<T: IntoIterator<Item = &'a u8>>(iter: T) -> Self {
         let iter = iter.into_iter();
 
-        let (length, _)= iter.size_hint();
+        let (length, _) = iter.size_hint();
         debug_assert!(
             length <= U64_LEN,
             "size must be <= 8, as the sframe spec only allows 8 byte long fields"
-        ); 
+        );
 
         let zero_padding = std::iter::repeat(&0u8).take(U64_LEN - length);
         let be_bytes = zero_padding
@@ -102,4 +102,3 @@ impl<'a> FromIterator<&'a u8> for VariableLengthField {
         Self { length, value }
     }
 }
-
