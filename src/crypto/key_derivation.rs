@@ -92,7 +92,7 @@ mod test {
         #[test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32")]
         fn derive_correct_sub_keys(variant: CipherSuiteVariant) {
             let test_vec = get_sframe_test_vector(&variant.to_string());
-            let cipher_suite: CipherSuite = CipherSuite::from(variant);
+            let cipher_suite = CipherSuite::from(variant);
 
             let secret =
                 Secret::expand_from(&cipher_suite, &test_vec.key_material, test_vec.key_id)

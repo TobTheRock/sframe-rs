@@ -67,14 +67,14 @@ impl SframeHeader {
 
         let key_id = if config_byte.extended_key_flag() {
             let key_len = (config_byte.key_or_klen() + Self::LEN_OFFSET) as usize;
-            VariableLengthField::from_iter(buffer_it.take(key_len)).into()
+            VariableLengthField::from_sized_iter(buffer_it.take(key_len)).into()
         } else {
             HeaderField::FixedLen(config_byte.key_or_klen())
         };
 
         let frame_count = if config_byte.extended_ctr_flag() {
             let ctr_len = (config_byte.ctr_or_clen() + Self::LEN_OFFSET) as usize;
-            VariableLengthField::from_iter(buffer_it.take(ctr_len)).into()
+            VariableLengthField::from_sized_iter(buffer_it.take(ctr_len)).into()
         } else {
             HeaderField::FixedLen(config_byte.ctr_or_clen())
         };
@@ -168,7 +168,7 @@ impl std::fmt::Display for SframeHeader {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let error = std::fmt::Error {};
 
-        let mut first_fourth_line = "+-+-+-+-+-+-+-+-+".to_string();
+        let mut first_last_line = "+-+-+-+-+-+-+-+-+".to_string();
 
         let kid_field_label = match self.key_id {
             HeaderField::FixedLen(_) => "KID",
@@ -196,7 +196,7 @@ impl std::fmt::Display for SframeHeader {
                 let length = field.len() as usize;
                 let variable_key: String = serialized.by_ref().take(length).collect();
 
-                write!(first_fourth_line, "{:-^1$}+", "", variable_key.len() + 1)?;
+                write!(first_last_line, "{:-^1$}+", "", variable_key.len() + 1)?;
                 write!(second_line, "{:^1$}|", "KID", variable_key.len() + 1)?;
                 write!(third_line, " {:^}|", variable_key)?;
             }
@@ -208,17 +208,17 @@ impl std::fmt::Display for SframeHeader {
                 let length = field.len() as usize;
                 let variable_ctr: String = serialized.take(length).collect();
 
-                write!(first_fourth_line, "{:-^1$}+", "", variable_ctr.len() + 1)?;
+                write!(first_last_line, "{:-^1$}+", "", variable_ctr.len() + 1)?;
                 write!(second_line, "{:^1$}|", "CTR", variable_ctr.len() + 1)?;
                 write!(third_line, " {:^}|", variable_ctr)?;
             }
         };
 
         writeln!(f)?;
-        writeln!(f, "{}", first_fourth_line)?;
+        writeln!(f, "{}", first_last_line)?;
         writeln!(f, "{}", second_line)?;
         writeln!(f, "{}", third_line)?;
-        write!(f, "{}", first_fourth_line)
+        write!(f, "{}", first_last_line)
     }
 }
 

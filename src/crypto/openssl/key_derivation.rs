@@ -20,7 +20,7 @@ impl KeyDerivation for Secret {
             let (base_key, salt) =
                 expand_secret(cipher_suite, key_material.as_ref(), key_id.into())?;
             let (key, auth) = if cipher_suite.is_ctr_mode() {
-                let (key, auth) = expand_subsecret(cipher_suite, &base_key)?;
+                let (key, auth) = expand_subsecret(cipher_suite, &base_key);
                 (key, Some(auth))
             } else {
                 (base_key, None)
@@ -56,15 +56,12 @@ fn expand_secret(
     Ok((key, salt))
 }
 
-fn expand_subsecret(
-    cipher_suite: &CipherSuite,
-    key: &[u8],
-) -> std::result::Result<(Vec<u8>, Vec<u8>), openssl::error::ErrorStack> {
+fn expand_subsecret(cipher_suite: &CipherSuite, key: &[u8]) -> (Vec<u8>, Vec<u8>) {
     let aes_keysize = key.len() - cipher_suite.hash_len;
     let enc_key = key[..aes_keysize].to_vec();
     let auth_key = key[aes_keysize..].to_vec();
 
-    Ok((enc_key, auth_key))
+    (enc_key, auth_key)
 }
 
 fn extract_pseudo_random_key(
@@ -140,7 +137,7 @@ mod test {
         let test_vec = get_aes_ctr_test_vector(&variant.to_string());
         let cipher_suite = CipherSuite::from(variant);
 
-        let (key, auth) = expand_subsecret(&cipher_suite, &test_vec.base_key).unwrap();
+        let (key, auth) = expand_subsecret(&cipher_suite, &test_vec.base_key);
         assert_bytes_eq(&key, &test_vec.enc_key);
         assert_bytes_eq(&auth, &test_vec.auth_key);
     }

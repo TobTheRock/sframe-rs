@@ -44,6 +44,24 @@ impl VariableLengthField {
         iter.zip(self)
             .for_each(|(buf_byte, field_byte)| *buf_byte = field_byte);
     }
+
+    pub fn from_sized_iter<'a>(iter: impl ExactSizeIterator<Item = &'a u8>) -> Self {
+        // enforce that the iter fits an u64
+        let iter = iter.take(U64_LEN);
+        let length = iter.len();
+
+        let zero_padding = std::iter::repeat(&0u8).take(U64_LEN - length);
+        let be_bytes = zero_padding
+            .chain(iter)
+            .copied()
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap(); // we assert the size, so this cannot fail
+
+        let value = u64::from_be_bytes(be_bytes);
+        let length = length as u8; // we assert that length <= 8 and it thus fits u8
+        Self { length, value }
+    }
 }
 
 impl From<VariableLengthField> for HeaderField {
@@ -76,29 +94,5 @@ impl IntoIterator for &VariableLengthField {
             .to_be_bytes()
             .into_iter()
             .skip(U64_LEN - self.length as usize)
-    }
-}
-
-impl<'a> FromIterator<&'a u8> for VariableLengthField {
-    fn from_iter<T: IntoIterator<Item = &'a u8>>(iter: T) -> Self {
-        let iter = iter.into_iter();
-
-        let (length, _) = iter.size_hint();
-        debug_assert!(
-            length <= U64_LEN,
-            "size must be <= 8, as the sframe spec only allows 8 byte long fields"
-        );
-
-        let zero_padding = std::iter::repeat(&0u8).take(U64_LEN - length);
-        let be_bytes = zero_padding
-            .chain(iter.take(length))
-            .copied()
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap(); // we assert the size, and we use this function only internally
-
-        let value = u64::from_be_bytes(be_bytes);
-        let length = length as u8; // we assert that length <= 8 and it thus fits u8
-        Self { length, value }
     }
 }
