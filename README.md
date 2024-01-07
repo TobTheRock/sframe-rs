@@ -5,7 +5,7 @@ Secure Frame (SFrame)
 [![Crates.io](https://img.shields.io/crates/d/sframe)](https://crates.io/crates/sframe)
 [![license](https://img.shields.io/crates/l/sframe.svg?style=flat)](https://crates.io/crates/sframe/)
 [![documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/sframe/)
-![maintenance](https://img.shields.io/maintenance/yes/2023)
+![maintenance](https://img.shields.io/maintenance/yes/2024)
 
 
 This library is an implementation of [draft-ietf-sframe-enc-03](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-03) and provides and end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
@@ -14,7 +14,6 @@ There is an alternative implementation under [goto-opensource/secure-frame-ts](h
 
 ## Differences from the sframe draft
 * ratcheting is not implemented
-* keyIds are used as senderIds
 * no metadata authentication
 
 ## Supported crypto libraries
