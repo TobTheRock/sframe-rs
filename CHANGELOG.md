@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2024-01-07
+
+### Bug Fixes
+
+- Wrong auth tag size
+
+### Features
+
+- Add Receiver::remove_encryption_key()
+- Add FrameValidation in Receiver
+- Impl from trait for KeyId
+- Implement AesGcm128Sha256
+- Allow configuring ciphersuite of sender and receiver
+- Github actions
+- Update to draft enc-01
+- Add openssl crypto crate stub
+- Implement hkdf with openssl
+- Openssl aead implemenation
+- Crypto library feature handling
+- Aes ctr mode ciphers for openssl
+- [**breaking**] Update key derivation / tag computation to draft-03
+The latest [changes in the draft](https://author-tools.ietf.org/diff?doc_1=draft-ietf-sframe-enc-01&doc_2=draft-ietf-sframe-enc-03) regarding the key derivation and tag computation, make theimplementation incompatible with previous versions
+- [**breaking**] Update key derivation to draft-04
+due to the changes in the key derivation
+encryption/decryption is incompatible with previous versions.
+- [**breaking**] Implement header according to draft 04
+Due to the changes in the draft, the frame count is now serialized differently
+if it is < 8. As a result it is no longer compatible with previous drafts
+See the (diff)[https://author-tools.ietf.org/iddiff?url1=draft-ietf-sframe-enc-03&url2=draft-ietf-sframe-enc-04&difftype=--html] for details. Also `header::Header` was reimplemented as `header::SframeHeader`.
+- Implement Display for SframeHeader
+
+### Performance
+
+- Set participant key in decrypt benchmark
+- Avoid some allocation in extended header parsing
+- Avoid some allocation in basic header parsing
+- Improved nonce creation
+- [**breaking**] Reusable, internal buffer in sender/receiver
+decrypt requires receiver to be mutable.
+
+The user is now responsible of copying data on subsequential encrypt/decrypt calls. E.g.
+```rust
+        let frame = sender
+            .encrypt(&data, 0)?;
+        let frame2 = sender
+            .encrypt(&data2, 0)?;
+// could be replaced with
+        let frame = sender
+            .encrypt(&data, 0)?
+            .to_vec();
+        let frame2 = sender
+            .encrypt(&data2, 0)?;
+```
+
 ## [0.3.0] - 2023-10-28
 
 ### Features
