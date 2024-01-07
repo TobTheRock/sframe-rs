@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2024-01-07
+
+### Features
+
+- [**breaking**] Update key derivation to draft-04
+due to the changes in the key derivation
+encryption/decryption is incompatible with previous versions.
+- [**breaking**] Implement header according to draft 04
+Due to the changes in the draft, the frame count is now serialized differently
+if it is < 8. As a result it is no longer compatible with previous drafts
+See the (diff)[https://author-tools.ietf.org/iddiff?url1=draft-ietf-sframe-enc-03&url2=draft-ietf-sframe-enc-04&difftype=--html] for details. Also `header::Header` was reimplemented as `header::SframeHeader`.
+- Implement Display for SframeHeader
+
 ## [0.3.0] - 2023-10-28
 
 ### Features
