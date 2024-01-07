@@ -66,7 +66,7 @@ impl AeadEncrypt for CipherSuite {
     {
         let mut sealing_key = SealingKey::<FrameNonceSequence>::new(
             self.unbound_encryption_key(secret)?,
-            secret.create_nonce(&frame_count).into(),
+            secret.create_nonce(frame_count).into(),
         );
 
         let aad = ring::aead::Aad::from(aad_buffer);
@@ -96,7 +96,7 @@ impl AeadDecrypt for CipherSuite {
 
         let mut opening_key = ring::aead::OpeningKey::<FrameNonceSequence>::new(
             self.unbound_encryption_key(secret)?,
-            secret.create_nonce(&frame_count).into(),
+            secret.create_nonce(frame_count).into(),
         );
         opening_key
             .open_in_place(aad, io_buffer.as_mut())

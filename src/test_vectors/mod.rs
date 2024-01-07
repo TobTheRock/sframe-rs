@@ -69,12 +69,6 @@ pub struct AesCtrHmacTest {
     pub base_key: Vec<u8>,
 
     #[serde(deserialize_with = "vec_from_hex_str")]
-    pub aead_label: Vec<u8>,
-
-    #[serde(deserialize_with = "vec_from_hex_str")]
-    pub aead_secret: Vec<u8>,
-
-    #[serde(deserialize_with = "vec_from_hex_str")]
     pub enc_key: Vec<u8>,
 
     #[serde(deserialize_with = "vec_from_hex_str")]

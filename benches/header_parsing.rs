@@ -3,45 +3,45 @@
 
 use criterion::{black_box, criterion_group, Criterion};
 
-use sframe::header::{Deserialization, FrameCount, Header, KeyId, Serialization};
+use rand::{thread_rng, Rng};
+use sframe::header::SframeHeader;
+
+fn create_random_values(size: usize) -> Vec<u64> {
+    let mut values = vec![0; size];
+    thread_rng().fill(values.as_mut_slice());
+    values
+}
+
+fn create_random_headers(size: usize) -> impl Iterator<Item = SframeHeader> {
+    let random_key_ids = create_random_values(size);
+    let random_frame_counts = create_random_values(size);
+
+    random_key_ids
+        .into_iter()
+        .zip(random_frame_counts)
+        .map(|(key_id, frame_count)| SframeHeader::new(key_id, frame_count))
+}
 
 fn header_serialization(c: &mut Criterion) {
-    c.bench_function("serialize basic header", |b| {
-        let mut buffer = vec![0_u8; 4];
-        let basic_header = Header::new(7_u8);
-        b.iter(|| black_box(basic_header.serialize(&mut buffer)))
-    });
-
-    c.bench_function("serialize extended header", |b| {
-        let mut buffer = vec![0_u8; 4];
-        let extended_header = Header::new(128_u64);
-        b.iter(|| black_box(extended_header.serialize(&mut buffer)))
-    });
-
-    c.bench_function("deserialize 1000 basic headers", |b| {
-        let serialized_headers = (0..1000_u64)
-            .map(|i| {
-                let k: u8 = (i % 8) as u8;
-                let header = Header::with_frame_count(KeyId::Basic(k), FrameCount::from(1000 - i));
-                let mut buffer = vec![0_u8; 4];
-                header.serialize(&mut buffer).unwrap();
-                buffer
+    c.bench_function("serialize 1000 random headers", |b| {
+        let headers = create_random_headers(1000);
+        let mut headers_buffers = headers
+            .map(|header| {
+                let buffer = vec![0_u8; header.len()];
+                (header, buffer)
             })
             .collect::<Vec<_>>();
-
         b.iter(move || {
-            serialized_headers.iter().for_each(|header| {
-                let h = Header::deserialize(header).unwrap();
-                black_box(h);
-            })
+            headers_buffers
+                .iter_mut()
+                .for_each(|(header, ref mut buffer)| header.serialize(buffer).unwrap())
         })
     });
 
-    c.bench_function("deserialize 1000 extended headers", |b| {
-        let serialized_headers = (0..1000_u64)
-            .map(|k| {
-                let header = Header::with_frame_count(k, FrameCount::from(1000 - k));
-                let mut buffer = vec![0_u8; 7];
+    c.bench_function("deserialize 1000 random headers", |b| {
+        let serialized_headers = create_random_headers(1000)
+            .map(|header| {
+                let mut buffer = vec![0_u8; header.len()];
                 header.serialize(&mut buffer).unwrap();
                 buffer
             })
@@ -49,7 +49,7 @@ fn header_serialization(c: &mut Criterion) {
 
         b.iter(move || {
             serialized_headers.iter().for_each(|header| {
-                let h = Header::deserialize(header).unwrap();
+                let h = SframeHeader::deserialize(header).unwrap();
                 black_box(h);
             })
         })

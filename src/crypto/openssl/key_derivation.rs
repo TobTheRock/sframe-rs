@@ -4,10 +4,7 @@
 use crate::{
     crypto::{
         cipher_suite::{CipherSuite, CipherSuiteVariant},
-        key_derivation::{
-            get_hkdf_aead_label, get_hkdf_key_expand_info, get_hkdf_salt_expand_info,
-            KeyDerivation, SFRAME_HDKF_SUB_AUTH_EXPAND_INFO, SFRAME_HKDF_SUB_ENC_EXPAND_INFO,
-        },
+        key_derivation::{get_hkdf_key_expand_info, get_hkdf_salt_expand_info, KeyDerivation},
         secret::Secret,
     },
     error::{Result, SframeError},
@@ -23,7 +20,7 @@ impl KeyDerivation for Secret {
             let (base_key, salt) =
                 expand_secret(cipher_suite, key_material.as_ref(), key_id.into())?;
             let (key, auth) = if cipher_suite.is_ctr_mode() {
-                let (key, auth) = expand_subsecret(cipher_suite, &base_key)?;
+                let (key, auth) = expand_subsecret(cipher_suite, &base_key);
                 (key, Some(auth))
             } else {
                 (base_key, None)
@@ -41,44 +38,30 @@ fn expand_secret(
     key_material: &[u8],
     key_id: u64,
 ) -> std::result::Result<(Vec<u8>, Vec<u8>), openssl::error::ErrorStack> {
-    // No salt used for the extraction: https://www.ietf.org/archive/id/draft-ietf-sframe-enc-03.html#name-key-derivation
+    // No salt used for the extraction: https://www.ietf.org/archive/id/draft-ietf-sframe-enc-04.html#name-key-derivation
     let prk = extract_pseudo_random_key(cipher_suite, key_material, b"")?;
     let key = expand_key(
         cipher_suite,
         &prk,
-        &get_hkdf_key_expand_info(key_id),
+        &get_hkdf_key_expand_info(key_id, cipher_suite.id),
         cipher_suite.key_len,
     )?;
     let salt = expand_key(
         cipher_suite,
         &prk,
-        &get_hkdf_salt_expand_info(key_id),
+        &get_hkdf_salt_expand_info(key_id, cipher_suite.id),
         cipher_suite.nonce_len,
     )?;
 
     Ok((key, salt))
 }
 
-fn expand_subsecret(
-    cipher_suite: &CipherSuite,
-    key: &[u8],
-) -> std::result::Result<(Vec<u8>, Vec<u8>), openssl::error::ErrorStack> {
-    let salt = get_hkdf_aead_label(cipher_suite.auth_tag_len);
-    let prk = extract_pseudo_random_key(cipher_suite, key, &salt)?;
-    let key = expand_key(
-        cipher_suite,
-        &prk,
-        SFRAME_HKDF_SUB_ENC_EXPAND_INFO,
-        cipher_suite.key_len,
-    )?;
-    let auth = expand_key(
-        cipher_suite,
-        &prk,
-        SFRAME_HDKF_SUB_AUTH_EXPAND_INFO,
-        cipher_suite.hash_len,
-    )?;
+fn expand_subsecret(cipher_suite: &CipherSuite, key: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    let aes_keysize = key.len() - cipher_suite.hash_len;
+    let enc_key = key[..aes_keysize].to_vec();
+    let auth_key = key[aes_keysize..].to_vec();
 
-    Ok((key, auth))
+    (enc_key, auth_key)
 }
 
 fn extract_pseudo_random_key(
@@ -154,13 +137,7 @@ mod test {
         let test_vec = get_aes_ctr_test_vector(&variant.to_string());
         let cipher_suite = CipherSuite::from(variant);
 
-        let aead_salt = get_hkdf_aead_label(cipher_suite.auth_tag_len);
-        assert_bytes_eq(&aead_salt, &test_vec.aead_label);
-
-        let prk = extract_pseudo_random_key(&cipher_suite, &test_vec.base_key, &aead_salt).unwrap();
-        assert_bytes_eq(&prk, &test_vec.aead_secret);
-
-        let (key, auth) = expand_subsecret(&cipher_suite, &test_vec.base_key).unwrap();
+        let (key, auth) = expand_subsecret(&cipher_suite, &test_vec.base_key);
         assert_bytes_eq(&key, &test_vec.enc_key);
         assert_bytes_eq(&auth, &test_vec.auth_key);
     }
