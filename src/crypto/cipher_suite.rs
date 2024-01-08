@@ -1,6 +1,3 @@
-// Copyright (c) 2023 GoTo Group, Inc
-// SPDX-License-Identifier: Apache-2.0 AND MIT
-
 /// Depicts which AEAD algorithm is used for encryption
 /// and which hashing function is used for the key expansion,
 /// see [sframe draft 04 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04#name-cipher-suites)
