@@ -1,6 +1,3 @@
-// Copyright (c) 2023 GoTo Group, Inc
-// SPDX-License-Identifier: Apache-2.0 AND MIT
-
 mod config_byte;
 mod header_field;
 mod util;

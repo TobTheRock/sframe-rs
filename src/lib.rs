@@ -1,5 +1,3 @@
-// Copyright (c) 2023 GoTo Group, Inc
-// SPDX-License-Identifier: Apache-2.0 AND MIT
 //! # Secure Frame (`SFrame`)
 //! This library is an implementation of [draft-ietf-sframe-enc-latest](https://sframe-wg.github.io/sframe/draft-ietf-sframe-enc.html).
 //!

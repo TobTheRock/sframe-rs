@@ -1,5 +1,3 @@
-// Copyright (c) 2023 GoTo Group, Inc
-// SPDX-License-Identifier: Apache-2.0 AND MIT
 #![allow(clippy::missing_panics_doc)]
 
 extern crate serde;
