@@ -8,51 +8,41 @@ use crate::{
         secret::Secret,
     },
     error::{Result, SframeError},
-    frame_validation::{FrameValidation, ReplayAttackProtection},
+    frame_validation::{FrameValidationBox, ReplayAttackProtection},
     header::{KeyId, SframeHeader},
 };
 
 pub struct ReceiverOptions {
-    cipher_suite: CipherSuite,
-    frame_validation: Box<dyn FrameValidation>,
+    cipher_suite_variant: CipherSuiteVariant,
+    frame_validation: Option<FrameValidationBox>,
 }
 
 impl Default for ReceiverOptions {
     fn default() -> Self {
         Self {
-            cipher_suite: CipherSuiteVariant::AesGcm256Sha512.into(),
-            frame_validation: Box::new(ReplayAttackProtection::with_tolerance(128)),
+            cipher_suite_variant: CipherSuiteVariant::AesGcm256Sha512,
+            frame_validation: Some(Box::new(ReplayAttackProtection::with_tolerance(128))),
         }
     }
 }
 
-#[derive(Default)]
 pub struct Receiver {
     secrets: HashMap<KeyId, Secret>,
-    options: ReceiverOptions,
+    cipher_suite: CipherSuite,
+    frame_validation: Option<FrameValidationBox>,
     buffer: Vec<u8>,
 }
 
 impl Receiver {
     pub fn with_cipher_suite(variant: CipherSuiteVariant) -> Receiver {
-        let cipher_suite: CipherSuite = variant.into();
-        let replay_attack_tolerance = 128;
-        log::debug!("Setting up sframe Receiver");
-        log::trace!(
-            "using ciphersuite {:?}, replay_attack_tolerance: {}",
-            cipher_suite.variant,
-            replay_attack_tolerance
-        );
-        Self {
-            secrets: HashMap::default(),
-            options: ReceiverOptions {
-                cipher_suite,
-                frame_validation: Box::new(ReplayAttackProtection::with_tolerance(
-                    replay_attack_tolerance,
-                )),
-            },
-            buffer: Default::default(),
-        }
+        log::debug!("Setting up sframe Receiver using ciphersuite {:?}", variant,);
+
+        let options = ReceiverOptions {
+            cipher_suite_variant: variant,
+            ..Default::default()
+        };
+
+        options.into()
     }
 
     pub fn decrypt<EncryptedFrame>(
@@ -66,29 +56,32 @@ impl Receiver {
         let encrypted_frame = encrypted_frame.as_ref();
         let header = SframeHeader::deserialize(&encrypted_frame[skip..])?;
 
-        self.options.frame_validation.validate(&header)?;
+        log::trace!(
+            "Receiver: Frame counter: {:?}, Key id: {:?}",
+            header.frame_count(),
+            header.key_id()
+        );
+
+        if let Some(validator) = &self.frame_validation {
+            log::trace!("Receiver: Validating frame");
+            validator.validate(&header)?;
+        }
+
         let key_id = header.key_id();
-
         if let Some(secret) = self.secrets.get(&key_id) {
-            log::trace!(
-                "Receiver: Frame counter: {:?}, Key id: {:?}",
-                header.frame_count(),
-                header.key_id()
-            );
-
             let payload_begin = skip + header.len();
             self.buffer.clear();
             self.buffer.extend(&encrypted_frame[..skip]);
             self.buffer.extend(&encrypted_frame[payload_begin..]);
 
-            self.options.cipher_suite.decrypt(
+            self.cipher_suite.decrypt(
                 &mut self.buffer[skip..],
                 secret,
                 &encrypted_frame[skip..payload_begin],
                 header.frame_count(),
             )?;
 
-            let payload_end = self.buffer.len() - self.options.cipher_suite.auth_tag_len;
+            let payload_end = self.buffer.len() - self.cipher_suite.auth_tag_len;
             Ok(&self.buffer[..payload_end])
         } else {
             Err(SframeError::MissingDecryptionKey(key_id))
@@ -107,7 +100,7 @@ impl Receiver {
         let key_id = key_id.into();
         self.secrets.insert(
             key_id,
-            Secret::expand_from(&self.options.cipher_suite, key_material, key_id)?,
+            Secret::expand_from(&self.cipher_suite, key_material, key_id)?,
         );
         Ok(())
     }
@@ -117,6 +110,24 @@ impl Receiver {
         Id: Into<KeyId>,
     {
         self.secrets.remove(&key_id.into()).is_some()
+    }
+}
+
+impl From<ReceiverOptions> for Receiver {
+    fn from(options: ReceiverOptions) -> Self {
+        Self {
+            cipher_suite: options.cipher_suite_variant.into(),
+            frame_validation: options.frame_validation,
+            secrets: Default::default(),
+            buffer: Default::default(),
+        }
+    }
+}
+
+impl Default for Receiver {
+    fn default() -> Self {
+        let options = ReceiverOptions::default();
+        options.into()
     }
 }
 
