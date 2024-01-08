@@ -11,7 +11,7 @@ authors = [
 ]
 
 description = "pure rust implementation of SFrame draft-ietf-sframe-enc-04"
-repository = "https://github.com/goto-opensource/sframe-rs"
+repository = "https://github.com/TobTheRock/sframe-rs"
 documentation = "https://docs.rs/sframe/"
 readme = "README.md"
 

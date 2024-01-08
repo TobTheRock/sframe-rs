@@ -1,6 +1,3 @@
-// Copyright (c) 2023 GoTo Group, Inc
-// SPDX-License-Identifier: Apache-2.0 AND MIT
-
 use crate::header::KeyId;
 
 /// Represents either success(T) or an failure ([`SframeError`])

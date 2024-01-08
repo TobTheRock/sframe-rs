@@ -1,6 +1,3 @@
-// Copyright (c) 2023 GoTo Group, Inc
-// SPDX-License-Identifier: Apache-2.0 AND MIT
-
 use super::util::{min_len_in_bytes, U64_LEN};
 
 #[derive(Copy, Clone, Debug)]
