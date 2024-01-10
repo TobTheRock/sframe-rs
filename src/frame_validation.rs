@@ -10,6 +10,8 @@ pub trait FrameValidation {
     fn validate(&self, header: &SframeHeader) -> Result<()>;
 }
 
+pub type FrameValidationBox = Box<dyn FrameValidation>;
+
 /// This implementation allows to detect replay attacks by omitting frames with
 /// to old frame counters. The window of allowed frame counts is given with a
 /// certain tolerance.
