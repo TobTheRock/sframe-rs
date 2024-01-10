@@ -7,8 +7,25 @@ use crate::{
     },
     error::{Result, SframeError},
     frame_count_generator::FrameCountGenerator,
-    header::{KeyId, SframeHeader},
+    header::{FrameCount, KeyId, SframeHeader},
 };
+
+#[derive(Clone, Copy, Debug)]
+pub struct SenderOptions {
+    pub key_id: KeyId,
+    pub cipher_suite_variant: CipherSuiteVariant,
+    pub max_frame_count: FrameCount,
+}
+
+impl Default for SenderOptions {
+    fn default() -> Self {
+        Self {
+            key_id: 0,
+            cipher_suite_variant: CipherSuiteVariant::AesGcm256Sha512,
+            max_frame_count: u64::MAX,
+        }
+    }
+}
 
 pub struct Sender {
     frame_count: FrameCountGenerator,
@@ -106,6 +123,30 @@ impl Sender {
             self.key_id,
         )?);
         Ok(())
+    }
+}
+
+impl From<SenderOptions> for Sender {
+    fn from(options: SenderOptions) -> Self {
+        log::debug!(
+            "Creating sframe Sender with keyID {}, ciphersuite {:?}",
+            options.key_id,
+            options.cipher_suite_variant
+        );
+        Self {
+            key_id: options.key_id,
+            cipher_suite: options.cipher_suite_variant.into(),
+            secret: None,
+            frame_count: FrameCountGenerator::new(options.max_frame_count),
+            buffer: Default::default(),
+        }
+    }
+}
+
+impl Default for Sender {
+    fn default() -> Self {
+        let options = SenderOptions::default();
+        options.into()
     }
 }
 

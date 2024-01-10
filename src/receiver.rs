@@ -13,8 +13,8 @@ use crate::{
 };
 
 pub struct ReceiverOptions {
-    cipher_suite_variant: CipherSuiteVariant,
-    frame_validation: Option<FrameValidationBox>,
+    pub cipher_suite_variant: CipherSuiteVariant,
+    pub frame_validation: Option<FrameValidationBox>,
 }
 
 impl Default for ReceiverOptions {

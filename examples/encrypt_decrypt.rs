@@ -4,14 +4,20 @@ use std::{
 };
 
 use clap::{Parser, ValueEnum};
-use sframe::{header::SframeHeader, receiver::Receiver, sender::Sender, CipherSuiteVariant};
+use sframe::{
+    header::SframeHeader,
+    receiver::{Receiver, ReceiverOptions},
+    sender::{Sender, SenderOptions},
+    CipherSuiteVariant,
+};
 
 fn main() {
     let Args {
         cipher_suite,
         key_id,
-        secret,
         log_level,
+        max_frame_count,
+        secret,
     } = Args::parse();
 
     println!(
@@ -24,10 +30,20 @@ fn main() {
         simple_logger::init_with_level(log_level).unwrap();
     }
 
-    let mut sender = Sender::with_cipher_suite(key_id, cipher_suite.into());
+    let sender_options = SenderOptions {
+        key_id,
+        cipher_suite_variant: cipher_suite.into(),
+        max_frame_count,
+    };
+
+    let mut sender = Sender::from(sender_options);
     sender.set_encryption_key(&secret).unwrap();
 
-    let mut receiver = Receiver::with_cipher_suite(cipher_suite.into());
+    let receiver_options = ReceiverOptions {
+        cipher_suite_variant: cipher_suite.into(),
+        frame_validation: None,
+    };
+    let mut receiver = Receiver::from(receiver_options);
     receiver
         .set_encryption_key(key_id, secret.as_bytes())
         .unwrap();
@@ -83,10 +99,12 @@ struct Args {
     cipher_suite: ArgCipherSuiteVariant,
     #[arg(short, long, default_value_t = 3)]
     key_id: u64,
-    #[arg(short, long, default_value = "SUPER_SECRET")]
-    secret: String,
     #[arg(short, long)]
     log_level: Option<log::Level>,
+    #[arg(short, long, default_value_t = u64::MAX)]
+    max_frame_count: u64,
+    #[arg(short, long, default_value = "SUPER_SECRET")]
+    secret: String,
 }
 
 // We need to redeclare here, as we need to derive ValueEnum to use it with clap...
