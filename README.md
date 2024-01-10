@@ -1,6 +1,6 @@
 # Secure Frame (SFrame)
 
-[![build](https://img.shields.io/github/actions/workflow/status/goto-opensource/secure-frame-rs/ci_cd.yml?branch=main)](https://github.com/goto-opensource/secure-frame-rs/actions?query=workflow%3A"Continuous+Integration")
+[![build](https://img.shields.io/github/actions/workflow/status/TobTheRock/sframe-rs/ci_cd.yml?branch=main)](https://github.com/TobTheRock/sframe-rs/actions?query=workflow%3A"Continuous+Integration")
 [![version](https://img.shields.io/crates/v/sframe)](https://crates.io/crates/sframe/)
 [![Crates.io](https://img.shields.io/crates/d/sframe)](https://crates.io/crates/sframe)
 [![license](https://img.shields.io/crates/l/sframe.svg?style=flat)](https://crates.io/crates/sframe/)
