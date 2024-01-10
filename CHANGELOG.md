@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2024-01-10
+
+### Bug Fixes
+
+- Frame counter never reached u64:max
+
+### Features
+
+- Create Receiver with optional frame_validation
+- Configure max frame count for Sender
+
 ## [0.4.0] - 2024-01-07
 
 ### Features
