@@ -41,6 +41,7 @@ mod util;
 pub mod error;
 pub mod frame_validation;
 pub mod header;
+pub mod key_id;
 pub mod receiver;
 pub mod sender;
 
