@@ -163,7 +163,7 @@ mod test {
         assert_eq!(0, key_id.ratchet_step());
 
         let expected_on_wire: u64 = 0x0000_FF00;
-        assert_eq!(expected_on_wire, key_id.as_u64())
+        assert_eq!(expected_on_wire, key_id.as_u64());
     }
 
     #[test]
@@ -173,7 +173,7 @@ mod test {
 
         assert_eq!(expected_generation, key_id.generation());
         assert_eq!(0, key_id.ratchet_step());
-        assert_eq!(expected_generation, key_id.as_u64())
+        assert_eq!(expected_generation, key_id.as_u64());
     }
 
     #[test]
@@ -225,11 +225,11 @@ mod test {
         let mut key_id = RatchetingKeyId::new(generation, 8);
         let value = "test_value";
 
-        map.insert(key_id.clone(), value);
+        map.insert(key_id, value);
 
         key_id.inc_ratchet_step();
 
         // should still be the same generation
-        assert!(map.contains_key(&key_id))
+        assert!(map.contains_key(&key_id));
     }
 }

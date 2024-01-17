@@ -5,13 +5,14 @@ use crate::{
         secret::Secret,
     },
     error::{Result, SframeError},
+    key_id::KeyId,
 };
 
 impl KeyDerivation for Secret {
     fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
-        K: Into<u64>,
+        K: Into<KeyId>,
     {
         let key_id = key_id.into();
         let algorithm = cipher_suite.variant.into();
@@ -21,12 +22,12 @@ impl KeyDerivation for Secret {
 
         let key = expand_key(
             &pseudo_random_key,
-            &get_hkdf_key_expand_info(key_id, cipher_suite.id),
+            &get_hkdf_key_expand_info(key_id.as_u64(), cipher_suite.id),
             cipher_suite.key_len,
         )?;
         let salt = expand_key(
             &pseudo_random_key,
-            &get_hkdf_salt_expand_info(key_id, cipher_suite.id),
+            &get_hkdf_salt_expand_info(key_id.as_u64(), cipher_suite.id),
             cipher_suite.nonce_len,
         )?;
 
@@ -34,6 +35,8 @@ impl KeyDerivation for Secret {
             key,
             salt,
             auth: None,
+            key_id,
+            cipher_suite: *cipher_suite,
         })
     }
 }

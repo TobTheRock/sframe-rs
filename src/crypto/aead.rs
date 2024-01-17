@@ -42,6 +42,7 @@ mod test {
     use crate::test_vectors::{get_sframe_test_vector, SframeTest};
     use crate::util::test::assert_bytes_eq;
 
+    
     use test_case::test_case;
 
     use rand::{thread_rng, Rng};
@@ -133,6 +134,8 @@ mod test {
                 key: test_vec.sframe_key.clone(),
                 salt: test_vec.sframe_salt.clone(),
                 auth: None,
+                cipher_suite: *cipher_suite,
+                key_id: test_vec.key_id.into(),
             }
         }
     }

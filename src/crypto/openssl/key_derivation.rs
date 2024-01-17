@@ -5,17 +5,19 @@ use crate::{
         secret::Secret,
     },
     error::{Result, SframeError},
+    key_id::KeyId,
 };
 
 impl KeyDerivation for Secret {
     fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
-        K: Into<u64>,
+        K: Into<KeyId>,
     {
+        let key_id = key_id.into();
         let try_expand = || {
             let (base_key, salt) =
-                expand_secret(cipher_suite, key_material.as_ref(), key_id.into())?;
+                expand_secret(cipher_suite, key_material.as_ref(), key_id.as_u64())?;
             let (key, auth) = if cipher_suite.is_ctr_mode() {
                 let (key, auth) = expand_subsecret(cipher_suite, &base_key);
                 (key, Some(auth))
@@ -23,7 +25,13 @@ impl KeyDerivation for Secret {
                 (base_key, None)
             };
 
-            Ok(Secret { key, salt, auth })
+            Ok(Secret {
+                key,
+                salt,
+                auth,
+                key_id,
+                cipher_suite: *cipher_suite,
+            })
         };
 
         try_expand().map_err(|_: openssl::error::ErrorStack| SframeError::KeyDerivation)

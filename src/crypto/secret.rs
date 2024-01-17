@@ -1,9 +1,13 @@
-use crate::header::FrameCount;
+use crate::{header::FrameCount, key_id::KeyId};
+
+use super::cipher_suite::CipherSuite;
 
 pub struct Secret {
     pub key: Vec<u8>,
     pub salt: Vec<u8>,
     pub auth: Option<Vec<u8>>,
+    pub cipher_suite: CipherSuite,
+    pub key_id: KeyId,
 }
 
 impl Secret {
@@ -44,6 +48,8 @@ mod test {
             key: test_vec.sframe_key.clone(),
             salt: test_vec.sframe_salt.clone(),
             auth: None,
+            cipher_suite: variant.into(),
+            key_id: test_vec.key_id.into(),
         };
 
         let nonce: [u8; NONCE_LEN] = secret.create_nonce(test_vec.frame_count);

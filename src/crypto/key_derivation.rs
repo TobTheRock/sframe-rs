@@ -1,11 +1,11 @@
 use super::{cipher_suite::CipherSuite, secret::Secret};
-use crate::error::Result;
+use crate::{error::Result, key_id::KeyId};
 
 pub trait KeyDerivation {
     fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
-        K: Into<u64>;
+        K: Into<KeyId>;
 }
 
 pub fn get_hkdf_key_expand_info(key_id: u64, cipher_suite_id: u16) -> Vec<u8> {
