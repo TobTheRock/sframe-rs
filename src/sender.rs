@@ -98,9 +98,8 @@ impl Sender {
             let (leading_buffer, encrypt_buffer) = frame.split_at_mut(skip + header.len());
 
             log::trace!("Encrypting Frame of size {}", unencrypted_payload.len(),);
-            let tag = self.cipher_suite.encrypt(
+            let tag = secret.encrypt(
                 encrypt_buffer,
-                secret,
                 &leading_buffer[skip..],
                 header.frame_count(),
             )?;

@@ -74,9 +74,8 @@ impl Receiver {
             self.buffer.extend(&encrypted_frame[..skip]);
             self.buffer.extend(&encrypted_frame[payload_begin..]);
 
-            self.cipher_suite.decrypt(
+            secret.decrypt(
                 &mut self.buffer[skip..],
-                secret,
                 &encrypted_frame[skip..payload_begin],
                 header.frame_count(),
             )?;

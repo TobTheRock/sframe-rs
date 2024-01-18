@@ -18,7 +18,6 @@ impl KeyId {
     where
         K: Into<u64>,
     {
-        // TODO if n_ratchet_bits = 0
         RatchetingKeyId::new(generation, n_ratchet_bits).into()
     }
 

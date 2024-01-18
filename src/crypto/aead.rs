@@ -1,4 +1,3 @@
-use super::secret::Secret;
 use crate::{error::Result, header::FrameCount};
 
 pub trait AeadEncrypt {
@@ -6,7 +5,6 @@ pub trait AeadEncrypt {
     fn encrypt<IoBuffer, Aad>(
         &self,
         io_buffer: &mut IoBuffer,
-        secret: &Secret,
         aad_buffer: &Aad,
         frame_count: FrameCount,
     ) -> Result<Self::AuthTag>
@@ -19,7 +17,6 @@ pub trait AeadDecrypt {
     fn decrypt<'a, IoBuffer, Aad>(
         &self,
         io_buffer: &'a mut IoBuffer,
-        secret: &Secret,
         aad_buffer: &Aad,
         frame_count: FrameCount,
     ) -> Result<&'a mut [u8]>
@@ -42,7 +39,6 @@ mod test {
     use crate::test_vectors::{get_sframe_test_vector, SframeTest};
     use crate::util::test::assert_bytes_eq;
 
-    
     use test_case::test_case;
 
     use rand::{thread_rng, Rng};
@@ -58,13 +54,8 @@ mod test {
         let secret =
             Secret::expand_from(&cipher_suite, KEY_MATERIAL.as_bytes(), KeyId::default()).unwrap();
 
-        let _tag = cipher_suite
-            .encrypt(
-                &mut data,
-                &secret,
-                &Vec::from(&header),
-                header.frame_count(),
-            )
+        let _tag = secret
+            .encrypt(&mut data, &Vec::from(&header), header.frame_count())
             .unwrap();
     }
 
@@ -86,8 +77,8 @@ mod test {
 
         let aad_buffer = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
 
-        let tag = cipher_suite
-            .encrypt(&mut data_buffer, &secret, &aad_buffer, header.frame_count())
+        let tag = secret
+            .encrypt(&mut data_buffer, &aad_buffer, header.frame_count())
             .unwrap();
 
         let full_frame: Vec<u8> = header_buffer
@@ -118,8 +109,8 @@ mod test {
 
         let mut data = Vec::from(&test_vec.cipher_text[header.len()..]);
 
-        let decrypted = cipher_suite
-            .decrypt(&mut data, &secret, &aad_buffer, header.frame_count())
+        let decrypted = secret
+            .decrypt(&mut data, &aad_buffer, header.frame_count())
             .unwrap();
 
         assert_bytes_eq(decrypted, &test_vec.plain_text);

@@ -7,10 +7,7 @@ use crate::{
 use ring::aead::{BoundKey, SealingKey, Tag};
 
 use crate::{
-    crypto::{
-        cipher_suite::{CipherSuite, CipherSuiteVariant},
-        secret::Secret,
-    },
+    crypto::{cipher_suite::CipherSuiteVariant, secret::Secret},
     error::SframeError,
 };
 
@@ -41,19 +38,19 @@ impl From<CipherSuiteVariant> for &'static ring::aead::Algorithm {
     }
 }
 
-impl CipherSuite {
-    fn unbound_encryption_key(&self, secret: &Secret) -> Result<ring::aead::UnboundKey> {
-        ring::aead::UnboundKey::new(self.variant.into(), secret.key.as_slice())
+impl Secret {
+    fn unbound_encryption_key(&self) -> Result<ring::aead::UnboundKey> {
+        let algorithm = self.cipher_suite.variant.into();
+        ring::aead::UnboundKey::new(algorithm, self.key.as_slice())
             .map_err(|_| SframeError::KeyDerivation)
     }
 }
 
-impl AeadEncrypt for CipherSuite {
+impl AeadEncrypt for Secret {
     type AuthTag = Tag;
     fn encrypt<IoBuffer, Aad>(
         &self,
         io_buffer: &mut IoBuffer,
-        secret: &Secret,
         aad_buffer: &Aad,
         frame_count: FrameCount,
     ) -> Result<Tag>
@@ -62,8 +59,8 @@ impl AeadEncrypt for CipherSuite {
         Aad: AsRef<[u8]> + ?Sized,
     {
         let mut sealing_key = SealingKey::<FrameNonceSequence>::new(
-            self.unbound_encryption_key(secret)?,
-            secret.create_nonce(frame_count).into(),
+            self.unbound_encryption_key()?,
+            self.create_nonce(frame_count).into(),
         );
 
         let aad = ring::aead::Aad::from(aad_buffer);
@@ -77,11 +74,10 @@ impl AeadEncrypt for CipherSuite {
     }
 }
 
-impl AeadDecrypt for CipherSuite {
+impl AeadDecrypt for Secret {
     fn decrypt<'a, IoBuffer, Aad>(
         &self,
         io_buffer: &'a mut IoBuffer,
-        secret: &Secret,
         aad_buffer: &Aad,
         frame_count: FrameCount,
     ) -> Result<&'a mut [u8]>
@@ -92,8 +88,8 @@ impl AeadDecrypt for CipherSuite {
         let aad = ring::aead::Aad::from(&aad_buffer);
 
         let mut opening_key = ring::aead::OpeningKey::<FrameNonceSequence>::new(
-            self.unbound_encryption_key(secret)?,
-            secret.create_nonce(frame_count).into(),
+            self.unbound_encryption_key()?,
+            self.create_nonce(frame_count).into(),
         );
         opening_key
             .open_in_place(aad, io_buffer.as_mut())
