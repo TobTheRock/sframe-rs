@@ -5,7 +5,7 @@ name = "sframe"
 version = "0.4.1"
 
 authors = [
-  "Tobias Waurick <tobias.waurick@goto.com>",
+  "Tobias Waurick <tobtherock@proton.me>",
   "Hendrik Sollich <hendrik.sollich@goto.com>",
   "Richard Haehne <richard.haehne@goto.com>",
 ]
