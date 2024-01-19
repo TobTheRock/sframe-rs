@@ -17,12 +17,12 @@ fn main() {
         key_id,
         log_level,
         max_frame_count,
-        secret,
+        sframe_key,
     } = Args::parse();
 
     println!(
-        "- Using cipher suite {:?}, key id {}, secret {}",
-        cipher_suite, key_id, secret
+        "- Using cipher suite {:?}, key id {}, sframe_key {}",
+        cipher_suite, key_id, sframe_key
     );
 
     if let Some(log_level) = log_level {
@@ -37,7 +37,7 @@ fn main() {
     };
 
     let mut sender = Sender::from(sender_options);
-    sender.set_encryption_key(&secret).unwrap();
+    sender.set_encryption_key(&sframe_key).unwrap();
 
     let receiver_options = ReceiverOptions {
         cipher_suite_variant: cipher_suite.into(),
@@ -45,7 +45,7 @@ fn main() {
     };
     let mut receiver = Receiver::from(receiver_options);
     receiver
-        .set_encryption_key(key_id, secret.as_bytes())
+        .set_encryption_key(key_id, sframe_key.as_bytes())
         .unwrap();
 
     let print_before_input = || {
@@ -104,7 +104,7 @@ struct Args {
     #[arg(short, long, default_value_t = u64::MAX)]
     max_frame_count: u64,
     #[arg(short, long, default_value = "SUPER_SECRET")]
-    secret: String,
+    sframe_key: String,
 }
 
 // We need to redeclare here, as we need to derive ValueEnum to use it with clap...

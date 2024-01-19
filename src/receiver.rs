@@ -5,7 +5,7 @@ use crate::{
         aead::AeadDecrypt,
         cipher_suite::{CipherSuite, CipherSuiteVariant},
         key_derivation::KeyDerivation,
-        secret::Secret,
+        sframe_key::SframeKey,
     },
     error::{Result, SframeError},
     frame_validation::{FrameValidationBox, ReplayAttackProtection},
@@ -27,7 +27,7 @@ impl Default for ReceiverOptions {
 }
 
 pub struct Receiver {
-    secrets: HashMap<KeyId, Secret>,
+    keys: HashMap<KeyId, SframeKey>,
     cipher_suite: CipherSuite,
     frame_validation: Option<FrameValidationBox>,
     buffer: Vec<u8>,
@@ -68,13 +68,13 @@ impl Receiver {
         }
 
         let key_id = header.key_id();
-        if let Some(secret) = self.secrets.get(&key_id) {
+        if let Some(sframe_key) = self.keys.get(&key_id) {
             let payload_begin = skip + header.len();
             self.buffer.clear();
             self.buffer.extend(&encrypted_frame[..skip]);
             self.buffer.extend(&encrypted_frame[payload_begin..]);
 
-            secret.decrypt(
+            sframe_key.decrypt(
                 &mut self.buffer[skip..],
                 &encrypted_frame[skip..payload_begin],
                 header.frame_count(),
@@ -97,9 +97,9 @@ impl Receiver {
         KeyMaterial: AsRef<[u8]> + ?Sized,
     {
         let key_id = key_id.into();
-        self.secrets.insert(
+        self.keys.insert(
             key_id,
-            Secret::expand_from(&self.cipher_suite, key_material, key_id)?,
+            SframeKey::expand_from(&self.cipher_suite, key_material, key_id)?,
         );
         Ok(())
     }
@@ -108,7 +108,7 @@ impl Receiver {
     where
         Id: Into<KeyId>,
     {
-        self.secrets.remove(&key_id.into()).is_some()
+        self.keys.remove(&key_id.into()).is_some()
     }
 }
 
@@ -117,7 +117,7 @@ impl From<ReceiverOptions> for Receiver {
         Self {
             cipher_suite: options.cipher_suite_variant.into(),
             frame_validation: options.frame_validation,
-            secrets: Default::default(),
+            keys: Default::default(),
             buffer: Default::default(),
         }
     }
@@ -154,7 +154,7 @@ mod test {
     }
 
     #[test]
-    fn fail_on_missing_secret() {
+    fn fail_on_missing_key() {
         let mut receiver = Receiver::default();
         // do not set the encryption-key
         let decrypted = receiver.decrypt("foobar is unsafe", 0);

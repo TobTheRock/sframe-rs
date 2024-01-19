@@ -2,14 +2,18 @@ use crate::{
     crypto::{
         cipher_suite::{CipherSuite, CipherSuiteVariant},
         key_derivation::{get_hkdf_key_expand_info, get_hkdf_salt_expand_info, KeyDerivation},
-        secret::Secret,
+        sframe_key::SframeKey,
     },
     error::{Result, SframeError},
     key_id::KeyId,
 };
 
-impl KeyDerivation for Secret {
-    fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Secret>
+impl KeyDerivation for SframeKey {
+    fn expand_from<M, K>(
+        cipher_suite: &CipherSuite,
+        key_material: M,
+        key_id: K,
+    ) -> Result<SframeKey>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>,
@@ -25,7 +29,7 @@ impl KeyDerivation for Secret {
                 (base_key, None)
             };
 
-            Ok(Secret {
+            Ok(SframeKey {
                 key,
                 salt,
                 auth,

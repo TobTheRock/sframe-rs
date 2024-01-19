@@ -3,7 +3,7 @@ use crate::{
         aead::AeadEncrypt,
         cipher_suite::{CipherSuite, CipherSuiteVariant},
         key_derivation::KeyDerivation,
-        secret::Secret,
+        sframe_key::SframeKey,
     },
     error::{Result, SframeError},
     frame_count_generator::FrameCountGenerator,
@@ -31,7 +31,7 @@ pub struct Sender {
     frame_count: FrameCountGenerator,
     key_id: KeyId,
     cipher_suite: CipherSuite,
-    secret: Option<Secret>,
+    sframe_key: Option<SframeKey>,
     buffer: Vec<u8>,
 }
 
@@ -59,7 +59,7 @@ impl Sender {
             frame_count: Default::default(),
             key_id,
             cipher_suite,
-            secret: None,
+            sframe_key: None,
             buffer: Default::default(),
         }
     }
@@ -75,7 +75,7 @@ impl Sender {
         let unencrypted_payload = unencrypted_payload.as_ref();
 
         log::trace!("Encrypt frame # {:#?}!", self.frame_count);
-        if let Some(ref secret) = self.secret {
+        if let Some(ref sframe_key) = self.sframe_key {
             log::trace!("Skipping first {} bytes in frame", skip);
 
             let frame_count = self.frame_count.increment();
@@ -98,7 +98,7 @@ impl Sender {
             let (leading_buffer, encrypt_buffer) = frame.split_at_mut(skip + header.len());
 
             log::trace!("Encrypting Frame of size {}", unencrypted_payload.len(),);
-            let tag = secret.encrypt(
+            let tag = sframe_key.encrypt(
                 encrypt_buffer,
                 &leading_buffer[skip..],
                 header.frame_count(),
@@ -116,7 +116,7 @@ impl Sender {
     where
         KeyMaterial: AsRef<[u8]> + ?Sized,
     {
-        self.secret = Some(Secret::expand_from(
+        self.sframe_key = Some(SframeKey::expand_from(
             &self.cipher_suite,
             key_material,
             self.key_id,
@@ -135,7 +135,7 @@ impl From<SenderOptions> for Sender {
         Self {
             key_id: options.key_id,
             cipher_suite: options.cipher_suite_variant.into(),
-            secret: None,
+            sframe_key: None,
             frame_count: FrameCountGenerator::new(options.max_frame_count),
             buffer: Default::default(),
         }
@@ -154,7 +154,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn fail_on_missing_secret() {
+    fn fail_on_missing_key() {
         let mut sender = Sender::new(1_u8);
         // do not set the encryption-key
         let encrypted = sender.encrypt("foobar is unsafe", 0);

@@ -1,8 +1,12 @@
-use super::{cipher_suite::CipherSuite, secret::Secret};
+use super::{cipher_suite::CipherSuite, sframe_key::SframeKey};
 use crate::{error::Result, key_id::KeyId};
 
 pub trait KeyDerivation {
-    fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Secret>
+    fn expand_from<M, K>(
+        cipher_suite: &CipherSuite,
+        key_material: M,
+        key_id: K,
+    ) -> Result<SframeKey>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>;
@@ -37,7 +41,7 @@ const SFRAME_HDKF_SALT_EXPAND_INFO: &[u8] = b"Secret salt ";
 mod test {
     use super::KeyDerivation;
     use crate::crypto::cipher_suite::CipherSuite;
-    use crate::crypto::secret::Secret;
+    use crate::crypto::sframe_key::SframeKey;
     use crate::test_vectors::get_sframe_test_vector;
     use crate::{crypto::cipher_suite::CipherSuiteVariant, util::test::assert_bytes_eq};
 
@@ -70,12 +74,12 @@ mod test {
             let test_vec = get_sframe_test_vector(&variant.to_string());
             let cipher_suite: CipherSuite = CipherSuite::from(variant);
 
-            let secret =
-                Secret::expand_from(&cipher_suite, &test_vec.key_material, test_vec.key_id)
+            let sframe_key =
+                SframeKey::expand_from(&cipher_suite, &test_vec.key_material, test_vec.key_id)
                     .unwrap();
 
-            assert_bytes_eq(&secret.key, &test_vec.sframe_key);
-            assert_bytes_eq(&secret.salt, &test_vec.sframe_salt);
+            assert_bytes_eq(&sframe_key.key, &test_vec.sframe_key);
+            assert_bytes_eq(&sframe_key.salt, &test_vec.sframe_salt);
         }
     }
 
@@ -91,16 +95,16 @@ mod test {
             let test_vec = get_sframe_test_vector(&variant.to_string());
             let cipher_suite = CipherSuite::from(variant);
 
-            let secret =
-                Secret::expand_from(&cipher_suite, &test_vec.key_material, test_vec.key_id)
+            let sframe_key =
+                SframeKey::expand_from(&cipher_suite, &test_vec.key_material, test_vec.key_id)
                     .unwrap();
 
-            assert_bytes_eq(&secret.salt, &test_vec.sframe_salt);
-            // the subkeys stored in secret.key and secret.auth are not directly included in the test vectors, but we can extract them from sframe_key
+            assert_bytes_eq(&sframe_key.salt, &test_vec.sframe_salt);
+            // the subkeys stored in sframe_key.key and sframe_key.auth are not directly included in the test vectors, but we can extract them from sframe_key
             let secret_len = cipher_suite.key_len - cipher_suite.hash_len;
-            assert_bytes_eq(&secret.key, &test_vec.sframe_key[..secret_len]);
+            assert_bytes_eq(&sframe_key.key, &test_vec.sframe_key[..secret_len]);
 
-            let auth_key = secret.auth.unwrap();
+            let auth_key = sframe_key.auth.unwrap();
             assert_eq!(auth_key.len(), cipher_suite.hash_len);
             assert_bytes_eq(&auth_key, &test_vec.sframe_key[secret_len..]);
         }

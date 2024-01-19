@@ -7,7 +7,7 @@ use crate::{
 use ring::aead::{BoundKey, SealingKey, Tag};
 
 use crate::{
-    crypto::{cipher_suite::CipherSuiteVariant, secret::Secret},
+    crypto::{cipher_suite::CipherSuiteVariant, sframe_key::SframeKey},
     error::SframeError,
 };
 
@@ -38,7 +38,7 @@ impl From<CipherSuiteVariant> for &'static ring::aead::Algorithm {
     }
 }
 
-impl Secret {
+impl SframeKey {
     fn unbound_encryption_key(&self) -> Result<ring::aead::UnboundKey> {
         let algorithm = self.cipher_suite.variant.into();
         ring::aead::UnboundKey::new(algorithm, self.key.as_slice())
@@ -46,7 +46,7 @@ impl Secret {
     }
 }
 
-impl AeadEncrypt for Secret {
+impl AeadEncrypt for SframeKey {
     type AuthTag = Tag;
     fn encrypt<IoBuffer, Aad>(
         &self,
@@ -74,7 +74,7 @@ impl AeadEncrypt for Secret {
     }
 }
 
-impl AeadDecrypt for Secret {
+impl AeadDecrypt for SframeKey {
     fn decrypt<'a, IoBuffer, Aad>(
         &self,
         io_buffer: &'a mut IoBuffer,

@@ -5,7 +5,7 @@ use crate::{
 };
 
 use crate::{
-    crypto::{cipher_suite::CipherSuiteVariant, secret::Secret},
+    crypto::{cipher_suite::CipherSuiteVariant, sframe_key::SframeKey},
     error::SframeError,
 };
 
@@ -14,7 +14,7 @@ use super::tag::Tag;
 const AES_GCM_IV_LEN: usize = 12;
 const AES_CTR_IVS_LEN: usize = 16;
 
-impl AeadEncrypt for Secret {
+impl AeadEncrypt for SframeKey {
     type AuthTag = Tag;
     fn encrypt<IoBuffer, Aad>(
         &self,
@@ -44,7 +44,7 @@ impl AeadEncrypt for Secret {
     }
 }
 
-impl AeadDecrypt for Secret {
+impl AeadDecrypt for SframeKey {
     fn decrypt<'a, IoBuffer, Aad>(
         &self,
         io_buffer: &'a mut IoBuffer,
@@ -97,7 +97,7 @@ impl AeadDecrypt for Secret {
     }
 }
 
-impl Secret {
+impl SframeKey {
     fn encrypt_aead(
         &self,
         plain_text: &[u8],
