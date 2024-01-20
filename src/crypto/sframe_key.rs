@@ -1,7 +1,8 @@
-use crate::{header::FrameCount, key_id::KeyId};
+use crate::header::{FrameCount, KeyId};
 
 use super::cipher_suite::CipherSuite;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SframeKey {
     pub key: Vec<u8>,
     pub salt: Vec<u8>,
@@ -49,7 +50,7 @@ mod test {
             salt: test_vec.sframe_salt.clone(),
             auth: None,
             cipher_suite: variant.into(),
-            key_id: test_vec.key_id.into(),
+            key_id: test_vec.key_id,
         };
 
         let nonce: [u8; NONCE_LEN] = sframe_key.create_nonce(test_vec.frame_count);

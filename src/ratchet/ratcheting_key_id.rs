@@ -1,63 +1,6 @@
 use std::hash::Hash;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum KeyId {
-    Standard(u64),
-    Ratcheting(RatchetingKeyId),
-}
-
-impl KeyId {
-    pub fn new<K>(key_id: K) -> Self
-    where
-        K: Into<u64>,
-    {
-        KeyId::Standard(key_id.into())
-    }
-
-    pub fn with_ratcheting<K>(generation: K, n_ratchet_bits: u8) -> Self
-    where
-        K: Into<u64>,
-    {
-        RatchetingKeyId::new(generation, n_ratchet_bits).into()
-    }
-
-    pub fn as_u64(&self) -> u64 {
-        match self {
-            KeyId::Standard(value) => *value,
-            KeyId::Ratcheting(ratcheting) => ratcheting.as_u64(),
-        }
-    }
-}
-
-impl Hash for KeyId {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            KeyId::Standard(value) => value.hash(state),
-            KeyId::Ratcheting(ratcheting) => ratcheting.hash(state),
-        };
-    }
-}
-
-impl<T> From<T> for KeyId
-where
-    T: Into<u64>,
-{
-    fn from(value: T) -> Self {
-        KeyId::new(value)
-    }
-}
-
-impl From<RatchetingKeyId> for KeyId {
-    fn from(ratcheting: RatchetingKeyId) -> Self {
-        KeyId::Ratcheting(ratcheting)
-    }
-}
-
-impl Hash for RatchetingKeyId {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.generation().hash(state);
-    }
-}
+use crate::header::KeyId;
 
 #[derive(Clone, Copy, Debug, Eq)]
 pub struct RatchetingKeyId {
@@ -66,9 +9,9 @@ pub struct RatchetingKeyId {
 }
 
 impl RatchetingKeyId {
-    pub fn new<K>(generation: K, n_ratchet_bits: u8) -> Self
+    pub fn new<G>(generation: G, n_ratchet_bits: u8) -> Self
     where
-        K: Into<u64>,
+        G: Into<u64>,
     {
         const U64_BITS: u8 = u64::BITS as u8;
 
@@ -80,6 +23,7 @@ impl RatchetingKeyId {
             n_ratchet_bits = U64_BITS - 1;
         }
 
+        // this means we start with ratchet step 0
         let value = generation << n_ratchet_bits;
 
         let (max_generation, overflow) = 1u64.overflowing_shl(u64::BITS - n_ratchet_bits as u32);
@@ -89,16 +33,20 @@ impl RatchetingKeyId {
             );
         }
 
-        // this means we start with ratchet step 0
-
         Self {
             value,
             n_ratchet_bits,
         }
     }
 
-    pub fn as_u64(&self) -> u64 {
-        self.value
+    pub fn from_key_id<K>(key_id: K, n_ratchet_bits: u8) -> Self
+    where
+        K: Into<KeyId>,
+    {
+        Self {
+            value: key_id.into(),
+            n_ratchet_bits,
+        }
     }
 
     pub fn generation(&self) -> u64 {
@@ -127,6 +75,29 @@ impl PartialEq for RatchetingKeyId {
         self.generation() == other.generation()
     }
 }
+impl PartialEq<KeyId> for RatchetingKeyId {
+    fn eq(&self, other: &u64) -> bool {
+        self.value == *other
+    }
+}
+
+impl PartialEq<RatchetingKeyId> for KeyId {
+    fn eq(&self, other: &RatchetingKeyId) -> bool {
+        *self == other.value
+    }
+}
+
+impl From<RatchetingKeyId> for KeyId {
+    fn from(ratcheting: RatchetingKeyId) -> Self {
+        ratcheting.value
+    }
+}
+
+impl Hash for RatchetingKeyId {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.generation().hash(state);
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -134,35 +105,19 @@ mod test {
 
     use pretty_assertions::assert_eq;
 
-    use crate::key_id::RatchetingKeyId;
-
-    use super::KeyId;
-
-    #[test]
-    fn returns_correct_standard_key_id() {
-        let expected_key_id = 42;
-        let key_id = KeyId::from(expected_key_id);
-
-        assert_eq!(expected_key_id, key_id.as_u64());
-    }
+    use crate::{header::KeyId, ratchet::ratcheting_key_id::RatchetingKeyId};
 
     #[test]
     fn returns_correct_ratcheting_params() {
         let expected_generation: u64 = 0xFF;
         let n_ratchet_bits = 8;
-        let key_id = KeyId::with_ratcheting(expected_generation, n_ratchet_bits);
-
-        let key_id = if let KeyId::Ratcheting(ratcheting) = key_id {
-            ratcheting
-        } else {
-            panic!("expected KeyId::Ratcheting");
-        };
+        let key_id = RatchetingKeyId::new(expected_generation, n_ratchet_bits);
 
         assert_eq!(expected_generation, key_id.generation());
         assert_eq!(0, key_id.ratchet_step());
 
-        let expected_on_wire: u64 = 0x0000_FF00;
-        assert_eq!(expected_on_wire, key_id.as_u64());
+        let expected_on_wire: KeyId = 0x0000_FF00;
+        assert_eq!(expected_on_wire, KeyId::from(key_id));
     }
 
     #[test]
@@ -172,7 +127,7 @@ mod test {
 
         assert_eq!(expected_generation, key_id.generation());
         assert_eq!(0, key_id.ratchet_step());
-        assert_eq!(expected_generation, key_id.as_u64());
+        assert_eq!(expected_generation, key_id);
     }
 
     #[test]

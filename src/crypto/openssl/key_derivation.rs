@@ -1,11 +1,14 @@
 use crate::{
     crypto::{
         cipher_suite::{CipherSuite, CipherSuiteVariant},
-        key_derivation::{get_hkdf_key_expand_info, get_hkdf_salt_expand_info, KeyDerivation},
+        key_derivation::{
+            get_hkdf_key_expand_info, get_hkdf_ratchet_expand_info, get_hkdf_salt_expand_info,
+            KeyDerivation, Ratcheting,
+        },
         sframe_key::SframeKey,
     },
     error::{Result, SframeError},
-    key_id::KeyId,
+    header::KeyId,
 };
 
 impl KeyDerivation for SframeKey {
@@ -20,8 +23,7 @@ impl KeyDerivation for SframeKey {
     {
         let key_id = key_id.into();
         let try_expand = || {
-            let (base_key, salt) =
-                expand_secret(cipher_suite, key_material.as_ref(), key_id.as_u64())?;
+            let (base_key, salt) = expand_secret(cipher_suite, key_material.as_ref(), key_id)?;
             let (key, auth) = if cipher_suite.is_ctr_mode() {
                 let (key, auth) = expand_subsecret(cipher_suite, &base_key);
                 (key, Some(auth))
@@ -39,6 +41,22 @@ impl KeyDerivation for SframeKey {
         };
 
         try_expand().map_err(|_: openssl::error::ErrorStack| SframeError::KeyDerivation)
+    }
+}
+
+impl Ratcheting for Vec<u8> {
+    fn ratchet(&self, cipher_suite: &CipherSuite) -> Result<Vec<u8>>
+    where
+        Self: AsRef<[u8]>,
+    {
+        let prk = extract_pseudo_random_key(cipher_suite, self, b"")?;
+        expand_key(
+            cipher_suite,
+            &prk,
+            get_hkdf_ratchet_expand_info(),
+            cipher_suite.nonce_len,
+        )
+        .map_err(|_: openssl::error::ErrorStack| SframeError::KeyDerivation)
     }
 }
 

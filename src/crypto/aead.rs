@@ -127,7 +127,7 @@ mod test {
                 salt: test_vec.sframe_salt.clone(),
                 auth: None,
                 cipher_suite: *cipher_suite,
-                key_id: test_vec.key_id.into(),
+                key_id: test_vec.key_id,
             }
         }
     }

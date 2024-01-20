@@ -10,11 +10,13 @@ use crate::{
     error::{Result, SframeError},
     frame_validation::{FrameValidationBox, ReplayAttackProtection},
     header::{KeyId, SframeHeader},
+    ratchet::RatchetingKeyStore,
 };
 
 pub struct ReceiverOptions {
     pub cipher_suite_variant: CipherSuiteVariant,
     pub frame_validation: Option<FrameValidationBox>,
+    pub n_ratchet_bits: Option<u8>,
 }
 
 impl Default for ReceiverOptions {
@@ -22,12 +24,13 @@ impl Default for ReceiverOptions {
         Self {
             cipher_suite_variant: CipherSuiteVariant::AesGcm256Sha512,
             frame_validation: Some(Box::new(ReplayAttackProtection::with_tolerance(128))),
+            n_ratchet_bits: None,
         }
     }
 }
 
 pub struct Receiver {
-    keys: HashMap<KeyId, SframeKey>,
+    keys: KeyStore,
     cipher_suite: CipherSuite,
     frame_validation: Option<FrameValidationBox>,
     buffer: Vec<u8>,
@@ -68,39 +71,51 @@ impl Receiver {
         }
 
         let key_id = header.key_id();
-        if let Some(sframe_key) = self.keys.get(&key_id) {
-            let payload_begin = skip + header.len();
-            self.buffer.clear();
-            self.buffer.extend(&encrypted_frame[..skip]);
-            self.buffer.extend(&encrypted_frame[payload_begin..]);
 
-            sframe_key.decrypt(
-                &mut self.buffer[skip..],
-                &encrypted_frame[skip..payload_begin],
-                header.frame_count(),
-            )?;
+        let sframe_key = match &mut self.keys {
+            KeyStore::Standard(key_store) => key_store
+                .get(&key_id)
+                .ok_or(SframeError::MissingDecryptionKey(key_id)),
+            KeyStore::Ratcheting(key_store) => key_store.ratcheting_get(key_id),
+        }?;
 
-            let payload_end = self.buffer.len() - self.cipher_suite.auth_tag_len;
-            Ok(&self.buffer[..payload_end])
-        } else {
-            Err(SframeError::MissingDecryptionKey(key_id))
-        }
+        let payload_begin = skip + header.len();
+        self.buffer.clear();
+        self.buffer.extend(&encrypted_frame[..skip]);
+        self.buffer.extend(&encrypted_frame[payload_begin..]);
+
+        sframe_key.decrypt(
+            &mut self.buffer[skip..],
+            &encrypted_frame[skip..payload_begin],
+            header.frame_count(),
+        )?;
+
+        let payload_end = self.buffer.len() - self.cipher_suite.auth_tag_len;
+        Ok(&self.buffer[..payload_end])
     }
 
     pub fn set_encryption_key<Id, KeyMaterial>(
         &mut self,
         key_id: Id,
-        key_material: &KeyMaterial,
+        key_material: KeyMaterial,
     ) -> Result<()>
     where
         Id: Into<KeyId>,
-        KeyMaterial: AsRef<[u8]> + ?Sized,
+        KeyMaterial: AsRef<[u8]>,
     {
         let key_id = key_id.into();
-        self.keys.insert(
-            key_id,
-            SframeKey::expand_from(&self.cipher_suite, key_material, key_id)?,
-        );
+        match &mut self.keys {
+            KeyStore::Standard(key_store) => {
+                key_store.insert(
+                    key_id,
+                    SframeKey::expand_from(&self.cipher_suite, key_material, key_id)?,
+                );
+            }
+            KeyStore::Ratcheting(key_store) => {
+                key_store.insert(self.cipher_suite.variant, key_id, key_material)?;
+            }
+        };
+
         Ok(())
     }
 
@@ -108,16 +123,24 @@ impl Receiver {
     where
         Id: Into<KeyId>,
     {
-        self.keys.remove(&key_id.into()).is_some()
+        let key_id = key_id.into();
+        match &mut self.keys {
+            KeyStore::Standard(key_store) => key_store.remove(&key_id).is_some(),
+            KeyStore::Ratcheting(key_store) => key_store.remove(key_id),
+        }
     }
 }
 
 impl From<ReceiverOptions> for Receiver {
     fn from(options: ReceiverOptions) -> Self {
+        let keys = match options.n_ratchet_bits {
+            Some(n_ratchet_bits) => KeyStore::Ratcheting(RatchetingKeyStore::new(n_ratchet_bits)),
+            None => KeyStore::default(),
+        };
         Self {
             cipher_suite: options.cipher_suite_variant.into(),
             frame_validation: options.frame_validation,
-            keys: Default::default(),
+            keys,
             buffer: Default::default(),
         }
     }
@@ -127,6 +150,17 @@ impl Default for Receiver {
     fn default() -> Self {
         let options = ReceiverOptions::default();
         options.into()
+    }
+}
+
+enum KeyStore {
+    Standard(HashMap<KeyId, SframeKey>),
+    Ratcheting(RatchetingKeyStore),
+}
+
+impl Default for KeyStore {
+    fn default() -> Self {
+        KeyStore::Standard(Default::default())
     }
 }
 

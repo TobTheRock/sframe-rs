@@ -112,9 +112,9 @@ impl Sender {
         }
     }
 
-    pub fn set_encryption_key<KeyMaterial>(&mut self, key_material: &KeyMaterial) -> Result<()>
+    pub fn set_encryption_key<KeyMaterial>(&mut self, key_material: KeyMaterial) -> Result<()>
     where
-        KeyMaterial: AsRef<[u8]> + ?Sized,
+        KeyMaterial: AsRef<[u8]>,
     {
         self.sframe_key = Some(SframeKey::expand_from(
             &self.cipher_suite,
@@ -122,6 +122,15 @@ impl Sender {
             self.key_id,
         )?);
         Ok(())
+    }
+
+    pub fn ratchet_encryption_key<K, M>(&mut self, key_id: K, key_material: M) -> Result<()>
+    where
+        K: Into<KeyId>,
+        M: AsRef<[u8]>,
+    {
+        self.key_id = key_id.into();
+        self.set_encryption_key(key_material)
     }
 }
 
