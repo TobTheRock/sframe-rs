@@ -1,17 +1,25 @@
 use crate::{
     crypto::{
         cipher_suite::{CipherSuite, CipherSuiteVariant},
-        key_derivation::{get_hkdf_key_expand_info, get_hkdf_salt_expand_info, KeyDerivation},
-        secret::Secret,
+        key_derivation::{
+            get_hkdf_key_expand_info, get_hkdf_ratchet_expand_info, get_hkdf_salt_expand_info,
+            KeyDerivation, Ratcheting,
+        },
+        sframe_key::SframeKey,
     },
     error::{Result, SframeError},
+    header::KeyId,
 };
 
-impl KeyDerivation for Secret {
-    fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Secret>
+impl KeyDerivation for SframeKey {
+    fn expand_from<M, K>(
+        cipher_suite: &CipherSuite,
+        key_material: M,
+        key_id: K,
+    ) -> Result<SframeKey>
     where
         M: AsRef<[u8]>,
-        K: Into<u64>,
+        K: Into<KeyId>,
     {
         let key_id = key_id.into();
         let algorithm = cipher_suite.variant.into();
@@ -30,11 +38,29 @@ impl KeyDerivation for Secret {
             cipher_suite.nonce_len,
         )?;
 
-        Ok(Secret {
+        Ok(SframeKey {
             key,
             salt,
             auth: None,
+            key_id,
+            cipher_suite: *cipher_suite,
         })
+    }
+}
+
+impl Ratcheting for Vec<u8> {
+    fn ratchet(&self, cipher_suite: &CipherSuite) -> Result<Vec<u8>>
+    where
+        Self: AsRef<[u8]>,
+    {
+        let algorithm = cipher_suite.variant.into();
+        let pseudo_random_key = ring::hkdf::Salt::new(algorithm, b"").extract(self);
+
+        expand_key(
+            &pseudo_random_key,
+            get_hkdf_ratchet_expand_info(),
+            cipher_suite.key_len,
+        )
     }
 }
 

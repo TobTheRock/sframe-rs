@@ -6,6 +6,7 @@ use std::{
 use clap::{Parser, ValueEnum};
 use sframe::{
     header::SframeHeader,
+    ratchet::{RatchetingBaseKey, RatchetingKeyId},
     receiver::{Receiver, ReceiverOptions},
     sender::{Sender, SenderOptions},
     CipherSuiteVariant,
@@ -18,6 +19,7 @@ fn main() {
         log_level,
         max_frame_count,
         secret,
+        n_ratchet_bits,
     } = Args::parse();
 
     println!(
@@ -30,23 +32,36 @@ fn main() {
         simple_logger::init_with_level(log_level).unwrap();
     }
 
-    let sender_options = SenderOptions {
-        key_id,
-        cipher_suite_variant: cipher_suite.into(),
-        max_frame_count,
+    let cipher_suite_variant = cipher_suite.into();
+
+    let (mut base_key, key_id) = if let Some(n_ratchet_bits) = n_ratchet_bits {
+        // just to demonstrate the functionality, ratcheting should only take place if a new receiver joins
+        println!("- Using {} bits for the ratcheting step", n_ratchet_bits);
+
+        let r = RatchetingKeyId::new(key_id, n_ratchet_bits);
+        let base_key =
+            RatchetingBaseKey::ratchet_forward(r, secret.as_bytes(), cipher_suite_variant).unwrap();
+
+        (Some(base_key), r.into())
+    } else {
+        (None, key_id)
     };
 
+    let sender_options = SenderOptions {
+        key_id,
+        cipher_suite_variant,
+        max_frame_count,
+    };
     let mut sender = Sender::from(sender_options);
     sender.set_encryption_key(&secret).unwrap();
 
     let receiver_options = ReceiverOptions {
-        cipher_suite_variant: cipher_suite.into(),
+        cipher_suite_variant,
         frame_validation: None,
+        n_ratchet_bits,
     };
     let mut receiver = Receiver::from(receiver_options);
-    receiver
-        .set_encryption_key(key_id, secret.as_bytes())
-        .unwrap();
+    receiver.set_encryption_key(key_id, &secret).unwrap();
 
     let print_before_input = || {
         println!("--------------------------------------------------------------------------");
@@ -64,9 +79,21 @@ fn main() {
         .take_while(Result::is_ok)
         .map(Result::unwrap);
 
-    lines.for_each(|l| {
-        println!("- Encrypting {}", bin2string(l.as_bytes()));
-        let encrypted = sender.encrypt(l, 0).unwrap();
+    lines.enumerate().for_each(|(_i, line)| {
+        if n_ratchet_bits.is_some() {
+            let base_key = base_key.as_mut().unwrap();
+            let (new_key_id, key_material) = base_key.next_base_key().unwrap();
+            println!(
+                "- Ratcheting sender key, ratcheting step: {}",
+                new_key_id.ratchet_step()
+            );
+            sender
+                .ratchet_encryption_key(new_key_id, &key_material)
+                .unwrap();
+        }
+
+        println!("- Encrypting {}", bin2string(line.as_bytes()));
+        let encrypted = sender.encrypt(line, 0).unwrap();
         display_encrypted(encrypted);
 
         let decrypted = receiver.decrypt(encrypted, 0).unwrap();
@@ -105,6 +132,8 @@ struct Args {
     max_frame_count: u64,
     #[arg(short, long, default_value = "SUPER_SECRET")]
     secret: String,
+    #[arg(short, long)]
+    n_ratchet_bits: Option<u8>,
 }
 
 // We need to redeclare here, as we need to derive ValueEnum to use it with clap...

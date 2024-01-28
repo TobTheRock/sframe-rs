@@ -1,4 +1,3 @@
-use super::secret::Secret;
 use crate::{error::Result, header::FrameCount};
 
 pub trait AeadEncrypt {
@@ -6,7 +5,6 @@ pub trait AeadEncrypt {
     fn encrypt<IoBuffer, Aad>(
         &self,
         io_buffer: &mut IoBuffer,
-        secret: &Secret,
         aad_buffer: &Aad,
         frame_count: FrameCount,
     ) -> Result<Self::AuthTag>
@@ -19,7 +17,6 @@ pub trait AeadDecrypt {
     fn decrypt<'a, IoBuffer, Aad>(
         &self,
         io_buffer: &'a mut IoBuffer,
-        secret: &Secret,
         aad_buffer: &Aad,
         frame_count: FrameCount,
     ) -> Result<&'a mut [u8]>
@@ -36,7 +33,7 @@ mod test {
         aead::AeadDecrypt,
         aead::AeadEncrypt,
         cipher_suite::{CipherSuite, CipherSuiteVariant},
-        secret::Secret,
+        sframe_key::SframeKey,
     };
     use crate::header::{KeyId, SframeHeader};
     use crate::test_vectors::{get_sframe_test_vector, SframeTest};
@@ -54,16 +51,12 @@ mod test {
         thread_rng().fill(data.as_mut_slice());
         let header = SframeHeader::new(0, 0);
         let cipher_suite = CipherSuite::from(CipherSuiteVariant::AesGcm256Sha512);
-        let secret =
-            Secret::expand_from(&cipher_suite, KEY_MATERIAL.as_bytes(), KeyId::default()).unwrap();
+        let sframe_key =
+            SframeKey::expand_from(&cipher_suite, KEY_MATERIAL.as_bytes(), KeyId::default())
+                .unwrap();
 
-        let _tag = cipher_suite
-            .encrypt(
-                &mut data,
-                &secret,
-                &Vec::from(&header),
-                header.frame_count(),
-            )
+        let _tag = sframe_key
+            .encrypt(&mut data, &Vec::from(&header), header.frame_count())
             .unwrap();
     }
 
@@ -76,7 +69,7 @@ mod test {
         let test_vec = get_sframe_test_vector(&variant.to_string());
         let cipher_suite = CipherSuite::from(variant);
 
-        let secret = prepare_secret(&cipher_suite, test_vec);
+        let sframe_key = prepare_sframe_key(&cipher_suite, test_vec);
 
         let mut data_buffer = test_vec.plain_text.clone();
 
@@ -85,8 +78,8 @@ mod test {
 
         let aad_buffer = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
 
-        let tag = cipher_suite
-            .encrypt(&mut data_buffer, &secret, &aad_buffer, header.frame_count())
+        let tag = sframe_key
+            .encrypt(&mut data_buffer, &aad_buffer, header.frame_count())
             .unwrap();
 
         let full_frame: Vec<u8> = header_buffer
@@ -108,7 +101,7 @@ mod test {
         let test_vec = get_sframe_test_vector(&variant.to_string());
         let cipher_suite = CipherSuite::from(variant);
 
-        let secret = prepare_secret(&cipher_suite, test_vec);
+        let sframe_key = prepare_sframe_key(&cipher_suite, test_vec);
         let header = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
         let header_buffer = Vec::from(&header);
 
@@ -117,22 +110,24 @@ mod test {
 
         let mut data = Vec::from(&test_vec.cipher_text[header.len()..]);
 
-        let decrypted = cipher_suite
-            .decrypt(&mut data, &secret, &aad_buffer, header.frame_count())
+        let decrypted = sframe_key
+            .decrypt(&mut data, &aad_buffer, header.frame_count())
             .unwrap();
 
         assert_bytes_eq(decrypted, &test_vec.plain_text);
     }
 
-    fn prepare_secret(cipher_suite: &CipherSuite, test_vec: &SframeTest) -> Secret {
+    fn prepare_sframe_key(cipher_suite: &CipherSuite, test_vec: &SframeTest) -> SframeKey {
         if cipher_suite.is_ctr_mode() {
             // the test vectors do not provide the auth key, so we have to expand here
-            Secret::expand_from(cipher_suite, &test_vec.key_material, test_vec.key_id).unwrap()
+            SframeKey::expand_from(cipher_suite, &test_vec.key_material, test_vec.key_id).unwrap()
         } else {
-            Secret {
+            SframeKey {
                 key: test_vec.sframe_key.clone(),
                 salt: test_vec.sframe_salt.clone(),
                 auth: None,
+                cipher_suite: *cipher_suite,
+                key_id: test_vec.key_id,
             }
         }
     }

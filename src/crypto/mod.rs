@@ -1,7 +1,7 @@
 pub mod aead;
 pub mod cipher_suite;
 pub mod key_derivation;
-pub mod secret;
+pub mod sframe_key;
 
 cfg_if::cfg_if! {
 if #[cfg(all(not(feature = "openssl"), feature = "ring"))]{
