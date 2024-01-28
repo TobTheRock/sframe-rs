@@ -48,13 +48,9 @@ impl Receiver {
         options.into()
     }
 
-    pub fn decrypt<EncryptedFrame>(
-        &mut self,
-        encrypted_frame: EncryptedFrame,
-        skip: usize,
-    ) -> Result<&[u8]>
+    pub fn decrypt<F>(&mut self, encrypted_frame: F, skip: usize) -> Result<&[u8]>
     where
-        EncryptedFrame: AsRef<[u8]>,
+        F: AsRef<[u8]>,
     {
         let encrypted_frame = encrypted_frame.as_ref();
         let header = SframeHeader::deserialize(&encrypted_frame[skip..])?;
@@ -94,14 +90,10 @@ impl Receiver {
         Ok(&self.buffer[..payload_end])
     }
 
-    pub fn set_encryption_key<Id, KeyMaterial>(
-        &mut self,
-        key_id: Id,
-        key_material: KeyMaterial,
-    ) -> Result<()>
+    pub fn set_encryption_key<K, M>(&mut self, key_id: K, key_material: M) -> Result<()>
     where
-        Id: Into<KeyId>,
-        KeyMaterial: AsRef<[u8]>,
+        K: Into<KeyId>,
+        M: AsRef<[u8]>,
     {
         let key_id = key_id.into();
         match &mut self.keys {
@@ -119,9 +111,9 @@ impl Receiver {
         Ok(())
     }
 
-    pub fn remove_encryption_key<Id>(&mut self, key_id: Id) -> bool
+    pub fn remove_encryption_key<K>(&mut self, key_id: K) -> bool
     where
-        Id: Into<KeyId>,
+        K: Into<KeyId>,
     {
         let key_id = key_id.into();
         match &mut self.keys {

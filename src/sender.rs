@@ -64,15 +64,11 @@ impl Sender {
         }
     }
 
-    pub fn encrypt<Plaintext>(
-        &mut self,
-        unencrypted_payload: Plaintext,
-        skip: usize,
-    ) -> Result<&[u8]>
+    pub fn encrypt<F>(&mut self, unencrypted_frame: F, skip: usize) -> Result<&[u8]>
     where
-        Plaintext: AsRef<[u8]>,
+        F: AsRef<[u8]>,
     {
-        let unencrypted_payload = unencrypted_payload.as_ref();
+        let unencrypted_payload = unencrypted_frame.as_ref();
 
         log::trace!("Encrypt frame # {:#?}!", self.frame_count);
         if let Some(ref sframe_key) = self.sframe_key {
@@ -112,9 +108,9 @@ impl Sender {
         }
     }
 
-    pub fn set_encryption_key<KeyMaterial>(&mut self, key_material: KeyMaterial) -> Result<()>
+    pub fn set_encryption_key<M>(&mut self, key_material: M) -> Result<()>
     where
-        KeyMaterial: AsRef<[u8]>,
+        M: AsRef<[u8]>,
     {
         self.sframe_key = Some(SframeKey::expand_from(
             &self.cipher_suite,
