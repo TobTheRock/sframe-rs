@@ -8,7 +8,11 @@ use crate::{
 
 use super::ratcheting_key_id::RatchetingKeyId;
 
-// TODO docs!
+/// Base key used for ratcheting as of [sframe draft 04 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04#section-5.1)
+/// It allows to create a new key id and key material (base key) for each ratchet step, where
+/// - the base key is derived using HKDF
+/// - the part of the key id is used to indicate the current ratchet step (see [`RatchetingKeyId`])
+/// The original key material is not stored for security reasons.
 pub struct RatchetingBaseKey {
     cipher_suite: CipherSuite,
     current_material: Vec<u8>,
@@ -16,6 +20,9 @@ pub struct RatchetingBaseKey {
 }
 
 impl RatchetingBaseKey {
+    /// creates a [`RatchetingBaseKey`] using the given key material.
+    /// The cipher suite is used when ratcheting forward.
+    /// Initially ratchets once to not store the original key material
     pub fn ratchet_forward<K, M>(
         key_id: K,
         key_material: M,
@@ -36,6 +43,8 @@ impl RatchetingBaseKey {
         Ok(base_key)
     }
 
+    /// ratchets forward and provides a matching [`RatchetingKeyId`] and
+    /// a new base key to be used for key expansion in the sending block (e.g. [`crate::sender::Sender`] )
     pub fn next_base_key(&mut self) -> Result<(RatchetingKeyId, Vec<u8>)> {
         let key_id = self.key_id;
         let key_material = self.ratchet()?;
@@ -43,6 +52,7 @@ impl RatchetingBaseKey {
         Ok((key_id, key_material))
     }
 
+    /// returns the associated key id as a [`RatchetingKeyId`]
     pub fn key_id(&self) -> RatchetingKeyId {
         self.key_id
     }

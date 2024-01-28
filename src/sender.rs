@@ -10,10 +10,21 @@ use crate::{
     header::{FrameCount, KeyId, SframeHeader},
 };
 
+/// options for the encryption block,
+/// allows to create a [Sender] object using [Into]/[From]
 #[derive(Clone, Copy, Debug)]
 pub struct SenderOptions {
+    /// key id associated with the sender
+    ///
+    /// default: `0`
     pub key_id: KeyId,
+    /// encryption/ key expansion algorithm used, see [sframe draft 04 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04#name-cipher-suites)
+    ///
+    /// default: [CipherSuiteVariant::AesGcm256Sha512]
     pub cipher_suite_variant: CipherSuiteVariant,
+    /// maximum frame count, to limit the header ([SframeHeader]) size
+    ///
+    /// default: [u64::MAX]
     pub max_frame_count: FrameCount,
 }
 
@@ -27,6 +38,10 @@ impl Default for SenderOptions {
     }
 }
 
+/// models the sframe encryption block in the sender path, [sframe draft 04 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-04.html#name-application-context).
+/// The [Sender] allows to encrypt outgoing media frames. To do so, it is associated with a
+/// single key id ([`KeyId`]). It needs to be initialised with a base key (aka key material) first.
+/// For encryption/ key expansion the used algorithms are configurable (see [`CipherSuiteVariant`]).
 pub struct Sender {
     frame_count: FrameCountGenerator,
     key_id: KeyId,
@@ -36,6 +51,7 @@ pub struct Sender {
 }
 
 impl Sender {
+    /// creates a new sender associated with the given key id
     pub fn new<K>(key_id: K) -> Sender
     where
         K: Into<KeyId>,
@@ -43,6 +59,7 @@ impl Sender {
         Self::with_cipher_suite(key_id, CipherSuiteVariant::AesGcm256Sha512)
     }
 
+    /// creates a new sender associated with the given key id and the given cipher suite variant
     pub fn with_cipher_suite<K>(key_id: K, variant: CipherSuiteVariant) -> Sender
     where
         K: Into<KeyId>,
@@ -63,7 +80,11 @@ impl Sender {
             buffer: Default::default(),
         }
     }
-
+    /// Tries to encrypt an incoming encrypted frame, returning a slice to the encrypted data on success.
+    /// The first `skip` bytes are not going to be encrypted (e.g. for another header)
+    /// May fail with
+    /// - [`SframeError::MissingEncryptionKey`]
+    /// - [`SframeError::EncryptionFailure`]
     pub fn encrypt<F>(&mut self, unencrypted_frame: F, skip: usize) -> Result<&[u8]>
     where
         F: AsRef<[u8]>,
@@ -108,6 +129,10 @@ impl Sender {
         }
     }
 
+    /// Tries to create an encryption key for this sender, by expanding the given key material
+    /// , which is stored internally for encryption.
+    /// May fail with:
+    /// - [`SframeError::KeyDerivation`]
     pub fn set_encryption_key<M>(&mut self, key_material: M) -> Result<()>
     where
         M: AsRef<[u8]>,
@@ -120,6 +145,8 @@ impl Sender {
         Ok(())
     }
 
+    /// To rachtet sets a new key id and tries to create a new encryption key for this sender, by expanding the given key material.
+    /// May fail with:
     pub fn ratchet_encryption_key<K, M>(&mut self, key_id: K, key_material: M) -> Result<()>
     where
         K: Into<KeyId>,
