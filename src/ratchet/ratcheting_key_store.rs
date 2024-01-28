@@ -9,12 +9,15 @@ use crate::{
 
 use super::{ratcheting_base_key::RatchetingBaseKey, ratcheting_key_id::RatchetingKeyId};
 
+/// Utility class to store multiple encryption keys and base keys ([`RatchetingBaseKey`]) each associated with a [`KeyId`].
+/// Allows to automatically ratchet forward an encryption key if necessary.
 pub struct RatchetingKeyStore {
     keys: HashMap<RatchetingKeyId, RatchetingKeys>,
     n_ratchet_bits: u8,
 }
 
 impl RatchetingKeyStore {
+    /// creates a new [`RatchetingKeyStore`] which uses `n_ratchet_bits` to determine the Ratchet Step  
     pub fn new(n_ratchet_bits: u8) -> Self {
         Self {
             n_ratchet_bits,
@@ -22,6 +25,8 @@ impl RatchetingKeyStore {
         }
     }
 
+    /// inserts a new key associated with a key id
+    /// expands the key and ratchets the original key material to not store for security reasons
     pub fn insert<K, M>(
         &mut self,
         variant: CipherSuiteVariant,
@@ -49,6 +54,7 @@ impl RatchetingKeyStore {
         Ok(())
     }
 
+    /// removes a key associated with the key id
     pub fn remove<K>(&mut self, key_id: K) -> bool
     where
         K: Into<KeyId>,
@@ -57,6 +63,7 @@ impl RatchetingKeyStore {
         self.keys.remove(&key_id).is_some()
     }
 
+    /// returns the encryption key and [`RatchetingBaseKey`] associated with the key id
     pub fn get<K>(&self, key_id: K) -> Option<&RatchetingKeys>
     where
         K: Into<KeyId>,
@@ -65,6 +72,9 @@ impl RatchetingKeyStore {
         self.keys.get(&key_id)
     }
 
+    /// returns the encryption key associated with the key id
+    /// if the key id indicates a Ratchet Step, which is different from the internally known one
+    /// a [`RatchetingBaseKey`] is used to ratchet the encryption key forward accordingly
     pub fn ratcheting_get<K>(&mut self, key_id: K) -> Result<&SframeKey>
     where
         K: Into<KeyId>,
@@ -98,8 +108,11 @@ impl RatchetingKeyStore {
     }
 }
 
+/// Storage struct used by [`RatchetingKeyStore`], each associated with a [`RatchetingKeyId`]
 pub struct RatchetingKeys {
+    /// provides key material used for ratcheting
     pub base_key: RatchetingBaseKey,
+    /// secrets used for encryption/decryption
     pub sframe_key: SframeKey,
 }
 

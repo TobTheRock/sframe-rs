@@ -13,9 +13,21 @@ use crate::{
     ratchet::RatchetingKeyStore,
 };
 
+/// options for the decryption block,
+/// allows to create a [Receiver] object using [Into]/[From]
 pub struct ReceiverOptions {
+    /// decryption/ key expansion algorithm used, see [sframe draft 04 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04#name-cipher-suites)
+    ///
+    /// default: [CipherSuiteVariant::AesGcm256Sha512]
     pub cipher_suite_variant: CipherSuiteVariant,
+    /// optional frame validation before decryption, e.g to protect agains replay attacks
+    ///
+    /// default: [ReplayAttackProtection] with tolerance `128`
     pub frame_validation: Option<FrameValidationBox>,
+    /// optional ratcheting support as of [sframe draft 04 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04#section-5.1),
+    /// using `n_ratchet_bits` to depict the Ratchet Step
+    ///
+    /// default: [None]
     pub n_ratchet_bits: Option<u8>,
 }
 
@@ -29,6 +41,10 @@ impl Default for ReceiverOptions {
     }
 }
 
+/// Models the sframe decryption block in the receiver path, see [sframe draft 04 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-04.html#name-application-context), by
+/// - internally storing a map of encryption keys each associated with a key id ([`KeyId`])
+/// - decrypting incoming `SFrame` frames using an internal buffer and the stored keys
+/// - performing optional frame validation and ratcheting
 pub struct Receiver {
     keys: KeyStore,
     cipher_suite: CipherSuite,
@@ -37,6 +53,7 @@ pub struct Receiver {
 }
 
 impl Receiver {
+    /// creates a [Receiver] with the given cipher suite variant and the default parameters
     pub fn with_cipher_suite(variant: CipherSuiteVariant) -> Receiver {
         log::debug!("Setting up sframe Receiver using ciphersuite {:?}", variant,);
 
@@ -48,6 +65,13 @@ impl Receiver {
         options.into()
     }
 
+    /// Tries to decrypt an incoming encrypted frame, returning a slice to the decrypted data on success.
+    /// The first `skip` bytes are assumed to be not encrypted (e.g. another header)
+    /// May fail with
+    /// - [`SframeError::MissingDecryptionKey`]
+    /// - [`SframeError::DecryptionFailure`]
+    /// - [`SframeError::FrameValidationFailed`]
+    /// - [`SframeError::InvalidBuffer`]
     pub fn decrypt<F>(&mut self, encrypted_frame: F, skip: usize) -> Result<&[u8]>
     where
         F: AsRef<[u8]>,
@@ -90,6 +114,10 @@ impl Receiver {
         Ok(&self.buffer[..payload_end])
     }
 
+    /// Tries to expand (HKDF) the necessary encryptions key using the key id and the key material,
+    /// which is then stored internally, to be used for decryption later on.
+    /// May fail with
+    /// - [`SframeError::KeyDerivation`]
     pub fn set_encryption_key<K, M>(&mut self, key_id: K, key_material: M) -> Result<()>
     where
         K: Into<KeyId>,
@@ -111,6 +139,8 @@ impl Receiver {
         Ok(())
     }
 
+    /// removes an encryption key associated with the key id, which was stored internally,
+    /// returns `true` if a key was present
     pub fn remove_encryption_key<K>(&mut self, key_id: K) -> bool
     where
         K: Into<KeyId>,

@@ -2,6 +2,22 @@ use std::hash::Hash;
 
 use crate::header::KeyId;
 
+/// Special key id format as of [sframe draft 04 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04#section-5.1)
+/// It has the following format:
+/// ```txt
+///       64-R bits         R bits
+///    <---------------> <------------>
+///   +-----------------+--------------+
+///   | Key Generation  | Ratchet Step |
+///   +-----------------+--------------+
+/// ```
+/// where:
+/// - Key Generation: increments each time the sender distributes a new key
+/// - Ratchet Step: increments each time the sender distributes a new key
+/// - R: No. bits used for the Ratchet Step, defines a re-ordering,no more than 2^R ratchet steps can be active at a given time.  
+///
+/// For each Key Generation a new [`RatchetingKeyId`] needs to be created, as the Key Generation is determined by the application.
+/// If the  Ratchet Steps reaches its maximum it starts anew with 0.
 #[derive(Clone, Copy, Debug, Eq)]
 pub struct RatchetingKeyId {
     value: u64,
@@ -9,6 +25,10 @@ pub struct RatchetingKeyId {
 }
 
 impl RatchetingKeyId {
+    /// creates a new [`RatchetingKeyId`] with
+    /// - generation: the key generation
+    /// - `n_ratchet_bits`: the No. bits used for ratcheting (R)
+    /// where the initial Ratchet Step is 0
     pub fn new<G>(generation: G, n_ratchet_bits: u8) -> Self
     where
         G: Into<u64>,
@@ -39,6 +59,9 @@ impl RatchetingKeyId {
         }
     }
 
+    /// parses a [`RatchetingKeyId`] from
+    /// - `key_id`: a [`KeyId`], e.g. given by an `SFrame` header.
+    /// - `n_ratchet_bits`: the No. bits used for ratcheting (R)
     pub fn from_key_id<K>(key_id: K, n_ratchet_bits: u8) -> Self
     where
         K: Into<KeyId>,
@@ -49,14 +72,18 @@ impl RatchetingKeyId {
         }
     }
 
+    /// returns the associated Key Generation
     pub fn generation(&self) -> u64 {
         self.value >> self.n_ratchet_bits
     }
 
+    /// returns the associated Ratchet Step
     pub fn ratchet_step(&self) -> u64 {
         self.value % (1 << self.n_ratchet_bits)
     }
 
+    /// increments the internal Ratchet Step by 1.
+    /// If it reaches its maximum (2^R), it is set to 0
     pub fn inc_ratchet_step(&mut self) {
         let ratchet_bitmask = u64::MAX >> (u64::BITS - self.n_ratchet_bits as u32);
         // if all ratchet bits are set we have to wrap

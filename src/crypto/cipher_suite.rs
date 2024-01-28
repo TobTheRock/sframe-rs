@@ -6,10 +6,13 @@
 pub enum CipherSuiteVariant {
     // /// counter mode is [not implemented in ring](https://github.com/briansmith/ring/issues/656)
     #[cfg(feature = "openssl")]
+    /// encryption: AES CTR 128 with 80 bit HMAC authentication tag, key expansion: HKDF with SHA256,
     AesCtr128HmacSha256_80,
     #[cfg(feature = "openssl")]
+    /// encryption: AES CTR 128 with 64 bit HMAC authentication tag, key expansion: HKDF with SHA256,
     AesCtr128HmacSha256_64,
     #[cfg(feature = "openssl")]
+    /// encryption: AES CTR 128 with 32 bit HMAC authentication tag, key expansion: HKDF with SHA256,
     AesCtr128HmacSha256_32,
     /// encryption: AES GCM 128, key expansion: HKDF with SHA256
     AesGcm128Sha256,

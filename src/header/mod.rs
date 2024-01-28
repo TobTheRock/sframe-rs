@@ -8,11 +8,13 @@ use header_field::{HeaderField, VariableLengthField};
 
 use std::fmt::Write;
 
+/// key id type used in the [`SframeHeader`]
 pub type KeyId = u64;
+/// frame count type used in the [`SframeHeader`]
 pub type FrameCount = u64;
 
 #[derive(Copy, Clone, Debug)]
-/// Modeled after [sframe draft 04 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04#name-sframe-header)
+/// Modeled after [sframe draft 04 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04#name-sframe-header).
 /// The `SFrame` header specifies a Key ID (KID) and a counter (CTR) from which encryption parameters are derived.
 ///
 /// Both are encoded as compact usigned integers in big-endian order. If the value of one of these fields is in the range 0-7,
@@ -42,6 +44,7 @@ impl SframeHeader {
     const LEN_OFFSET: u8 = 1; // a length of 1 is encoded as 0, etc.
     const STATIC_HEADER_LENGTH: usize = 1;
 
+    /// creates a new [`SframeHeader`] with respective key id and frame count fields
     pub fn new(key_id: KeyId, frame_count: FrameCount) -> Self {
         Self {
             key_id: key_id.into(),
@@ -49,6 +52,8 @@ impl SframeHeader {
         }
     }
 
+    /// tries to deserialize an [`SframeHeader`] from a byte buffer
+    /// Fails with an [`SframeError::InvalidBuffer`] if the size of the buffer is too small
     pub fn deserialize<T: AsRef<[u8]>>(buffer: T) -> Result<SframeHeader> {
         let buffer = buffer.as_ref();
         let buffer_len = buffer.len();
@@ -82,6 +87,8 @@ impl SframeHeader {
         })
     }
 
+    /// tries to serialize an [`SframeHeader`] into a byte buffer
+    /// Fails with an [`SframeError::InvalidBuffer`] if the size of the buffer is too small
     pub fn serialize<T: AsMut<[u8]>>(&self, mut buffer: T) -> Result<()> {
         let buffer = buffer.as_mut();
         let buffer_len = buffer.len();
@@ -128,15 +135,18 @@ impl SframeHeader {
         Ok(())
     }
 
+    /// returns the key Id header field
     pub fn key_id(&self) -> KeyId {
         self.key_id.into()
     }
 
+    /// returns the frame count header field
     pub fn frame_count(&self) -> FrameCount {
         self.frame_count.into()
     }
 
     #[allow(clippy::len_without_is_empty)]
+    /// returns the length of the header in bytes
     pub fn len(&self) -> usize {
         let mut len = Self::STATIC_HEADER_LENGTH;
 
