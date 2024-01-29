@@ -13,7 +13,6 @@ It was forked from the original [goto-opensource/secure-frame-rs](https://github
 
 ## Differences from the sframe draft
 
-- ratcheting is not implemented
 - no metadata authentication
 
 ## Supported crypto libraries
