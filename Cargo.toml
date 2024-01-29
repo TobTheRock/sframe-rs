@@ -15,7 +15,8 @@ repository = "https://github.com/TobTheRock/sframe-rs"
 documentation = "https://docs.rs/sframe/"
 readme = "README.md"
 
-keywords = ["encryption", "sframe", "secure-frame", "webrtc"]
+keywords = ["encryption", "sframe", "secure-frame", "webrtc", "wasm"]
+categories = ["cryptography", "wasm", "web-programming", "network-programming"]
 
 [dependencies]
 bitfield = "0.14"
