@@ -1,8 +1,6 @@
 //! # Secure Frame (`SFrame`)
 //! This library is an implementation of [draft-ietf-sframe-enc-04](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04).
 //!
-//! It is in it's current form a subset of the specification (e.g. metadata authentication is not implemented).
-//!
 //! # Optional features
 //!
 //! Using optional features `sframe` allows to configure different crypto libraries.

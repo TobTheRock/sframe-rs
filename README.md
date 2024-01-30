@@ -11,10 +11,6 @@ This library is an implementation of [draft-ietf-sframe-enc-04](https://datatrac
 It is in it's current form a subset of the specification.
 It was forked from the original [goto-opensource/secure-frame-rs](https://github.com/goto-opensource/secure-frame-rs) and is continued here.
 
-## Differences from the sframe draft
-
-- no metadata authentication
-
 ## Supported crypto libraries
 
 Currently two crypto libraries are supported:

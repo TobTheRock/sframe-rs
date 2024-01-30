@@ -66,7 +66,7 @@ impl Receiver {
     }
 
     /// Tries to decrypt an incoming encrypted frame, returning a slice to the decrypted data on success.
-    /// The first `skip` bytes are assumed to be not encrypted (e.g. another header)
+    /// The first `skip` bytes are assumed to be not encrypted (e.g. another header) and are only used as AAD for authentification
     /// May fail with
     /// - [`SframeError::MissingDecryptionKey`]
     /// - [`SframeError::DecryptionFailure`]
@@ -106,7 +106,7 @@ impl Receiver {
 
         sframe_key.decrypt(
             &mut self.buffer[skip..],
-            &encrypted_frame[skip..payload_begin],
+            &encrypted_frame[..payload_begin],
             header.frame_count(),
         )?;
 

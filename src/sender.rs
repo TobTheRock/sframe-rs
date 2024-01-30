@@ -81,7 +81,7 @@ impl Sender {
         }
     }
     /// Tries to encrypt an incoming encrypted frame, returning a slice to the encrypted data on success.
-    /// The first `skip` bytes are not going to be encrypted (e.g. for another header)
+    /// The first `skip` bytes are not going to be encrypted (e.g. for another header), but are used as AAD for authentification
     /// May fail with
     /// - [`SframeError::MissingEncryptionKey`]
     /// - [`SframeError::EncryptionFailure`]
@@ -115,11 +115,7 @@ impl Sender {
             let (leading_buffer, encrypt_buffer) = frame.split_at_mut(skip + header.len());
 
             log::trace!("Encrypting Frame of size {}", unencrypted_payload.len(),);
-            let tag = sframe_key.encrypt(
-                encrypt_buffer,
-                &leading_buffer[skip..],
-                header.frame_count(),
-            )?;
+            let tag = sframe_key.encrypt(encrypt_buffer, &leading_buffer, header.frame_count())?;
 
             frame.extend(tag.as_ref());
 
