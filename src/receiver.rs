@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     crypto::{
         aead::AeadDecrypt,
-        cipher_suite::{CipherSuite, CipherSuiteVariant},
+        cipher_suite::{CipherSuiteRef, CipherSuiteVariant},
         key_derivation::KeyDerivation,
         sframe_key::SframeKey,
     },
@@ -47,7 +47,7 @@ impl Default for ReceiverOptions {
 /// - performing optional frame validation and ratcheting
 pub struct Receiver {
     keys: KeyStore,
-    cipher_suite: CipherSuite,
+    cipher_suite: CipherSuiteRef,
     frame_validation: Option<FrameValidationBox>,
     buffer: Vec<u8>,
 }

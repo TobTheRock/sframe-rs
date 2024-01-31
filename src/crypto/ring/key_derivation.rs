@@ -13,7 +13,7 @@ use crate::{
 
 impl KeyDerivation for SframeKey {
     fn expand_from<M, K>(
-        cipher_suite: &CipherSuite,
+        cipher_suite: CipherSuiteRef,
         key_material: M,
         key_id: K,
     ) -> Result<SframeKey>
@@ -49,7 +49,7 @@ impl KeyDerivation for SframeKey {
 }
 
 impl Ratcheting for Vec<u8> {
-    fn ratchet(&self, cipher_suite: &CipherSuite) -> Result<Vec<u8>>
+    fn ratchet(&self, cipher_suite: CipherSuiteRef) -> Result<Vec<u8>>
     where
         Self: AsRef<[u8]>,
     {

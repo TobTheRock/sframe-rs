@@ -1,9 +1,9 @@
-use super::{cipher_suite::CipherSuite, sframe_key::SframeKey};
+use super::{cipher_suite::CipherSuiteRef, sframe_key::SframeKey};
 use crate::{error::Result, header::KeyId, CipherSuiteVariant};
 
 pub trait KeyDerivation {
     fn expand_from<M, K>(
-        cipher_suite: &CipherSuite,
+        cipher_suite: CipherSuiteRef,
         key_material: M,
         key_id: K,
     ) -> Result<SframeKey>
@@ -13,7 +13,7 @@ pub trait KeyDerivation {
 }
 
 pub trait Ratcheting {
-    fn ratchet(&self, cipher_suite: &CipherSuite) -> Result<Vec<u8>>
+    fn ratchet(&self, cipher_suite: CipherSuiteRef) -> Result<Vec<u8>>
     where
         Self: AsRef<[u8]>;
 }
@@ -51,7 +51,7 @@ const SFRAME_HDKF_SALT_EXPAND_INFO: &[u8] = b"Secret salt ";
 mod test {
 
     use super::{KeyDerivation, Ratcheting};
-    use crate::crypto::cipher_suite::CipherSuite;
+    use crate::crypto::cipher_suite::CipherSuiteRef;
     use crate::crypto::sframe_key::SframeKey;
     use crate::test_vectors::get_sframe_test_vector;
     use crate::{crypto::cipher_suite::CipherSuiteVariant, util::test::assert_bytes_eq};
@@ -66,13 +66,12 @@ mod test {
     #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
     fn extracts_correct_labels(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
-        let cipher_suite: CipherSuite = CipherSuite::from(variant);
         assert_bytes_eq(
-            &get_hkdf_key_expand_info(test_vec.key_id, cipher_suite.variant),
+            &get_hkdf_key_expand_info(test_vec.key_id, variant),
             &test_vec.sframe_key_label,
         );
         assert_bytes_eq(
-            &get_hkdf_salt_expand_info(test_vec.key_id, cipher_suite.variant),
+            &get_hkdf_salt_expand_info(test_vec.key_id, variant),
             &test_vec.sframe_salt_label,
         );
     }
@@ -81,10 +80,10 @@ mod test {
     #[test_case(CipherSuiteVariant::AesGcm256Sha512; "AesGcm256Sha512")]
     fn derive_correct_base_keys(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
-        let cipher_suite: CipherSuite = CipherSuite::from(variant);
+        let cipher_suite = CipherSuiteRef::from(variant);
 
         let sframe_key =
-            SframeKey::expand_from(&cipher_suite, &test_vec.key_material, test_vec.key_id).unwrap();
+            SframeKey::expand_from(cipher_suite, &test_vec.key_material, test_vec.key_id).unwrap();
 
         assert_bytes_eq(&sframe_key.key, &test_vec.sframe_key);
         assert_bytes_eq(&sframe_key.salt, &test_vec.sframe_salt);
@@ -92,6 +91,8 @@ mod test {
 
     #[cfg(feature = "openssl")]
     mod aes_ctr {
+        use crate::crypto::cipher_suite::CipherSuiteRef;
+
         use super::*;
         use test_case::test_case;
 
@@ -100,7 +101,7 @@ mod test {
         #[test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32")]
         fn derive_correct_sub_keys(variant: CipherSuiteVariant) {
             let test_vec = get_sframe_test_vector(&variant.to_string());
-            let cipher_suite = CipherSuite::from(variant);
+            let cipher_suite = CipherSuiteRef::from(variant);
 
             let sframe_key =
                 SframeKey::expand_from(&cipher_suite, &test_vec.key_material, test_vec.key_id)
@@ -124,7 +125,7 @@ mod test {
     #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
     fn ratchets_key(variant: CipherSuiteVariant) {
         let original_material = Vec::from(b"SOMETHING");
-        let new_material = original_material.ratchet(&variant.into()).unwrap();
+        let new_material = original_material.ratchet(variant.into()).unwrap();
 
         assert_ne!(new_material, original_material);
     }

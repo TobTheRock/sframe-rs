@@ -28,11 +28,10 @@ pub trait AeadDecrypt {
 #[cfg(test)]
 mod test {
 
+    use crate::crypto::cipher_suite::CipherSuiteRef;
     use crate::crypto::key_derivation::KeyDerivation;
     use crate::crypto::{
-        aead::AeadDecrypt,
-        aead::AeadEncrypt,
-        cipher_suite::{CipherSuite, CipherSuiteVariant},
+        aead::AeadDecrypt, aead::AeadEncrypt, cipher_suite::CipherSuiteVariant,
         sframe_key::SframeKey,
     };
     use crate::header::{KeyId, SframeHeader};
@@ -50,7 +49,7 @@ mod test {
         let mut data = vec![0u8; 1024];
         thread_rng().fill(data.as_mut_slice());
         let header = SframeHeader::new(0, 0);
-        let cipher_suite = CipherSuite::from(CipherSuiteVariant::AesGcm256Sha512);
+        let cipher_suite = CipherSuiteRef::from(CipherSuiteVariant::AesGcm256Sha512);
         let sframe_key =
             SframeKey::expand_from(&cipher_suite, KEY_MATERIAL.as_bytes(), KeyId::default())
                 .unwrap();
@@ -67,7 +66,7 @@ mod test {
     #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
     fn encrypt_test_vector(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
-        let cipher_suite = CipherSuite::from(variant);
+        let cipher_suite = CipherSuiteRef::from(variant);
 
         let sframe_key = prepare_sframe_key(&cipher_suite, test_vec);
 
@@ -99,7 +98,7 @@ mod test {
     #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
     fn decrypt_test_vector(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
-        let cipher_suite = CipherSuite::from(variant);
+        let cipher_suite = CipherSuiteRef::from(variant);
 
         let sframe_key = prepare_sframe_key(&cipher_suite, test_vec);
         let header = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
@@ -117,7 +116,7 @@ mod test {
         assert_bytes_eq(decrypted, &test_vec.plain_text);
     }
 
-    fn prepare_sframe_key(cipher_suite: &CipherSuite, test_vec: &SframeTest) -> SframeKey {
+    fn prepare_sframe_key(cipher_suite: CipherSuiteRef, test_vec: &SframeTest) -> SframeKey {
         if cipher_suite.is_ctr_mode() {
             // the test vectors do not provide the auth key, so we have to expand here
             SframeKey::expand_from(cipher_suite, &test_vec.key_material, test_vec.key_id).unwrap()
@@ -126,7 +125,7 @@ mod test {
                 key: test_vec.sframe_key.clone(),
                 salt: test_vec.sframe_salt.clone(),
                 auth: None,
-                cipher_suite: *cipher_suite,
+                cipher_suite,
                 key_id: test_vec.key_id,
             }
         }

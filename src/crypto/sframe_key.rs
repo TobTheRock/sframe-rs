@@ -1,13 +1,13 @@
 use crate::header::{FrameCount, KeyId};
 
-use super::cipher_suite::CipherSuite;
+use super::cipher_suite::CipherSuiteRef;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SframeKey {
     pub key: Vec<u8>,
     pub salt: Vec<u8>,
     pub auth: Option<Vec<u8>>,
-    pub cipher_suite: CipherSuite,
+    pub cipher_suite: CipherSuiteRef,
     pub key_id: KeyId,
 }
 

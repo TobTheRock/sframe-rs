@@ -1,7 +1,7 @@
 use crate::{
     crypto::{
         aead::AeadEncrypt,
-        cipher_suite::{CipherSuite, CipherSuiteVariant},
+        cipher_suite::{CipherSuiteRef, CipherSuiteVariant},
         key_derivation::KeyDerivation,
         sframe_key::SframeKey,
     },
@@ -45,7 +45,7 @@ impl Default for SenderOptions {
 pub struct Sender {
     frame_count: FrameCountGenerator,
     key_id: KeyId,
-    cipher_suite: CipherSuite,
+    cipher_suite: CipherSuiteRef,
     sframe_key: Option<SframeKey>,
     buffer: Vec<u8>,
 }
@@ -64,7 +64,7 @@ impl Sender {
     where
         K: Into<KeyId>,
     {
-        let cipher_suite: CipherSuite = variant.into();
+        let cipher_suite: CipherSuiteRef = variant.into();
         let key_id = key_id.into();
         log::debug!("Setting up sframe Sender");
         log::trace!(

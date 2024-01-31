@@ -40,7 +40,7 @@ impl RatchetingKeyStore {
         let key_id = RatchetingKeyId::from_key_id(key_id.into(), self.n_ratchet_bits);
         let cipher_suite = variant.into();
 
-        let sframe_key = SframeKey::expand_from(&cipher_suite, &key_material, key_id)?;
+        let sframe_key = SframeKey::expand_from(cipher_suite, &key_material, key_id)?;
         let base_key = RatchetingBaseKey::ratchet_forward(key_id, key_material, variant)?;
 
         self.keys.insert(

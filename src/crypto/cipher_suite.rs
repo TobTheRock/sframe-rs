@@ -30,48 +30,65 @@ pub struct CipherSuite {
     pub auth_tag_len: usize,
 }
 
-impl From<CipherSuiteVariant> for CipherSuite {
+pub type CipherSuiteRef = &'static CipherSuite;
+
+static CIPHER_SUITE_AES_GCM128_SHA256: CipherSuite = CipherSuite {
+    variant: CipherSuiteVariant::AesGcm128Sha256,
+    hash_len: 32,
+    key_len: 16,
+    nonce_len: 12,
+    auth_tag_len: 16,
+};
+
+static CIPHER_SUITE_AES_GCM256_SHA512: CipherSuite = CipherSuite {
+    variant: CipherSuiteVariant::AesGcm256Sha512,
+    hash_len: 64,
+    key_len: 32,
+    nonce_len: 12,
+    auth_tag_len: 16,
+};
+
+#[cfg(feature = "openssl")]
+static CIPHER_SUITE_VARIANT_AES_CTR128_HMAC_SHA256_80: CipherSuite = CipherSuite {
+    variant: CipherSuiteVariant::AesCtr128HmacSha256_80,
+    hash_len: 32,
+    key_len: 48,
+    nonce_len: 12,
+    auth_tag_len: 10,
+};
+
+#[cfg(feature = "openssl")]
+static CIPHER_SUITE_VARIANT_AES_CTR128_HMAC_SHA256_64: CipherSuite = CipherSuite {
+    variant: CipherSuiteVariant::AesCtr128HmacSha256_64,
+    hash_len: 32,
+    key_len: 48,
+    nonce_len: 12,
+    auth_tag_len: 8,
+};
+
+#[cfg(feature = "openssl")]
+static CIPHER_SUITE_VARIANT_AES_CTR128_HMAC_SHA256_32: CipherSuite = CipherSuite {
+    variant: CipherSuiteVariant::AesCtr128HmacSha256_32,
+    hash_len: 32,
+    key_len: 48,
+    nonce_len: 12,
+    auth_tag_len: 4,
+};
+
+impl From<CipherSuiteVariant> for CipherSuiteRef {
     fn from(variant: CipherSuiteVariant) -> Self {
         match variant {
-            #[cfg(feature = "openssl")]
-            CipherSuiteVariant::AesCtr128HmacSha256_80 => CipherSuite {
-                variant,
-                hash_len: 32,
-                key_len: 48,
-                nonce_len: 12,
-                auth_tag_len: 10,
-            },
-
-            #[cfg(feature = "openssl")]
-            CipherSuiteVariant::AesCtr128HmacSha256_64 => CipherSuite {
-                variant,
-                hash_len: 32,
-                key_len: 48,
-                nonce_len: 12,
-                auth_tag_len: 8,
-            },
-            #[cfg(feature = "openssl")]
-            CipherSuiteVariant::AesCtr128HmacSha256_32 => CipherSuite {
-                variant,
-                hash_len: 32,
-                key_len: 48,
-                nonce_len: 12,
-                auth_tag_len: 4,
-            },
-            CipherSuiteVariant::AesGcm128Sha256 => CipherSuite {
-                variant,
-                hash_len: 32,
-                key_len: 16,
-                nonce_len: 12,
-                auth_tag_len: 16,
-            },
-            CipherSuiteVariant::AesGcm256Sha512 => CipherSuite {
-                variant,
-                hash_len: 64,
-                key_len: 32,
-                nonce_len: 12,
-                auth_tag_len: 16,
-            },
+            CipherSuiteVariant::AesCtr128HmacSha256_80 => {
+                &CIPHER_SUITE_VARIANT_AES_CTR128_HMAC_SHA256_80
+            }
+            CipherSuiteVariant::AesCtr128HmacSha256_64 => {
+                &CIPHER_SUITE_VARIANT_AES_CTR128_HMAC_SHA256_64
+            }
+            CipherSuiteVariant::AesCtr128HmacSha256_32 => {
+                &CIPHER_SUITE_VARIANT_AES_CTR128_HMAC_SHA256_32
+            }
+            CipherSuiteVariant::AesGcm128Sha256 => &CIPHER_SUITE_AES_GCM128_SHA256,
+            CipherSuiteVariant::AesGcm256Sha512 => &CIPHER_SUITE_AES_GCM256_SHA512,
         }
     }
 }

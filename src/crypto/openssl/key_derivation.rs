@@ -1,6 +1,6 @@
 use crate::{
     crypto::{
-        cipher_suite::{CipherSuite, CipherSuiteVariant},
+        cipher_suite::{CipherSuiteRef, CipherSuiteVariant},
         key_derivation::{
             get_hkdf_key_expand_info, get_hkdf_ratchet_expand_info, get_hkdf_salt_expand_info,
             KeyDerivation, Ratcheting,
@@ -13,7 +13,7 @@ use crate::{
 
 impl KeyDerivation for SframeKey {
     fn expand_from<M, K>(
-        cipher_suite: &CipherSuite,
+        cipher_suite: CipherSuiteRef,
         key_material: M,
         key_id: K,
     ) -> Result<SframeKey>
@@ -36,7 +36,7 @@ impl KeyDerivation for SframeKey {
                 salt,
                 auth,
                 key_id,
-                cipher_suite: *cipher_suite,
+                cipher_suite,
             })
         };
 
@@ -45,7 +45,7 @@ impl KeyDerivation for SframeKey {
 }
 
 impl Ratcheting for Vec<u8> {
-    fn ratchet(&self, cipher_suite: &CipherSuite) -> Result<Vec<u8>>
+    fn ratchet(&self, cipher_suite: CipherSuiteRef) -> Result<Vec<u8>>
     where
         Self: AsRef<[u8]>,
     {
@@ -61,7 +61,7 @@ impl Ratcheting for Vec<u8> {
 }
 
 fn expand_secret(
-    cipher_suite: &CipherSuite,
+    cipher_suite: CipherSuiteRef,
     key_material: &[u8],
     key_id: u64,
 ) -> std::result::Result<(Vec<u8>, Vec<u8>), openssl::error::ErrorStack> {
@@ -83,7 +83,7 @@ fn expand_secret(
     Ok((key, salt))
 }
 
-fn expand_subsecret(cipher_suite: &CipherSuite, key: &[u8]) -> (Vec<u8>, Vec<u8>) {
+fn expand_subsecret(cipher_suite: CipherSuiteRef, key: &[u8]) -> (Vec<u8>, Vec<u8>) {
     let aes_keysize = key.len() - cipher_suite.hash_len;
     let enc_key = key[..aes_keysize].to_vec();
     let auth_key = key[aes_keysize..].to_vec();
@@ -92,7 +92,7 @@ fn expand_subsecret(cipher_suite: &CipherSuite, key: &[u8]) -> (Vec<u8>, Vec<u8>
 }
 
 fn extract_pseudo_random_key(
-    cipher_suite: &CipherSuite,
+    cipher_suite: CipherSuiteRef,
     key_material: &[u8],
     salt: &[u8],
 ) -> std::result::Result<Vec<u8>, openssl::error::ErrorStack> {
@@ -109,7 +109,7 @@ fn extract_pseudo_random_key(
 }
 
 fn expand_key(
-    cipher_suite: &CipherSuite,
+    cipher_suite: CipherSuiteRef,
     prk: &[u8],
     info: &[u8],
     key_len: usize,
@@ -127,7 +127,7 @@ fn expand_key(
 }
 
 fn init_openssl_ctx(
-    cipher_suite: &CipherSuite,
+    cipher_suite: CipherSuiteRef,
 ) -> std::result::Result<openssl::pkey_ctx::PkeyCtx<()>, openssl::error::ErrorStack> {
     let mut ctx = openssl::pkey_ctx::PkeyCtx::new_id(openssl::pkey::Id::HKDF)?;
     ctx.derive_init()?;
@@ -162,7 +162,7 @@ mod test {
     #[test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32")]
     fn derive_correct_sub_keys(variant: CipherSuiteVariant) {
         let test_vec = get_aes_ctr_test_vector(&variant.to_string());
-        let cipher_suite = CipherSuite::from(variant);
+        let cipher_suite = CipherSuiteRef::from(variant);
 
         let (key, auth) = expand_subsecret(&cipher_suite, &test_vec.base_key);
         assert_bytes_eq(&key, &test_vec.enc_key);

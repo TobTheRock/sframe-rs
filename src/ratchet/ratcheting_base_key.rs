@@ -1,7 +1,7 @@
 use std::mem::replace;
 
 use crate::{
-    crypto::{cipher_suite::CipherSuite, key_derivation::Ratcheting},
+    crypto::{cipher_suite::CipherSuiteRef, key_derivation::Ratcheting},
     error::Result,
     CipherSuiteVariant,
 };
@@ -14,7 +14,7 @@ use super::ratcheting_key_id::RatchetingKeyId;
 /// - the part of the key id is used to indicate the current ratchet step (see [`RatchetingKeyId`])
 /// The original key material is not stored for security reasons.
 pub struct RatchetingBaseKey {
-    cipher_suite: CipherSuite,
+    cipher_suite: CipherSuiteRef,
     current_material: Vec<u8>,
     key_id: RatchetingKeyId,
 }
