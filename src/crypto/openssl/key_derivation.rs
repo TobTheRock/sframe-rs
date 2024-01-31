@@ -70,13 +70,13 @@ fn expand_secret(
     let key = expand_key(
         cipher_suite,
         &prk,
-        &get_hkdf_key_expand_info(key_id, cipher_suite.id),
+        &get_hkdf_key_expand_info(key_id, cipher_suite.variant),
         cipher_suite.key_len,
     )?;
     let salt = expand_key(
         cipher_suite,
         &prk,
-        &get_hkdf_salt_expand_info(key_id, cipher_suite.id),
+        &get_hkdf_salt_expand_info(key_id, cipher_suite.variant),
         cipher_suite.nonce_len,
     )?;
 
