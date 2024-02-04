@@ -1,5 +1,5 @@
 use super::{cipher_suite::CipherSuite, sframe_key::SframeKey};
-use crate::{error::Result, header::KeyId};
+use crate::{error::Result, header::KeyId, CipherSuiteVariant};
 
 pub trait KeyDerivation {
     fn expand_from<M, K>(
@@ -18,34 +18,37 @@ pub trait Ratcheting {
         Self: AsRef<[u8]>;
 }
 
-pub fn get_hkdf_key_expand_info(key_id: u64, cipher_suite_id: u16) -> Vec<u8> {
+pub fn get_hkdf_key_expand_label(key_id: u64, cipher_suite_variant: CipherSuiteVariant) -> Vec<u8> {
     [
         SFRAME_LABEL,
-        SFRAME_HKDF_KEY_EXPAND_INFO,
+        SFRAME_HKDF_KEY_EXPAND_LABEL,
         &key_id.to_be_bytes(),
-        &cipher_suite_id.to_be_bytes(),
+        &(cipher_suite_variant as u16).to_be_bytes(),
     ]
     .concat()
 }
 
-pub fn get_hkdf_salt_expand_info(key_id: u64, cipher_suite_id: u16) -> Vec<u8> {
+pub fn get_hkdf_salt_expand_label(
+    key_id: u64,
+    cipher_suite_variant: CipherSuiteVariant,
+) -> Vec<u8> {
     [
         SFRAME_LABEL,
-        SFRAME_HDKF_SALT_EXPAND_INFO,
+        SFRAME_HDKF_SALT_EXPAND_LABEL,
         &key_id.to_be_bytes(),
-        &cipher_suite_id.to_be_bytes(),
+        &(cipher_suite_variant as u16).to_be_bytes(),
     ]
     .concat()
 }
 
-pub const fn get_hkdf_ratchet_expand_info() -> &'static [u8] {
+pub const fn get_hkdf_ratchet_expand_label() -> &'static [u8] {
     b"Sframe 1.0 Ratchet"
 }
 
 const SFRAME_LABEL: &[u8] = b"SFrame 1.0 ";
 
-const SFRAME_HKDF_KEY_EXPAND_INFO: &[u8] = b"Secret key ";
-const SFRAME_HDKF_SALT_EXPAND_INFO: &[u8] = b"Secret salt ";
+const SFRAME_HKDF_KEY_EXPAND_LABEL: &[u8] = b"Secret key ";
+const SFRAME_HDKF_SALT_EXPAND_LABEL: &[u8] = b"Secret salt ";
 
 #[cfg(test)]
 mod test {
@@ -56,7 +59,7 @@ mod test {
     use crate::test_vectors::get_sframe_test_vector;
     use crate::{crypto::cipher_suite::CipherSuiteVariant, util::test::assert_bytes_eq};
 
-    use crate::crypto::key_derivation::{get_hkdf_key_expand_info, get_hkdf_salt_expand_info};
+    use crate::crypto::key_derivation::{get_hkdf_key_expand_label, get_hkdf_salt_expand_label};
     use test_case::test_case;
 
     #[test_case(CipherSuiteVariant::AesGcm128Sha256; "AesGcm128Sha256")]
@@ -68,11 +71,11 @@ mod test {
         let test_vec = get_sframe_test_vector(&variant.to_string());
         let cipher_suite: CipherSuite = CipherSuite::from(variant);
         assert_bytes_eq(
-            &get_hkdf_key_expand_info(test_vec.key_id, cipher_suite.id),
+            &get_hkdf_key_expand_label(test_vec.key_id, cipher_suite.variant),
             &test_vec.sframe_key_label,
         );
         assert_bytes_eq(
-            &get_hkdf_salt_expand_info(test_vec.key_id, cipher_suite.id),
+            &get_hkdf_salt_expand_label(test_vec.key_id, cipher_suite.variant),
             &test_vec.sframe_salt_label,
         );
     }

@@ -2,7 +2,7 @@ use crate::{
     crypto::{
         cipher_suite::{CipherSuite, CipherSuiteVariant},
         key_derivation::{
-            get_hkdf_key_expand_info, get_hkdf_ratchet_expand_info, get_hkdf_salt_expand_info,
+            get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label, get_hkdf_salt_expand_label,
             KeyDerivation, Ratcheting,
         },
         sframe_key::SframeKey,
@@ -23,18 +23,18 @@ impl KeyDerivation for SframeKey {
     {
         let key_id = key_id.into();
         let algorithm = cipher_suite.variant.into();
-        // No salt used for the extraction: https://www.ietf.org/archive/id/draft-ietf-sframe-enc-04.html#name-key-derivation
+        // No salt used for the extraction: https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-key-derivation
         let pseudo_random_key =
             ring::hkdf::Salt::new(algorithm, b"").extract(key_material.as_ref());
 
         let key = expand_key(
             &pseudo_random_key,
-            &get_hkdf_key_expand_info(key_id, cipher_suite.id),
+            &get_hkdf_key_expand_label(key_id, cipher_suite.variant),
             cipher_suite.key_len,
         )?;
         let salt = expand_key(
             &pseudo_random_key,
-            &get_hkdf_salt_expand_info(key_id, cipher_suite.id),
+            &get_hkdf_salt_expand_label(key_id, cipher_suite.variant),
             cipher_suite.nonce_len,
         )?;
 
@@ -58,7 +58,7 @@ impl Ratcheting for Vec<u8> {
 
         expand_key(
             &pseudo_random_key,
-            get_hkdf_ratchet_expand_info(),
+            get_hkdf_ratchet_expand_label(),
             cipher_suite.key_len,
         )
     }

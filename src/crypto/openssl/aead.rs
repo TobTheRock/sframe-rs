@@ -126,13 +126,13 @@ impl SframeKey {
     ) -> Result<(Vec<u8>, Tag)> {
         let auth_key = self.auth.as_ref().ok_or(SframeError::EncryptionFailure)?;
         // openssl expects a fixed iv length of 16 byte, thus we needed to pad the sframe nonce
-        let iv = self.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
-        let nonce = &iv[..self.cipher_suite.nonce_len];
+        let initial_counter = self.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
+        let nonce = &initial_counter[..self.cipher_suite.nonce_len];
 
         let encrypted = openssl::symm::encrypt(
             self.cipher_suite.variant.into(),
             &self.key,
-            Some(&iv),
+            Some(&initial_counter),
             plain_text,
         )?;
         let tag = self.compute_tag(auth_key, aad, nonce, &encrypted)?;
@@ -147,8 +147,8 @@ impl SframeKey {
         encrypted: &[u8],
         tag: &[u8],
     ) -> Result<Vec<u8>> {
-        let iv: [u8; 16] = self.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
-        let nonce = &iv[..self.cipher_suite.nonce_len];
+        let initial_counter: [u8; 16] = self.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
+        let nonce = &initial_counter[..self.cipher_suite.nonce_len];
         let auth_key = self.auth.as_ref().ok_or(SframeError::DecryptionFailure)?;
 
         let candidate_tag = self
@@ -162,10 +162,12 @@ impl SframeKey {
             log::debug!("Tags mismatching, discarding frame.");
             return Err(SframeError::DecryptionFailure);
         }
-        openssl::symm::decrypt(cipher, &self.key, Some(&iv), encrypted).map_err(|err| {
-            log::debug!("Decryption failed, OpenSSL error stack: {}", err);
-            SframeError::DecryptionFailure
-        })
+        openssl::symm::decrypt(cipher, &self.key, Some(&initial_counter), encrypted).map_err(
+            |err| {
+                log::debug!("Decryption failed, OpenSSL error stack: {}", err);
+                SframeError::DecryptionFailure
+            },
+        )
     }
 
     fn compute_tag(

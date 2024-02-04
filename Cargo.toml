@@ -10,7 +10,7 @@ authors = [
   "Richard Haehne <richard.haehne@goto.com>",
 ]
 
-description = "pure rust implementation of SFrame draft-ietf-sframe-enc-04"
+description = "pure rust implementation of SFrame draft-ietf-sframe-enc-06"
 repository = "https://github.com/TobTheRock/sframe-rs"
 documentation = "https://docs.rs/sframe/"
 readme = "README.md"

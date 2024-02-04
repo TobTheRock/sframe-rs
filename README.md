@@ -7,13 +7,9 @@
 [![documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/sframe/)
 ![maintenance](https://img.shields.io/maintenance/yes/2024)
 
-This library is an implementation of [draft-ietf-sframe-enc-04](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-04) and provides and end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
+This library is an implementation of [draft-ietf-sframe-enc-06](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06) and provides and end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
 It is in it's current form a subset of the specification.
 It was forked from the original [goto-opensource/secure-frame-rs](https://github.com/goto-opensource/secure-frame-rs) and is continued here.
-
-## Differences from the sframe draft
-
-- no metadata authentication
 
 ## Supported crypto libraries
 
