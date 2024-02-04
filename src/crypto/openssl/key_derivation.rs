@@ -2,7 +2,7 @@ use crate::{
     crypto::{
         cipher_suite::{CipherSuite, CipherSuiteVariant},
         key_derivation::{
-            get_hkdf_key_expand_info, get_hkdf_ratchet_expand_info, get_hkdf_salt_expand_info,
+            get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label, get_hkdf_salt_expand_label,
             KeyDerivation, Ratcheting,
         },
         sframe_key::SframeKey,
@@ -40,7 +40,10 @@ impl KeyDerivation for SframeKey {
             })
         };
 
-        try_expand().map_err(|_: openssl::error::ErrorStack| SframeError::KeyDerivation)
+        try_expand().map_err(|err: openssl::error::ErrorStack| {
+            log::debug!("Key derivation failed, OpenSSL error stack: {}", err);
+            SframeError::KeyDerivation
+        })
     }
 }
 
@@ -53,7 +56,7 @@ impl Ratcheting for Vec<u8> {
         expand_key(
             cipher_suite,
             &prk,
-            get_hkdf_ratchet_expand_info(),
+            get_hkdf_ratchet_expand_label(),
             cipher_suite.nonce_len,
         )
         .map_err(|_: openssl::error::ErrorStack| SframeError::KeyDerivation)
@@ -65,18 +68,18 @@ fn expand_secret(
     key_material: &[u8],
     key_id: u64,
 ) -> std::result::Result<(Vec<u8>, Vec<u8>), openssl::error::ErrorStack> {
-    // No salt used for the extraction: https://www.ietf.org/archive/id/draft-ietf-sframe-enc-04.html#name-key-derivation
+    // No salt used for the extraction: https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-key-derivation
     let prk = extract_pseudo_random_key(cipher_suite, key_material, b"")?;
     let key = expand_key(
         cipher_suite,
         &prk,
-        &get_hkdf_key_expand_info(key_id, cipher_suite.variant),
+        &get_hkdf_key_expand_label(key_id, cipher_suite.variant),
         cipher_suite.key_len,
     )?;
     let salt = expand_key(
         cipher_suite,
         &prk,
-        &get_hkdf_salt_expand_info(key_id, cipher_suite.variant),
+        &get_hkdf_salt_expand_label(key_id, cipher_suite.variant),
         cipher_suite.nonce_len,
     )?;
 
