@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2024-02-04
+
+### Features
+
+- [**breaking**] Using meta data as AD
+As due to this change the AAD used for authenticity protection now differs, encryption/decryption is longer compatible with older library version .
+- Update to draft 06
+
 ## [0.4.2] - 2024-01-28
 
 ### Features
