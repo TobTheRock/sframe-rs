@@ -1,6 +1,6 @@
 use super::util::{min_len_in_bytes, U64_LEN};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum HeaderField {
     FixedLen(u8),
     VariableLen(VariableLengthField),
@@ -26,7 +26,7 @@ impl From<HeaderField> for u64 {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct VariableLengthField {
     length: u8,
     value: u64,
