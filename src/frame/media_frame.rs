@@ -1,9 +1,10 @@
 use std::usize;
 
 use crate::{
-    crypto::{aead::AeadEncrypt, sframe_key::SframeKey},
+    crypto::aead::AeadEncrypt,
     error::Result,
     header::{FrameCount, SframeHeader},
+    key::SframeKey,
 };
 
 use super::{
@@ -78,14 +79,15 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         key: &SframeKey,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<EncryptedFrameView<'obuf>> {
+        let key_id = key.key_id();
         log::trace!(
             "Encrypting MediaFrame # {} using KeyId {} and CipherSuite {}",
             self.frame_count,
-            key.key_id,
-            key.cipher_suite.variant
+            key_id,
+            key.cipher_suite_variant()
         );
 
-        let header = SframeHeader::new(key.key_id, self.frame_count);
+        let header = SframeHeader::new(key_id, self.frame_count);
         log::trace!("MediaFrame # {} using header {}", self.frame_count, header);
 
         let io_buffer = self.allocate_buffer(buffer, &header, key.cipher_suite().auth_tag_len)?;

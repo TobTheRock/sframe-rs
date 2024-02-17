@@ -5,18 +5,14 @@ use crate::{
             get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label, get_hkdf_salt_expand_label,
             KeyDerivation, Ratcheting,
         },
-        sframe_key::SframeKey,
+        secret::Secret,
     },
     error::{Result, SframeError},
     header::KeyId,
 };
 
-impl KeyDerivation for SframeKey {
-    fn expand_from<M, K>(
-        cipher_suite: &CipherSuite,
-        key_material: M,
-        key_id: K,
-    ) -> Result<SframeKey>
+impl KeyDerivation for Secret {
+    fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>,
@@ -31,13 +27,7 @@ impl KeyDerivation for SframeKey {
                 (base_key, None)
             };
 
-            Ok(SframeKey {
-                key,
-                salt,
-                auth,
-                key_id,
-                cipher_suite: *cipher_suite,
-            })
+            Ok(Secret { key, salt, auth })
         };
 
         try_expand().map_err(|err: openssl::error::ErrorStack| {

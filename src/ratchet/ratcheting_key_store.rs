@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    crypto::{key_derivation::KeyDerivation, sframe_key::SframeKey},
     error::{Result, SframeError},
     header::KeyId,
+    key::SframeKey,
     CipherSuiteVariant,
 };
 
@@ -38,9 +38,8 @@ impl RatchetingKeyStore {
         M: AsRef<[u8]>,
     {
         let key_id = RatchetingKeyId::from_key_id(key_id.into(), self.n_ratchet_bits);
-        let cipher_suite = variant.into();
 
-        let sframe_key = SframeKey::expand_from(&cipher_suite, &key_material, key_id)?;
+        let sframe_key = SframeKey::expand_from(variant, key_id, &key_material)?;
         let base_key = RatchetingBaseKey::ratchet_forward(key_id, key_material, variant)?;
 
         self.keys.insert(
@@ -100,8 +99,11 @@ impl RatchetingKeyStore {
         let next_base_key = (0..step_diff).map(|_| keys.base_key.next_base_key()).last();
         if let Some(next_base_key) = next_base_key {
             let (next_key_id, next_material) = next_base_key?;
-            keys.sframe_key =
-                SframeKey::expand_from(&keys.sframe_key.cipher_suite, next_material, next_key_id)?;
+            keys.sframe_key = SframeKey::expand_from(
+                keys.sframe_key.cipher_suite_variant(),
+                next_key_id,
+                next_material,
+            )?;
         }
 
         Ok(&keys.sframe_key)
@@ -146,7 +148,7 @@ mod test {
         let key_id_without_ratcheting_step = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
         assert_eq!(
             KeyId::from(key_id_without_ratcheting_step),
-            keys.sframe_key.key_id
+            keys.sframe_key.key_id()
         );
     }
 
@@ -193,10 +195,9 @@ mod test {
         key_store
             .insert(CipherSuiteVariant::AesGcm256Sha512, key_id, KEY_MATERIAL)
             .unwrap();
-        let sframe_key = key_store.ratcheting_get(key_id);
+        let sframe_key = key_store.ratcheting_get(key_id).unwrap();
 
-        assert!(sframe_key.is_ok());
-        assert_eq!(KeyId::from(key_id), sframe_key.unwrap().key_id);
+        assert_eq!(KeyId::from(key_id), sframe_key.key_id());
     }
 
     #[test]
@@ -209,8 +210,8 @@ mod test {
             .insert(CipherSuiteVariant::AesGcm256Sha512, key_id, KEY_MATERIAL)
             .unwrap();
 
-        let first_secret = key_store.ratcheting_get(key_id).unwrap().clone();
-        let first_key_id = RatchetingKeyId::from_key_id(first_secret.key_id, N_RATCHET_BITS);
+        let first_key = key_store.ratcheting_get(key_id).unwrap().clone();
+        let first_key_id = RatchetingKeyId::from_key_id(first_key.key_id(), N_RATCHET_BITS);
 
         assert_eq!(first_key_id, key_id);
         assert_eq!(first_key_id.ratchet_step(), 0);
@@ -218,11 +219,10 @@ mod test {
         // ratchet
         key_id.inc_ratchet_step();
 
-        let second_secret = key_store.ratcheting_get(key_id).unwrap();
-        assert_ne!(first_secret.key, second_secret.key);
-        assert_ne!(first_secret.salt, second_secret.salt);
+        let second_key = key_store.ratcheting_get(key_id).unwrap();
+        assert_ne!(first_key.secret(), second_key.secret());
 
-        let second_key_id = RatchetingKeyId::from_key_id(second_secret.key_id, N_RATCHET_BITS);
+        let second_key_id = RatchetingKeyId::from_key_id(second_key.key_id(), N_RATCHET_BITS);
         assert_eq!(second_key_id.ratchet_step(), 1);
         assert_eq!(first_key_id, second_key_id);
     }

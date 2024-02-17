@@ -2,12 +2,11 @@ use crate::{
     crypto::{
         aead::AeadEncrypt,
         cipher_suite::{CipherSuite, CipherSuiteVariant},
-        key_derivation::KeyDerivation,
-        sframe_key::SframeKey,
     },
     error::{Result, SframeError},
     frame_count_generator::FrameCountGenerator,
     header::{FrameCount, KeyId, SframeHeader},
+    key::SframeKey,
 };
 
 /// options for the encryption block,
@@ -134,9 +133,9 @@ impl Sender {
         M: AsRef<[u8]>,
     {
         self.sframe_key = Some(SframeKey::expand_from(
-            &self.cipher_suite,
-            key_material,
+            self.cipher_suite.variant,
             self.key_id,
+            key_material,
         )?);
         Ok(())
     }
