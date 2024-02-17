@@ -1,17 +1,13 @@
-use crate::header::{FrameCount, KeyId};
-
-use super::cipher_suite::CipherSuite;
+use crate::header::FrameCount;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SframeKey {
-    pub key: Vec<u8>,
-    pub salt: Vec<u8>,
-    pub auth: Option<Vec<u8>>,
-    pub cipher_suite: CipherSuite,
-    pub key_id: KeyId,
+pub struct Secret {
+    pub(super) key: Vec<u8>,
+    pub(super) salt: Vec<u8>,
+    pub(super) auth: Option<Vec<u8>>,
 }
 
-impl SframeKey {
+impl Secret {
     pub(crate) fn create_nonce<const LEN: usize>(&self, frame_count: FrameCount) -> [u8; LEN] {
         let be_frame_count = frame_count.to_be_bytes();
         let mut counter = be_frame_count.iter().rev();
@@ -26,6 +22,15 @@ impl SframeKey {
 
         iv
     }
+
+    #[cfg(test)]
+    pub(crate) fn from_test_vector(test_vec: &crate::test_vectors::SframeTest) -> Self {
+        Self {
+            key: test_vec.sframe_key.clone(),
+            salt: test_vec.sframe_salt.clone(),
+            auth: None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -33,7 +38,7 @@ mod test {
     use crate::test_vectors::get_sframe_test_vector;
     use crate::{crypto::cipher_suite::CipherSuiteVariant, util::test::assert_bytes_eq};
 
-    use super::SframeKey;
+    use super::Secret;
     use test_case::test_case;
     const NONCE_LEN: usize = 12;
 
@@ -45,15 +50,13 @@ mod test {
     fn create_correct_nonce(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
 
-        let sframe_key = SframeKey {
+        let secret = Secret {
             key: test_vec.sframe_key.clone(),
             salt: test_vec.sframe_salt.clone(),
             auth: None,
-            cipher_suite: variant.into(),
-            key_id: test_vec.key_id,
         };
 
-        let nonce: [u8; NONCE_LEN] = sframe_key.create_nonce(test_vec.frame_count);
+        let nonce: [u8; NONCE_LEN] = secret.create_nonce(test_vec.frame_count);
         assert_bytes_eq(&nonce, &test_vec.nonce);
     }
 }

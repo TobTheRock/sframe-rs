@@ -1,7 +1,8 @@
 use crate::{
-    crypto::{aead::AeadEncrypt, sframe_key::SframeKey},
+    crypto::aead::AeadEncrypt,
     error::Result,
     header::{FrameCount, SframeHeader},
+    key::SframeKey,
 };
 
 use super::{encrypted_frame::EncryptedFrameView, FrameBuffer};
@@ -62,19 +63,20 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<EncryptedFrameView<'obuf>>
 where {
+        let key_id = key.key_id();
         log::trace!(
             "Encrypting MediaFrame # {} using KeyId {} and CipherSuite {} into buffer",
             self.frame_count,
-            key.key_id,
-            key.cipher_suite.variant
+            key_id,
+            key.cipher_suite_variant()
         );
 
-        let header = SframeHeader::new(key.key_id, self.frame_count);
+        let header = SframeHeader::new(key_id, self.frame_count);
         log::trace!("MediaFrame # {} using header {}", self.frame_count, header);
 
         let meta_len = self.meta_data.len();
         let buffer_len_needed =
-            meta_len + header.len() + self.payload.len() + key.cipher_suite.auth_tag_len;
+            meta_len + header.len() + self.payload.len() + key.cipher_suite().auth_tag_len;
 
         log::trace!(
             "MediaFrame # {} trying to allocate buffer of size {}",
@@ -121,11 +123,7 @@ where {
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        crypto::{key_derivation::KeyDerivation, sframe_key::SframeKey},
-        frame::media_frame::MediaFrameView,
-        CipherSuiteVariant,
-    };
+    use crate::{frame::media_frame::MediaFrameView, key::SframeKey, CipherSuiteVariant};
 
     #[test]
     fn create_media_frame_with_meta_data() {
@@ -145,13 +143,8 @@ mod test {
         let frame_count = 42u64;
         let payload = vec![6; 6];
         let key_id = 666u64;
-        // TODO remodel pub interface for SframeKey
-        let key = SframeKey::expand_from(
-            &CipherSuiteVariant::AesGcm256Sha512.into(),
-            "SECRET",
-            key_id,
-        )
-        .unwrap();
+        let key =
+            SframeKey::expand_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "SECRET").unwrap();
         let mut encrypt_buffer = Vec::new();
 
         let media_frame = MediaFrameView::new(frame_count, &payload);

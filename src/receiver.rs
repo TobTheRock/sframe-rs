@@ -4,12 +4,11 @@ use crate::{
     crypto::{
         aead::AeadDecrypt,
         cipher_suite::{CipherSuite, CipherSuiteVariant},
-        key_derivation::KeyDerivation,
-        sframe_key::SframeKey,
     },
     error::{Result, SframeError},
     frame_validation::{FrameValidationBox, ReplayAttackProtection},
     header::{KeyId, SframeHeader},
+    key::SframeKey,
     ratchet::RatchetingKeyStore,
 };
 
@@ -128,7 +127,7 @@ impl Receiver {
             KeyStore::Standard(key_store) => {
                 key_store.insert(
                     key_id,
-                    SframeKey::expand_from(&self.cipher_suite, key_material, key_id)?,
+                    SframeKey::expand_from(self.cipher_suite.variant, key_id, key_material)?,
                 );
             }
             KeyStore::Ratcheting(key_store) => {

@@ -104,8 +104,11 @@ where {
 
         key.decrypt(io_buffer, aad_buffer, frame_count)?;
 
-        let (payload, meta_data) =
-            self.extract_payload_and_metadata(io_buffer, aad_buffer, key.cipher_suite.auth_tag_len);
+        let (payload, meta_data) = self.extract_payload_and_metadata(
+            io_buffer,
+            aad_buffer,
+            key.cipher_suite().auth_tag_len,
+        );
 
         let media_frame = MediaFrameView::with_meta_data(frame_count, payload, meta_data);
         Ok(media_frame)

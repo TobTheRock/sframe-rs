@@ -2,12 +2,10 @@ use crate::{
     crypto::aead::{AeadDecrypt, AeadEncrypt},
     error::Result,
     header::FrameCount,
+    key::SframeKey,
 };
 
-use crate::{
-    crypto::{cipher_suite::CipherSuiteVariant, sframe_key::SframeKey},
-    error::SframeError,
-};
+use crate::{crypto::cipher_suite::CipherSuiteVariant, error::SframeError};
 
 use super::tag::Tag;
 
@@ -28,7 +26,7 @@ impl AeadEncrypt for SframeKey {
     {
         let io_buffer = io_buffer.as_mut();
 
-        let (out, tag) = if self.cipher_suite.is_ctr_mode() {
+        let (out, tag) = if self.cipher_suite().is_ctr_mode() {
             self.encrypt_aes_ctr(io_buffer, aad_buffer.as_ref(), frame_count)
         } else {
             self.encrypt_aead(io_buffer, aad_buffer.as_ref(), frame_count)
@@ -55,7 +53,8 @@ impl AeadDecrypt for SframeKey {
         IoBuffer: AsMut<[u8]> + ?Sized,
         Aad: AsRef<[u8]> + ?Sized,
     {
-        let cipher_suite = self.cipher_suite;
+        let cipher_suite = self.cipher_suite();
+        let secret = self.secret();
 
         let io_buffer = io_buffer.as_mut();
         if io_buffer.len() < cipher_suite.auth_tag_len {
@@ -72,10 +71,10 @@ impl AeadDecrypt for SframeKey {
         let out = if cipher_suite.is_ctr_mode() {
             self.decrypt_aes_ctr(cipher, frame_count, aad_buffer.as_ref(), encrypted, tag)
         } else {
-            let nonce = self.create_nonce::<AES_GCM_IV_LEN>(frame_count);
+            let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(frame_count);
             openssl::symm::decrypt_aead(
                 cipher,
-                &self.key,
+                &secret.key,
                 Some(&nonce),
                 aad_buffer.as_ref(),
                 encrypted,
@@ -104,12 +103,13 @@ impl SframeKey {
         aad: &[u8],
         frame_count: FrameCount,
     ) -> Result<(Vec<u8>, Tag)> {
-        let nonce = self.create_nonce::<AES_GCM_IV_LEN>(frame_count);
+        let secret = self.secret();
+        let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(frame_count);
 
-        let mut tag = Tag::new(self.cipher_suite.auth_tag_len);
+        let mut tag = Tag::new(self.cipher_suite().auth_tag_len);
         let out = openssl::symm::encrypt_aead(
-            self.cipher_suite.variant.into(),
-            &self.key,
+            self.cipher_suite().variant.into(),
+            &secret.key,
             Some(&nonce),
             aad,
             plain_text,
@@ -124,14 +124,15 @@ impl SframeKey {
         aad: &[u8],
         frame_count: FrameCount,
     ) -> Result<(Vec<u8>, Tag)> {
-        let auth_key = self.auth.as_ref().ok_or(SframeError::EncryptionFailure)?;
+        let secret = self.secret();
+        let auth_key = secret.auth.as_ref().ok_or(SframeError::EncryptionFailure)?;
         // openssl expects a fixed iv length of 16 byte, thus we needed to pad the sframe nonce
-        let initial_counter = self.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
-        let nonce = &initial_counter[..self.cipher_suite.nonce_len];
+        let initial_counter = secret.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
+        let nonce = &initial_counter[..self.cipher_suite().nonce_len];
 
         let encrypted = openssl::symm::encrypt(
-            self.cipher_suite.variant.into(),
-            &self.key,
+            self.cipher_suite().variant.into(),
+            &secret.key,
             Some(&initial_counter),
             plain_text,
         )?;
@@ -147,9 +148,10 @@ impl SframeKey {
         encrypted: &[u8],
         tag: &[u8],
     ) -> Result<Vec<u8>> {
-        let initial_counter: [u8; 16] = self.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
-        let nonce = &initial_counter[..self.cipher_suite.nonce_len];
-        let auth_key = self.auth.as_ref().ok_or(SframeError::DecryptionFailure)?;
+        let secret = self.secret();
+        let initial_counter: [u8; 16] = secret.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
+        let nonce = &initial_counter[..self.cipher_suite().nonce_len];
+        let auth_key = secret.auth.as_ref().ok_or(SframeError::DecryptionFailure)?;
 
         let candidate_tag = self
             .compute_tag(auth_key, aad, nonce, encrypted)
@@ -162,7 +164,7 @@ impl SframeKey {
             log::debug!("Tags mismatching, discarding frame.");
             return Err(SframeError::DecryptionFailure);
         }
-        openssl::symm::decrypt(cipher, &self.key, Some(&initial_counter), encrypted).map_err(
+        openssl::symm::decrypt(cipher, &secret.key, Some(&initial_counter), encrypted).map_err(
             |err| {
                 log::debug!("Decryption failed, OpenSSL error stack: {}", err);
                 SframeError::DecryptionFailure
@@ -183,13 +185,13 @@ impl SframeKey {
         // for current platforms there is no issue casting from usize to u64
         signer.update(&(aad.len() as u64).to_be_bytes())?;
         signer.update(&(encrypted.len() as u64).to_be_bytes())?;
-        signer.update(&(self.cipher_suite.auth_tag_len as u64).to_be_bytes())?;
+        signer.update(&(self.cipher_suite().auth_tag_len as u64).to_be_bytes())?;
         signer.update(nonce)?;
         signer.update(aad)?;
         signer.update(encrypted)?;
 
         let mut tag = signer.sign_to_vec()?;
-        tag.resize(self.cipher_suite.auth_tag_len, 0);
+        tag.resize(self.cipher_suite().auth_tag_len, 0);
 
         Ok(tag.into())
     }

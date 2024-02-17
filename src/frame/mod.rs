@@ -6,11 +6,7 @@ pub use frame_buffer::FrameBuffer;
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        crypto::{key_derivation::KeyDerivation, sframe_key::SframeKey},
-        frame::encrypted_frame::EncryptedFrameView,
-        CipherSuiteVariant,
-    };
+    use crate::{frame::encrypted_frame::EncryptedFrameView, key::SframeKey, CipherSuiteVariant};
 
     use super::media_frame::MediaFrameView;
 
@@ -19,13 +15,8 @@ mod test {
         let frame_count = 42u64;
         let payload = vec![6; 6];
         let key_id = 666u64;
-        // TODO remodel pub interface for SframeKey
-        let key = SframeKey::expand_from(
-            &CipherSuiteVariant::AesGcm256Sha512.into(),
-            "SECRET",
-            key_id,
-        )
-        .unwrap();
+        let key =
+            SframeKey::expand_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "SECRET").unwrap();
         let mut encrypt_buffer = Vec::new();
         let mut decrypt_buffer = Vec::new();
 
