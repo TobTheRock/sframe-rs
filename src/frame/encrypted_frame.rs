@@ -104,12 +104,9 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
             key_id
         );
 
-        let key = key_store
-            .get_key(key_id)
-            .ok_or(SframeError::MissingDecryptionKey(key_id))?;
+        let key = key_store.get_key(key_id)?;
 
         let (aad_buffer, io_buffer) = self.allocate_buffers(buffer)?;
-
         self.fill_io_buffer(io_buffer);
         self.fill_aad_buffer(aad_buffer);
 
