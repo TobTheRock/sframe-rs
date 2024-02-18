@@ -114,10 +114,10 @@ where {
         Ok(media_frame)
     }
 
-    fn allocate_buffers<'a>(
+    fn allocate_buffers<'obuf>(
         &self,
-        buffer: &'a mut impl FrameBuffer,
-    ) -> Result<(&'a mut [u8], &'a mut [u8])> {
+        buffer: &'obuf mut impl FrameBuffer,
+    ) -> Result<(&'obuf mut [u8], &'obuf mut [u8])> {
         let meta_len = self.meta_data.len();
         let buffer_len_needed = meta_len + self.data.len();
         log::trace!(
