@@ -6,7 +6,10 @@ use crate::{
     key::KeyStore,
 };
 
-use super::{media_frame::MediaFrameView, FrameBuffer};
+use super::{
+    media_frame::{MediaFrame, MediaFrameView},
+    FrameBuffer,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct EncryptedFrameView<'buf> {
@@ -16,8 +19,6 @@ pub struct EncryptedFrameView<'buf> {
 }
 
 impl<'ibuf> EncryptedFrameView<'ibuf> {
-    // TODO tryfrom trait
-    // maybe name deserialize, logs!
     pub fn new<D>(data: &'ibuf D) -> Result<Self>
     where
         D: AsRef<[u8]> + ?Sized,
@@ -40,7 +41,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         Ok(Self {
             header,
             meta_data: meta_data.as_ref(),
-            data: &data.as_ref(),
+            data: data.as_ref(),
         })
     }
 
@@ -56,7 +57,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         Self {
             header,
             meta_data: meta_data.as_ref(),
-            data: &data.as_ref(),
+            data: data.as_ref(),
         }
     }
 
@@ -72,18 +73,28 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         &self.data[self.header.len()..]
     }
 
-    pub fn validate(&self, validator: &impl FrameValidation) -> &Self {
-        todo!()
+    pub fn validate(self, validator: &impl FrameValidation) -> Result<Self> {
+        validator.validate(&self.header)?;
+
+        Ok(self)
     }
 
-    // TODO decrypt fn
+    pub fn decrypt(&self, key_store: &impl KeyStore) -> Result<MediaFrame> {
+        let mut buffer = Vec::new();
+        let view = self.decrypt_into(key_store, &mut buffer)?;
+
+        Ok(MediaFrame::with_meta_data(
+            view.frame_count(),
+            view.payload(),
+            view.meta_data(),
+        ))
+    }
 
     pub fn decrypt_into<'obuf>(
-        self,
+        &self,
         key_store: &impl KeyStore,
         buffer: &'obuf mut impl FrameBuffer,
-    ) -> Result<MediaFrameView<'obuf>>
-where {
+    ) -> Result<MediaFrameView<'obuf>> {
         let frame_count = self.header().frame_count();
         let key_id = self.header.key_id();
 
@@ -161,10 +172,123 @@ where {
     }
 }
 
+impl<'buf> TryFrom<&'buf [u8]> for EncryptedFrameView<'buf> {
+    type Error = SframeError;
+
+    fn try_from(data: &'buf [u8]) -> Result<Self> {
+        EncryptedFrameView::with_meta_data(data, &[])
+    }
+}
+
+impl<'buf> TryFrom<&'buf Vec<u8>> for EncryptedFrameView<'buf> {
+    type Error = SframeError;
+
+    fn try_from(data: &'buf Vec<u8>) -> Result<Self> {
+        EncryptedFrameView::with_meta_data(data, &[])
+    }
+}
+
+pub struct EncryptedFrame {
+    buffer: Vec<u8>,
+    header: SframeHeader,
+    meta_len: usize,
+}
+
+impl EncryptedFrame {
+    pub fn new<D>(data: D) -> Result<Self>
+    where
+        D: AsRef<[u8]>,
+    {
+        EncryptedFrame::with_meta_data(data, &[])
+    }
+
+    pub fn with_meta_data<D, M>(data: D, meta_data: M) -> Result<Self>
+    where
+        D: AsRef<[u8]>,
+        M: AsRef<[u8]>,
+    {
+        let data = data.as_ref();
+        let meta_data = meta_data.as_ref();
+
+        let header = SframeHeader::deserialize(data)?;
+        log::trace!(
+            "EncryptedFrame # {} with header {}",
+            header.frame_count(),
+            header
+        );
+
+        let meta_len = meta_data.len();
+        let mut buffer = Vec::with_capacity(data.len() + meta_len);
+        buffer.extend(meta_data);
+        buffer.extend(data);
+
+        Ok(Self {
+            header,
+            buffer,
+            meta_len,
+        })
+    }
+    pub(super) fn from_buffer(buffer: Vec<u8>, header: SframeHeader, meta_len: usize) -> Self {
+        EncryptedFrame {
+            buffer,
+            header,
+            meta_len,
+        }
+    }
+
+    pub fn header(&self) -> &SframeHeader {
+        &self.header
+    }
+
+    pub fn meta_data(&self) -> &[u8] {
+        &self.buffer[..self.meta_len]
+    }
+
+    pub fn cipher_text(&self) -> &[u8] {
+        &self.buffer[self.meta_len + self.header.len()..]
+    }
+
+    pub fn validate(self, validator: &impl FrameValidation) -> Result<Self> {
+        validator.validate(&self.header)?;
+
+        Ok(self)
+    }
+
+    pub fn decrypt(&self, key_store: &impl KeyStore) -> Result<MediaFrame> {
+        let view = EncryptedFrameView::with_header(
+            self.header,
+            &self.buffer[self.meta_len..],
+            self.meta_data(),
+        );
+
+        view.decrypt(key_store)
+    }
+
+    pub fn decrypt_into<'obuf>(
+        &self,
+        key_store: &impl KeyStore,
+        buffer: &'obuf mut impl FrameBuffer,
+    ) -> Result<MediaFrameView<'obuf>> {
+        let view = EncryptedFrameView::with_header(
+            self.header,
+            &self.buffer[self.meta_len..],
+            self.meta_data(),
+        );
+
+        view.decrypt_into(key_store, buffer)
+    }
+}
+
+impl AsRef<[u8]> for EncryptedFrame {
+    fn as_ref(&self) -> &[u8] {
+        self.buffer.as_slice()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::EncryptedFrameView;
-    use crate::header::SframeHeader;
+    use crate::{frame::encrypted_frame::EncryptedFrame, header::SframeHeader};
 
     #[test]
     fn new_encrypted_frame_view_with_meta_data() {
@@ -178,6 +302,21 @@ mod test {
 
         assert_eq!(frame_view.header(), &header);
         assert_eq!(frame_view.cipher_text(), &cipher_text);
-        assert_eq!(frame_view.meta_data(), meta_data)
+        assert_eq!(frame_view.meta_data(), meta_data);
+    }
+
+    #[test]
+    fn new_encrypted_frame_with_meta_data() {
+        let meta_data = [42u8, 43u8];
+        let header = SframeHeader::new(42, 666);
+        let header_buf = Vec::from(&header);
+        let cipher_text = vec![6u8; 3];
+        let data = [header_buf.clone(), cipher_text.clone()].concat();
+
+        let frame = EncryptedFrame::with_meta_data(&data, &meta_data).unwrap();
+
+        assert_eq!(frame.header(), &header);
+        assert_eq!(frame.cipher_text(), &cipher_text);
+        assert_eq!(frame.meta_data(), meta_data);
     }
 }

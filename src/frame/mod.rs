@@ -7,7 +7,9 @@ pub use frame_buffer::FrameBuffer;
 #[cfg(test)]
 mod test {
     use crate::{
-        frame::encrypted_frame::EncryptedFrameView, key::SframeKey, util::test::assert_bytes_eq,
+        frame::{encrypted_frame::EncryptedFrameView, media_frame::MediaFrame},
+        key::SframeKey,
+        util::test::assert_bytes_eq,
         CipherSuiteVariant,
     };
 
@@ -54,6 +56,20 @@ mod test {
         let decrypted_media_frame = encrypted_frame
             .decrypt_into(&key, &mut decrypt_buffer)
             .unwrap();
+
+        assert_eq!(decrypted_media_frame, media_frame);
+    }
+
+    #[test]
+    fn encrypt_decrypt_frame_with_meta_data() {
+        let key = expand_key();
+
+        let media_frame = MediaFrame::with_meta_data(FRAME_COUNT, PAYLOAD, META_DATA);
+        let encrypted = media_frame.encrypt(&key).unwrap();
+
+        assert_bytes_eq(encrypted.meta_data(), META_DATA);
+
+        let decrypted_media_frame = encrypted.decrypt(&key).unwrap();
 
         assert_eq!(decrypted_media_frame, media_frame);
     }
