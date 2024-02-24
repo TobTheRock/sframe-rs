@@ -3,10 +3,11 @@ use crate::{
     error::{Result, SframeError},
     frame_validation::FrameValidation,
     header::SframeHeader,
-    key::KeyStore,
+    key::{KeyStore, SframeKey},
 };
 
 use super::{
+    frame_buffer::Truncate,
     media_frame::{MediaFrame, MediaFrameView},
     FrameBuffer,
 };
@@ -73,7 +74,11 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         &self.data[self.header.len()..]
     }
 
-    pub fn validate(self, validator: &impl FrameValidation) -> Result<Self> {
+    pub fn validate<V>(self, validator: &V) -> Result<Self>
+    where
+        V: FrameValidation + ?Sized,
+    {
+        log::trace!("Validating EncryptedFrame # {}", self.header.frame_count());
         validator.validate(&self.header)?;
 
         Ok(self)
@@ -83,10 +88,10 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let mut buffer = Vec::new();
         let view = self.decrypt_into(key_store, &mut buffer)?;
 
-        Ok(MediaFrame::with_meta_data(
+        Ok(MediaFrame::with_buffer(
             view.frame_count(),
-            view.payload(),
-            view.meta_data(),
+            buffer,
+            self.meta_data.len(),
         ))
     }
 
@@ -106,67 +111,80 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
 
         let key = key_store.get_key(key_id)?;
 
-        let (aad_buffer, io_buffer) = self.allocate_buffers(buffer)?;
-        self.fill_io_buffer(io_buffer);
-        self.fill_aad_buffer(aad_buffer);
+        let buffer_len = self.buffer_len(key);
+        let allocate_len = buffer_len.meta + self.data.len();
+        log::trace!(
+            "EncryptedFrame # {} trying to allocate buffer of size {}",
+            self.header.frame_count(),
+            allocate_len
+        );
+        let frame_buffer = buffer.allocate(allocate_len)?;
+        let (aad_buffer, io_buffer) = self.fill_buffers(frame_buffer.as_mut(), &buffer_len)?;
 
         key.decrypt(io_buffer, aad_buffer, frame_count)?;
-
-        let (payload, meta_data) = self.extract_payload_and_metadata(
-            io_buffer,
-            aad_buffer,
-            key.cipher_suite().auth_tag_len,
-        );
+        let (payload, meta_data) = self.truncate_buffer(frame_buffer, &buffer_len);
 
         let media_frame = MediaFrameView::with_meta_data(frame_count, payload, meta_data);
         Ok(media_frame)
     }
 
-    fn allocate_buffers<'obuf>(
+    fn fill_buffers<'obuf>(
         &self,
-        buffer: &'obuf mut impl FrameBuffer,
+        frame_buffer: &'obuf mut [u8],
+        buffer_len: &BufferLengths,
     ) -> Result<(&'obuf mut [u8], &'obuf mut [u8])> {
-        let meta_len = self.meta_data.len();
-        let buffer_len_needed = meta_len + self.data.len();
-        log::trace!(
-            "EncryptedFrame # {} trying to allocate buffer of size {}",
-            self.header.frame_count(),
-            buffer_len_needed
-        );
-        let frame_buffer = buffer.allocate(buffer_len_needed)?.as_mut();
+        let (aad_buffer, io_buffer) = frame_buffer.split_at_mut(buffer_len.aad_buffer);
 
-        let aad_buffer_len = self.header.len() + meta_len;
-        let (aad_buffer, io_buffer) = frame_buffer.split_at_mut(aad_buffer_len);
+        aad_buffer[..buffer_len.meta].copy_from_slice(self.meta_data);
+        aad_buffer[buffer_len.meta..].copy_from_slice(&self.data[..buffer_len.header]);
+
+        io_buffer.copy_from_slice(&self.data[buffer_len.header..]);
 
         Ok((aad_buffer, io_buffer))
     }
 
-    fn fill_io_buffer(&self, io_buffer: &mut [u8]) {
-        let header_len = self.header.len();
-
-        io_buffer.copy_from_slice(&self.data[header_len..]);
-    }
-
-    fn fill_aad_buffer(&self, aad_buffer: &mut [u8]) {
-        let meta_len = self.meta_data.len();
-        let header_len = self.header.len();
-
-        aad_buffer[..meta_len].copy_from_slice(self.meta_data);
-        aad_buffer[meta_len..].copy_from_slice(&self.data[..header_len]);
-    }
-
-    fn extract_payload_and_metadata<'obuf>(
+    fn truncate_buffer<'obuf, F>(
         &self,
-        io_buffer: &'obuf [u8],
-        aad_buffer: &'obuf [u8],
-        auth_tag_len: usize,
-    ) -> (&'obuf [u8], &'obuf [u8]) {
-        let payload_len = self.data.len() - auth_tag_len - self.header.len();
-        let payload = &io_buffer[..payload_len];
-        let meta_data = &aad_buffer[..self.meta_data.len()];
+        frame_buffer: &'obuf mut F,
+        buffer_len: &BufferLengths,
+    ) -> (&'obuf [u8], &'obuf [u8])
+    where
+        F: AsMut<[u8]> + AsRef<[u8]> + Truncate,
+    {
+        let decrypted_begin = buffer_len.aad_buffer;
+        let decrypted_end = decrypted_begin + buffer_len.decrypted;
+
+        frame_buffer
+            .as_mut()
+            .copy_within(decrypted_begin..decrypted_end, buffer_len.meta);
+
+        frame_buffer.truncate(buffer_len.meta + buffer_len.decrypted);
+
+        let (meta_data, payload) = frame_buffer.as_mut().split_at(buffer_len.meta);
 
         (payload, meta_data)
     }
+
+    fn buffer_len(&self, key: &SframeKey) -> BufferLengths {
+        let header = self.header.len();
+        let meta = self.meta_data.len();
+        let aad_buffer = header + meta;
+        let decrypted = self.data.len() - key.cipher_suite().auth_tag_len - header;
+
+        BufferLengths {
+            aad_buffer,
+            decrypted,
+            header,
+            meta,
+        }
+    }
+}
+
+struct BufferLengths {
+    aad_buffer: usize,
+    decrypted: usize,
+    header: usize,
+    meta: usize,
 }
 
 impl<'buf> TryFrom<&'buf [u8]> for EncryptedFrameView<'buf> {

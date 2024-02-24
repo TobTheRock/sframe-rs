@@ -1,8 +1,18 @@
 use crate::error::Result;
 
+pub trait Truncate {
+    fn truncate(&mut self, size: usize);
+}
+
 pub trait FrameBuffer {
-    type BufferSlice: AsMut<[u8]> + AsRef<[u8]>;
+    type BufferSlice: AsMut<[u8]> + AsRef<[u8]> + Truncate;
     fn allocate(&mut self, size: usize) -> Result<&mut Self::BufferSlice>;
+}
+
+impl Truncate for Vec<u8> {
+    fn truncate(&mut self, size: usize) {
+        self.truncate(size);
+    }
 }
 
 impl FrameBuffer for Vec<u8> {

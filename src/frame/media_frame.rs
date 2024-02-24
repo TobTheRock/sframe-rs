@@ -1,3 +1,5 @@
+use std::usize;
+
 use crate::{
     crypto::aead::AeadEncrypt,
     error::Result,
@@ -185,6 +187,14 @@ impl MediaFrame {
         buffer.extend(meta_data);
         buffer.extend(payload);
 
+        Self {
+            frame_count,
+            buffer,
+            meta_len,
+        }
+    }
+
+    pub(super) fn with_buffer(frame_count: FrameCount, buffer: Vec<u8>, meta_len: usize) -> Self {
         Self {
             frame_count,
             buffer,
