@@ -84,7 +84,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         Ok(self)
     }
 
-    pub fn decrypt(&self, key_store: &impl KeyStore) -> Result<MediaFrame> {
+    pub fn decrypt(&self, key_store: &mut impl KeyStore) -> Result<MediaFrame> {
         let mut buffer = Vec::new();
         let view = self.decrypt_into(key_store, &mut buffer)?;
 
@@ -97,7 +97,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
 
     pub fn decrypt_into<'obuf>(
         &self,
-        key_store: &impl KeyStore,
+        key_store: &mut impl KeyStore,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<MediaFrameView<'obuf>> {
         let frame_count = self.header().frame_count();
@@ -269,7 +269,7 @@ impl EncryptedFrame {
         Ok(self)
     }
 
-    pub fn decrypt(&self, key_store: &impl KeyStore) -> Result<MediaFrame> {
+    pub fn decrypt(&self, key_store: &mut impl KeyStore) -> Result<MediaFrame> {
         let view = EncryptedFrameView::with_header(
             self.header,
             &self.buffer[self.meta_len..],
@@ -281,7 +281,7 @@ impl EncryptedFrame {
 
     pub fn decrypt_into<'obuf>(
         &self,
-        key_store: &impl KeyStore,
+        key_store: &mut impl KeyStore,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<MediaFrameView<'obuf>> {
         let view = EncryptedFrameView::with_header(
