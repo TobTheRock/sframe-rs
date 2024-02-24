@@ -8,13 +8,13 @@ use crate::{
 use super::SframeKey;
 
 pub trait KeyStore {
-    fn get_key<K>(&self, key_id: K) -> Result<&SframeKey>
+    fn get_key<K>(&mut self, key_id: K) -> Result<&SframeKey>
     where
         K: Into<KeyId>;
 }
 
 impl KeyStore for SframeKey {
-    fn get_key<K>(&self, key_id: K) -> Result<&SframeKey>
+    fn get_key<K>(&mut self, key_id: K) -> Result<&SframeKey>
     where
         K: Into<KeyId>,
     {
@@ -28,7 +28,7 @@ impl KeyStore for SframeKey {
 }
 
 impl KeyStore for HashMap<KeyId, SframeKey> {
-    fn get_key<K>(&self, key_id: K) -> Result<&SframeKey>
+    fn get_key<K>(&mut self, key_id: K) -> Result<&SframeKey>
     where
         K: Into<KeyId>,
     {

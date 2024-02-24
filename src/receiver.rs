@@ -1,12 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 
 use crate::{
-    crypto::{
-        aead::AeadDecrypt,
-        cipher_suite::{CipherSuite, CipherSuiteVariant},
-    },
+    crypto::cipher_suite::{CipherSuite, CipherSuiteVariant},
     error::{Result, SframeError},
-    frame_validation::{FrameValidationBox, ReplayAttackProtection},
+    frame::encrypted_frame::EncryptedFrameView,
+    frame_validation::{FrameValidation, FrameValidationBox, ReplayAttackProtection},
     header::{KeyId, SframeHeader},
     key::SframeKey,
     ratchet::RatchetingKeyStore,
@@ -76,41 +74,19 @@ impl Receiver {
         F: AsRef<[u8]>,
     {
         let encrypted_frame = encrypted_frame.as_ref();
-        let header = SframeHeader::deserialize(&encrypted_frame[skip..])?;
 
-        log::trace!(
-            "Receiver: Frame counter: {:?}, Key id: {:?}",
-            header.frame_count(),
-            header.key_id()
-        );
+        let data = &encrypted_frame[skip..];
+        let meta_data = &encrypted_frame[..skip];
+        let encrypted_frame = EncryptedFrameView::with_meta_data(data, meta_data)?;
 
+        // todo dummy validator
         if let Some(validator) = &self.frame_validation {
-            log::trace!("Receiver: Validating frame");
-            validator.validate(&header)?;
+            encrypted_frame.validate(validator)?;
         }
 
-        let key_id = header.key_id();
+        encrypted_frame.decrypt_into(&mut self.keys, &mut self.buffer)?;
 
-        let sframe_key = match &mut self.keys {
-            KeyStore::Standard(key_store) => key_store
-                .get(&key_id)
-                .ok_or(SframeError::MissingDecryptionKey(key_id)),
-            KeyStore::Ratcheting(key_store) => key_store.ratcheting_get(key_id),
-        }?;
-
-        let payload_begin = skip + header.len();
-        self.buffer.clear();
-        self.buffer.extend(&encrypted_frame[..skip]);
-        self.buffer.extend(&encrypted_frame[payload_begin..]);
-
-        sframe_key.decrypt(
-            &mut self.buffer[skip..],
-            &encrypted_frame[..payload_begin],
-            header.frame_count(),
-        )?;
-
-        let payload_end = self.buffer.len() - self.cipher_suite.auth_tag_len;
-        Ok(&self.buffer[..payload_end])
+        Ok(&self.buffer)
     }
 
     /// Tries to expand (HKDF) the necessary encryptions key using the key id and the key material,
@@ -185,8 +161,31 @@ impl Default for KeyStore {
     }
 }
 
+impl crate::key::KeyStore for KeyStore {
+    fn get_key<K>(&mut self, key_id: K) -> Result<&SframeKey>
+    where
+        K: Into<KeyId>,
+    {
+        let key_id = key_id.into();
+        match self {
+            KeyStore::Standard(keys) => keys
+                .get(&key_id)
+                .ok_or(SframeError::MissingDecryptionKey(key_id)),
+            KeyStore::Ratcheting(keys) => keys.ratcheting_get(key_id),
+        }
+    }
+}
+
+impl FrameValidation for Box<dyn FrameValidation> {
+    fn validate(&self, header: &SframeHeader) -> Result<()> {
+        self.deref().validate(header)
+    }
+}
+
 #[cfg(test)]
 mod test {
+    use crate::error::SframeError;
+
     use super::*;
 
     #[test]

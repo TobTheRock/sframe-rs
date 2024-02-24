@@ -1,7 +1,9 @@
 use crate::error::Result;
 
 pub trait Truncate {
-    fn truncate(&mut self, size: usize);
+    fn truncate(&mut self, _size: usize) {
+        // Noop as default
+    }
 }
 
 pub trait FrameBuffer {

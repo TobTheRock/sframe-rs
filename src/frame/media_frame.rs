@@ -66,7 +66,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         let mut buffer = Vec::new();
         let view = self.encrypt_into(key, &mut buffer)?;
 
-        let header = view.header().clone();
+        let header = *view.header();
         let meta_len = view.meta_data().len();
 
         let encrypted_frame = EncryptedFrame::from_buffer(buffer, header, meta_len);
@@ -161,7 +161,7 @@ impl MediaFrame {
         F: Into<FrameCount>,
         P: AsRef<[u8]>,
     {
-        Self::with_meta_data(frame_count, payload, &[])
+        Self::with_meta_data(frame_count, payload, [])
     }
 
     pub fn with_meta_data<F, P, M>(frame_count: F, payload: P, meta_data: M) -> Self
@@ -286,7 +286,7 @@ mod test {
         let key =
             SframeKey::expand_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET").unwrap();
 
-        let media_frame = MediaFrame::with_meta_data(FRAME_COUNT, &PAYLOAD, META_DATA);
+        let media_frame = MediaFrame::with_meta_data(FRAME_COUNT, PAYLOAD, META_DATA);
         let encrypted_frame = media_frame.encrypt(&key).unwrap();
 
         assert_eq!(encrypted_frame.header().key_id(), KEY_ID);
