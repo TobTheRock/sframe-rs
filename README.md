@@ -35,7 +35,7 @@ The `criterion` benchmarks found in `benches` for encryption/decryption/serializ
 cargo bench
 ```
 .
-They are tracked continously with a [Bencher Perf](https://bencher.dev/console/projects/sframe-rs).
+They are tracked continously with a [Bencher Perf Page](https://bencher.dev/perf/sframe-rs?back=L2NvbnNvbGUvb3JnYW5pemF0aW9ucy90b2J0aGVyb2NrL3Byb2plY3RzP3Blcl9wYWdlPTgmcGFnZT0x&key=true&reports_per_page=4&branches_per_page=8&testbeds_per_page=8&benchmarks_per_page=8&reports_page=1&branches_page=1&testbeds_page=1&benchmarks_page=1).
 
 ## Contribution
 
