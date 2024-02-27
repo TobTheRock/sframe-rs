@@ -1,0 +1,32 @@
+on:
+  workflow_dispatch:
+  push:
+    branches: main
+  schedule:
+    - cron: "0 5 * * 4" # 5 o'clock utc on thursdays
+
+jobs:
+  benchmark_with_bencher:
+    name: Continuous Benchmarking with Bencher
+    runs-on: ubuntu-latest
+    env:
+      BENCHER_PROJECT: sframe-rs
+      BENCHER_TESTBED: ubuntu-latest
+      BENCHER_ADAPTER: rust_criterion
+    strategy:
+      matrix:
+        feature:
+          - ring
+          - openssl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bencherdev/bencher@main
+      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Track Benchmarks with Bencher
+        run: |
+          bencher run \
+          --branch "$GITHUB_REF_NAME" \
+          --token "${{ secrets.BENCHER_API_TOKEN }}" \
+          --err \
+          "cargo bench --no-default-features --features ${{ matrix.feature }}"
