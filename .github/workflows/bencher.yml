@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BENCHER_PROJECT: sframe-rs
-      BENCHER_TESTBED: ubuntu-latest
       BENCHER_ADAPTER: rust_criterion
     strategy:
       matrix:
@@ -28,7 +27,8 @@ jobs:
       - name: Track Benchmarks with Bencher
         run: |
           bencher run \
-          --branch "$GITHUB_REF_NAME-${{ matrix.feature }}" \
+          --testbed "ubuntu-latest-${{ matrix.feature }}" \
+          --branch "$GITHUB_REF_NAME" \
           --token "${{ secrets.BENCHER_API_TOKEN }}" \
           --err \
           "cargo bench --no-default-features --features ${{ matrix.feature }}"
