@@ -214,7 +214,7 @@ impl EncryptedFrame {
     where
         D: AsRef<[u8]>,
     {
-        EncryptedFrame::with_meta_data(data, &[])
+        EncryptedFrame::with_meta_data(data, [])
     }
 
     pub fn with_meta_data<D, M>(data: D, meta_data: M) -> Result<Self>
@@ -237,11 +237,7 @@ impl EncryptedFrame {
         buffer.extend(meta_data);
         buffer.extend(data);
 
-        Ok(Self {
-            header,
-            buffer,
-            meta_len,
-        })
+        Ok(Self { buffer, header, meta_len })
     }
     pub(super) fn from_buffer(buffer: Vec<u8>, header: SframeHeader, meta_len: usize) -> Self {
         EncryptedFrame {
@@ -328,7 +324,7 @@ mod test {
         let cipher_text = vec![6u8; 3];
         let data = [header_buf.clone(), cipher_text.clone()].concat();
 
-        let frame = EncryptedFrame::with_meta_data(&data, &meta_data).unwrap();
+        let frame = EncryptedFrame::with_meta_data(data, meta_data).unwrap();
 
         assert_eq!(frame.header(), &header);
         assert_eq!(frame.cipher_text(), &cipher_text);
