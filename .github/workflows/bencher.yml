@@ -28,8 +28,7 @@ jobs:
       - name: Track Benchmarks with Bencher
         run: |
           bencher run \
-          --branch "$GITHUB_REF_NAME" \
+          --branch "$GITHUB_REF_NAME-${{ matrix.feature }}" \
           --token "${{ secrets.BENCHER_API_TOKEN }}" \
-          --test-bed ubuntu-latest-${{ matrix.feature }}\
           --err \
           "cargo bench --no-default-features --features ${{ matrix.feature }}"
