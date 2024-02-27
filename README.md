@@ -28,6 +28,15 @@ Currently two crypto libraries are supported:
 
 Both cannot be enabled at the same time, thus on conflict `sframe` issues a compiler error.
 
+## Benchmarks
+
+The `criterion` benchmarks found in `benches` for encryption/decryption/serialization can berun by executing
+```
+cargo bench
+```
+.
+They are tracked continously with a [Bencher Perf](https://bencher.dev/console/projects/sframe-rs).
+
 ## Contribution
 
 Any help in form of descriptive and friendly issues or comprehensive pull requests are welcome!
