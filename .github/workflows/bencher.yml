@@ -1,3 +1,5 @@
+name: Benchmark
+
 on:
   workflow_dispatch:
   push:
@@ -28,5 +30,6 @@ jobs:
           bencher run \
           --branch "$GITHUB_REF_NAME" \
           --token "${{ secrets.BENCHER_API_TOKEN }}" \
+          --test-bed ubuntu-latest-${{ matrix.feature }}\
           --err \
           "cargo bench --no-default-features --features ${{ matrix.feature }}"
