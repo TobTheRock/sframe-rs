@@ -1,3 +1,2 @@
 [workspace]
-update_dependencies = false # update dependencies with `cargo update`
 changelog_config = "./git-cliff.toml"
