@@ -39,7 +39,7 @@ impl RatchetingKeyStore {
     {
         let key_id = RatchetingKeyId::from_key_id(key_id.into(), self.n_ratchet_bits);
 
-        let sframe_key = SframeKey::expand_from(variant, key_id, &key_material)?;
+        let sframe_key = SframeKey::derive_from(variant, key_id, &key_material)?;
         let base_key = RatchetingBaseKey::ratchet_forward(key_id, key_material, variant)?;
 
         self.keys.insert(
@@ -99,7 +99,7 @@ impl RatchetingKeyStore {
         let next_base_key = (0..step_diff).map(|_| keys.base_key.next_base_key()).last();
         if let Some(next_base_key) = next_base_key {
             let (next_key_id, next_material) = next_base_key?;
-            keys.sframe_key = SframeKey::expand_from(
+            keys.sframe_key = SframeKey::derive_from(
                 keys.sframe_key.cipher_suite_variant(),
                 next_key_id,
                 next_material,

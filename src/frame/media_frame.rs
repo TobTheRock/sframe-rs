@@ -269,7 +269,7 @@ mod test {
     #[test]
     fn encrypt_media_frame_view() {
         let key =
-            SframeKey::expand_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET").unwrap();
+            SframeKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET").unwrap();
         let mut encrypt_buffer = Vec::new();
 
         let media_frame = MediaFrameView::with_meta_data(FRAME_COUNT, &PAYLOAD, META_DATA);
@@ -284,7 +284,7 @@ mod test {
     #[test]
     fn encrypt_media_frame() {
         let key =
-            SframeKey::expand_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET").unwrap();
+            SframeKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET").unwrap();
 
         let media_frame = MediaFrame::with_meta_data(FRAME_COUNT, PAYLOAD, META_DATA);
         let encrypted_frame = media_frame.encrypt(&key).unwrap();

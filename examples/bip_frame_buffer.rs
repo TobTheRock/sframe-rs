@@ -84,7 +84,7 @@ fn sleep(name: &str) {
 }
 
 fn producer_task(producer: FrameProducer<BUF_SIZE>) {
-    let key = SframeKey::expand_from(VARIANT, KEY_ID, SECRET).unwrap();
+    let key = SframeKey::derive_from(VARIANT, KEY_ID, SECRET).unwrap();
     let mut frame_count: u64 = 0;
     let mut buffer = ProducerBuffer {
         producer,
@@ -115,7 +115,7 @@ fn producer_task(producer: FrameProducer<BUF_SIZE>) {
 }
 
 fn consumer_task(mut consumer: FrameConsumer<BUF_SIZE>) {
-    let mut key = SframeKey::expand_from(VARIANT, KEY_ID, SECRET).unwrap();
+    let mut key = SframeKey::derive_from(VARIANT, KEY_ID, SECRET).unwrap();
     loop {
         // Read data from the buffer
         if let Some(grant) = consumer.read() {

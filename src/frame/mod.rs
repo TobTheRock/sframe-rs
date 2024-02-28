@@ -20,7 +20,7 @@ mod test {
     const KEY_ID: u64 = 666u64;
 
     fn expand_key() -> SframeKey {
-        SframeKey::expand_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET").unwrap()
+        SframeKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET").unwrap()
     }
 
     #[test]
