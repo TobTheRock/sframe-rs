@@ -110,7 +110,7 @@ impl Sender {
     where
         M: AsRef<[u8]>,
     {
-        self.sframe_key = Some(SframeKey::expand_from(
+        self.sframe_key = Some(SframeKey::derive_from(
             self.cipher_suite.variant,
             self.key_id,
             key_material,

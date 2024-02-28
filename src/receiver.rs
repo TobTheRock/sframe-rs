@@ -103,7 +103,7 @@ impl Receiver {
             KeyStore::Standard(key_store) => {
                 key_store.insert(
                     key_id,
-                    SframeKey::expand_from(self.cipher_suite.variant, key_id, key_material)?,
+                    SframeKey::derive_from(self.cipher_suite.variant, key_id, key_material)?,
                 );
             }
             KeyStore::Ratcheting(key_store) => {

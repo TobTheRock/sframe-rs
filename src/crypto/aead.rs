@@ -47,7 +47,7 @@ mod test {
         let mut data = vec![0u8; 1024];
         thread_rng().fill(data.as_mut_slice());
         let header = SframeHeader::new(0, 0);
-        let sframe_key = SframeKey::expand_from(
+        let sframe_key = SframeKey::derive_from(
             CipherSuiteVariant::AesGcm256Sha512,
             KeyId::default(),
             KEY_MATERIAL.as_bytes(),
