@@ -2,7 +2,6 @@
 /// and which hashing function is used for the key expansion,
 /// see [sframe draft 06 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-cipher-suites)
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-#[cfg_attr(test, derive(strum_macros::Display))]
 #[repr(u16)]
 pub enum CipherSuiteVariant {
     // /// counter mode is [not implemented in ring](https://github.com/briansmith/ring/issues/656)
@@ -19,6 +18,22 @@ pub enum CipherSuiteVariant {
     AesGcm128Sha256 = 0x0004,
     /// encryption: AES GCM 256, key expansion: HKDF with SHA512
     AesGcm256Sha512 = 0x0005,
+}
+
+impl std::fmt::Display for CipherSuiteVariant {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            #[cfg(feature = "openssl")]
+            CipherSuiteVariant::AesCtr128HmacSha256_80 => "AesCtr128HmacSha256_80",
+            #[cfg(feature = "openssl")]
+            CipherSuiteVariant::AesCtr128HmacSha256_64 => "AesCtr128HmacSha256_64",
+            #[cfg(feature = "openssl")]
+            CipherSuiteVariant::AesCtr128HmacSha256_32 => "AesCtr128HmacSha256_32",
+            CipherSuiteVariant::AesGcm128Sha256 => "AesGcm128Sha256",
+            CipherSuiteVariant::AesGcm256Sha512 => "AesGcm256Sha512",
+        };
+        f.write_str(str)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

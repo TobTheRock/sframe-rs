@@ -1,13 +1,10 @@
 use crate::{
-    crypto::{
-        aead::AeadEncrypt,
-        cipher_suite::{CipherSuite, CipherSuiteVariant},
-        key_derivation::KeyDerivation,
-        sframe_key::SframeKey,
-    },
+    crypto::cipher_suite::{CipherSuite, CipherSuiteVariant},
     error::{Result, SframeError},
+    frame::media_frame::MediaFrame,
     frame_count_generator::FrameCountGenerator,
-    header::{FrameCount, KeyId, SframeHeader},
+    header::{FrameCount, KeyId},
+    key::SframeKey,
 };
 
 /// options for the encryption block,
@@ -22,7 +19,7 @@ pub struct SenderOptions {
     ///
     /// default: [CipherSuiteVariant::AesGcm256Sha512]
     pub cipher_suite_variant: CipherSuiteVariant,
-    /// maximum frame count, to limit the header ([SframeHeader]) size
+    /// maximum frame count, to limit the header ([crate::header::SframeHeader]) size
     ///
     /// default: [u64::MAX]
     pub max_frame_count: FrameCount,
@@ -89,37 +86,17 @@ impl Sender {
     where
         F: AsRef<[u8]>,
     {
-        let unencrypted_payload = unencrypted_frame.as_ref();
-
-        log::trace!("Encrypt frame # {:#?}!", self.frame_count);
-        if let Some(ref sframe_key) = self.sframe_key {
-            log::trace!("Skipping first {} bytes in frame", skip);
+        if let Some(sframe_key) = &self.sframe_key {
+            let unencrypted_frame = unencrypted_frame.as_ref();
 
             let frame_count = self.frame_count.increment();
-            log::trace!("frame count: {:?}", frame_count);
+            let payload = &unencrypted_frame[skip..];
+            let meta_data = &unencrypted_frame[..skip];
+            let media_frame = MediaFrame::with_meta_data(frame_count, payload, meta_data);
 
-            log::trace!("Creating SFrame Header");
-            let header = SframeHeader::new(self.key_id, frame_count);
+            media_frame.encrypt_into(sframe_key, &mut self.buffer)?;
 
-            log::trace!("Sender: header: {:?}", header);
-
-            let skipped_payload = &unencrypted_payload[0..skip];
-            let to_be_encrypted_payload = &unencrypted_payload[skip..];
-
-            self.buffer.clear();
-            let frame = &mut self.buffer;
-            frame.extend_from_slice(skipped_payload);
-            frame.extend(Vec::from(&header));
-            frame.extend(to_be_encrypted_payload);
-
-            let (leading_buffer, encrypt_buffer) = frame.split_at_mut(skip + header.len());
-
-            log::trace!("Encrypting Frame of size {}", unencrypted_payload.len(),);
-            let tag = sframe_key.encrypt(encrypt_buffer, &leading_buffer, header.frame_count())?;
-
-            frame.extend(tag.as_ref());
-
-            Ok(frame)
+            Ok(&self.buffer)
         } else {
             Err(SframeError::MissingEncryptionKey)
         }
@@ -133,10 +110,10 @@ impl Sender {
     where
         M: AsRef<[u8]>,
     {
-        self.sframe_key = Some(SframeKey::expand_from(
-            &self.cipher_suite,
-            key_material,
+        self.sframe_key = Some(SframeKey::derive_from(
+            self.cipher_suite.variant,
             self.key_id,
+            key_material,
         )?);
         Ok(())
     }

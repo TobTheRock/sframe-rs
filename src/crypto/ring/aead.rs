@@ -2,14 +2,12 @@ use crate::{
     crypto::aead::{AeadDecrypt, AeadEncrypt},
     error::Result,
     header::FrameCount,
+    key::SframeKey,
 };
 
 use ring::aead::{BoundKey, SealingKey, Tag};
 
-use crate::{
-    crypto::{cipher_suite::CipherSuiteVariant, sframe_key::SframeKey},
-    error::SframeError,
-};
+use crate::{crypto::cipher_suite::CipherSuiteVariant, error::SframeError};
 
 struct FrameNonceSequence {
     buffer: [u8; ring::aead::NONCE_LEN],
@@ -40,8 +38,8 @@ impl From<CipherSuiteVariant> for &'static ring::aead::Algorithm {
 
 impl SframeKey {
     fn unbound_encryption_key(&self) -> Result<ring::aead::UnboundKey> {
-        let algorithm = self.cipher_suite.variant.into();
-        ring::aead::UnboundKey::new(algorithm, self.key.as_slice())
+        let algorithm = self.cipher_suite_variant().into();
+        ring::aead::UnboundKey::new(algorithm, self.secret().key.as_slice())
             .map_err(|_| SframeError::KeyDerivation)
     }
 }
@@ -60,7 +58,7 @@ impl AeadEncrypt for SframeKey {
     {
         let mut sealing_key = SealingKey::<FrameNonceSequence>::new(
             self.unbound_encryption_key()?,
-            self.create_nonce(frame_count).into(),
+            self.secret().create_nonce(frame_count).into(),
         );
 
         let aad = ring::aead::Aad::from(aad_buffer);
@@ -89,7 +87,7 @@ impl AeadDecrypt for SframeKey {
 
         let mut opening_key = ring::aead::OpeningKey::<FrameNonceSequence>::new(
             self.unbound_encryption_key()?,
-            self.create_nonce(frame_count).into(),
+            self.secret().create_nonce(frame_count).into(),
         );
         opening_key
             .open_in_place(aad, io_buffer.as_mut())

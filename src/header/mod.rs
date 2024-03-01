@@ -13,7 +13,7 @@ pub type KeyId = u64;
 /// frame count type used in the [`SframeHeader`]
 pub type FrameCount = u64;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// Modeled after [sframe draft 06 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-sframe-header).
 /// The `SFrame` header specifies a Key ID (KID) and a counter (CTR) from which encryption parameters are derived.
 ///

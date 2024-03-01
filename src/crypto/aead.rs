@@ -28,20 +28,17 @@ pub trait AeadDecrypt {
 #[cfg(test)]
 mod test {
 
-    use crate::crypto::key_derivation::KeyDerivation;
-    use crate::crypto::{
-        aead::AeadDecrypt,
-        aead::AeadEncrypt,
-        cipher_suite::{CipherSuite, CipherSuiteVariant},
-        sframe_key::SframeKey,
+    use super::{AeadDecrypt, AeadEncrypt};
+    use crate::{
+        crypto::cipher_suite::CipherSuiteVariant,
+        header::{KeyId, SframeHeader},
+        key::SframeKey,
+        test_vectors::get_sframe_test_vector,
+        util::test::assert_bytes_eq,
     };
-    use crate::header::{KeyId, SframeHeader};
-    use crate::test_vectors::{get_sframe_test_vector, SframeTest};
-    use crate::util::test::assert_bytes_eq;
-
-    use test_case::test_case;
 
     use rand::{thread_rng, Rng};
+    use test_case::test_case;
 
     const KEY_MATERIAL: &str = "THIS_IS_RANDOM";
 
@@ -50,10 +47,12 @@ mod test {
         let mut data = vec![0u8; 1024];
         thread_rng().fill(data.as_mut_slice());
         let header = SframeHeader::new(0, 0);
-        let cipher_suite = CipherSuite::from(CipherSuiteVariant::AesGcm256Sha512);
-        let sframe_key =
-            SframeKey::expand_from(&cipher_suite, KEY_MATERIAL.as_bytes(), KeyId::default())
-                .unwrap();
+        let sframe_key = SframeKey::derive_from(
+            CipherSuiteVariant::AesGcm256Sha512,
+            KeyId::default(),
+            KEY_MATERIAL.as_bytes(),
+        )
+        .unwrap();
 
         let _tag = sframe_key
             .encrypt(&mut data, &Vec::from(&header), header.frame_count())
@@ -67,9 +66,8 @@ mod test {
     #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
     fn encrypt_test_vector(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
-        let cipher_suite = CipherSuite::from(variant);
 
-        let sframe_key = prepare_sframe_key(&cipher_suite, test_vec);
+        let sframe_key = SframeKey::from_test_vector(variant, test_vec);
 
         let mut data_buffer = test_vec.plain_text.clone();
 
@@ -99,9 +97,8 @@ mod test {
     #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
     fn decrypt_test_vector(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
-        let cipher_suite = CipherSuite::from(variant);
 
-        let sframe_key = prepare_sframe_key(&cipher_suite, test_vec);
+        let sframe_key = SframeKey::from_test_vector(variant, test_vec);
         let header = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
         let header_buffer = Vec::from(&header);
 
@@ -115,20 +112,5 @@ mod test {
             .unwrap();
 
         assert_bytes_eq(decrypted, &test_vec.plain_text);
-    }
-
-    fn prepare_sframe_key(cipher_suite: &CipherSuite, test_vec: &SframeTest) -> SframeKey {
-        if cipher_suite.is_ctr_mode() {
-            // the test vectors do not provide the auth key, so we have to expand here
-            SframeKey::expand_from(cipher_suite, &test_vec.key_material, test_vec.key_id).unwrap()
-        } else {
-            SframeKey {
-                key: test_vec.sframe_key.clone(),
-                salt: test_vec.sframe_salt.clone(),
-                auth: None,
-                cipher_suite: *cipher_suite,
-                key_id: test_vec.key_id,
-            }
-        }
     }
 }
