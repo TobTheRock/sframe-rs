@@ -15,9 +15,9 @@ pub struct SframeKey {
 }
 
 impl SframeKey {
-    /// Tries to expands an Sframe key from the provided base key material using the given cipher suite variant (as of [sframe draft 06 4.4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-4.4.2))
+    /// Tries to derive an Sframe key from the provided base key material using the given cipher suite variant (as of [sframe draft 06 4.4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-4.4.2))
     /// It is then assigned the provided key ID and the cipher suite vrriant.
-    /// If key expansion fails an error ([`SframeError::KeyDerivation`])
+    /// If key derivation fails an error ([`SframeError::KeyDerivation`]) is returned.
     pub fn derive_from<K, M>(
         variant: CipherSuiteVariant,
         key_id: K,
@@ -39,18 +39,18 @@ impl SframeKey {
         })
     }
 
-    pub(crate) fn secret(&self) -> &Secret {
-        &self.secret
-    }
-
     /// Returns the associated key ID
     pub fn key_id(&self) -> KeyId {
         self.key_id
     }
 
-    /// Returns the cipher suite of this key
+    /// Returns the cipher suite variant of this key
     pub fn cipher_suite_variant(&self) -> CipherSuiteVariant {
         self.cipher_suite.variant
+    }
+
+    pub(crate) fn secret(&self) -> &Secret {
+        &self.secret
     }
 
     pub(crate) fn cipher_suite(&self) -> CipherSuite {

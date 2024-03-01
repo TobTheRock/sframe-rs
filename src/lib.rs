@@ -23,7 +23,7 @@
     unused_qualifications
 )]
 #![warn(
-    // missing_docs,
+    missing_docs,
     clippy::doc_markdown,
     clippy::semicolon_if_nothing_returned,
     clippy::single_match_else,
@@ -43,12 +43,13 @@ pub mod frame;
 pub mod frame_validation;
 /// sframe header definitions as of [sframe draft 06 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-sframe-header)
 pub mod header;
+/// sframe key definitions as of [sframe draft 06 4.4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-4.4.2)
 pub mod key;
 /// ratchet support as of [sframe draft 06 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-5.1)
 pub mod ratchet;
-/// models the sframe decryption block in the receiver path, see [sframe draft 06 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context)
+/// receiver API: models the sframe decryption block in the receiver path, see [sframe draft 06 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context)
 pub mod receiver;
-/// models the sframe encryption block in the sender path, [sframe draft 06 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context)
+/// sender API: models the sframe encryption block in the sender path, [sframe draft 06 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context)
 pub mod sender;
 
 pub use crypto::cipher_suite::CipherSuiteVariant;

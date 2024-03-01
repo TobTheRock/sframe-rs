@@ -1,8 +1,16 @@
+//! Frame API
+//! TODO
+
+/// abstractions for encrypted sframes
 pub mod encrypted_frame;
+/// frame buffer abstractions
 pub mod frame_buffer;
+/// abstractions for unencrypted media frames
 pub mod media_frame;
 
-pub use frame_buffer::FrameBuffer;
+pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView};
+pub use frame_buffer::{FrameBuffer, Truncate};
+pub use media_frame::{MediaFrame, MediaFrameView};
 
 #[cfg(test)]
 mod test {
