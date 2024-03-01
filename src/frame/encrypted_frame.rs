@@ -11,7 +11,12 @@ use super::{
     media_frame::{MediaFrame, MediaFrameView},
     FrameBuffer,
 };
-
+/// A view on a buffer which contains an encrypted frame in the format as of [sframe draft 06 4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-4.2).
+/// The frame is assumed to be stored in the buffer as follows:
+/// ```txt
+/// | Meta Data | Sframe Header | Encrypted Data | Auth Tag |
+/// ````
+/// where the  meta data is optional and can e.g. be a media header
 #[derive(Clone, Copy, Debug)]
 pub struct EncryptedFrameView<'buf> {
     header: SframeHeader,
@@ -20,6 +25,9 @@ pub struct EncryptedFrameView<'buf> {
 }
 
 impl<'ibuf> EncryptedFrameView<'ibuf> {
+    // TODO try from trait, rename?
+    /// Tries to create a new view on a buffer deserializing the contained [`SframeHeader`].
+    /// Fails with an [`crate::error::SframeError`] if the buffer/header is invalid
     pub fn new<D>(data: &'ibuf D) -> Result<Self>
     where
         D: AsRef<[u8]> + ?Sized,
@@ -27,6 +35,10 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         EncryptedFrameView::with_meta_data(data, &[])
     }
 
+    // TODO rename try_...
+    /// Tries to create a new view on a buffer deserializing the contained [`SframeHeader`].
+    /// Associates the provided meta data with the frame.
+    /// Fails with an [`crate::error::SframeError`] if the buffer is invalid
     pub fn with_meta_data<D, M>(data: &'ibuf D, meta_data: &'ibuf M) -> Result<Self>
     where
         D: AsRef<[u8]> + ?Sized,
@@ -62,18 +74,24 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         }
     }
 
+    /// the header of the encrypted frame
     pub fn header(&self) -> &SframeHeader {
         &self.header
     }
 
+    /// the associated meta data of the encrypted frame
     pub fn meta_data(&self) -> &[u8] {
         self.meta_data
     }
 
+    /// the cipher text (Sframe Header + Encrypted Data + Authentication Tag) of the encrypted frame
     pub fn cipher_text(&self) -> &[u8] {
         &self.data[self.header.len()..]
     }
 
+    /// Validates the header of the encrypted frame
+    /// Semantic sugar to allow chaining the validation with decryption
+    /// returns an [`crate::error::SframeError`] when validation fails
     pub fn validate<V>(self, validator: &V) -> Result<Self>
     where
         V: FrameValidation + ?Sized,
@@ -84,6 +102,11 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         Ok(self)
     }
 
+    /// Tries to decrypt the encrypted frame with a key from the provided key store.
+    /// As [`SframeKey`] implements [`KeyStore`] this can also be a single key.
+    /// Dynamically allocates memory for the resulting [`MediaFrame`]
+    /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
+    /// or if decryption has failed in general.
     pub fn decrypt(&self, key_store: &mut impl KeyStore) -> Result<MediaFrame> {
         let mut buffer = Vec::new();
         let view = self.decrypt_into(key_store, &mut buffer)?;
@@ -95,6 +118,11 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         ))
     }
 
+    /// Tries to decrypt the encrypted frame with a key from the provided key store and stores the result
+    /// into the provided buffer. On success an [`MediaFrameView`] on the buffer is returned.
+    /// As [`SframeKey`] implements [`KeyStore`] this can also be a single key.
+    /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
+    /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf>(
         &self,
         key_store: &mut impl KeyStore,
@@ -202,7 +230,8 @@ impl<'buf> TryFrom<&'buf Vec<u8>> for EncryptedFrameView<'buf> {
         EncryptedFrameView::with_meta_data(data, &[])
     }
 }
-
+/// An abstraction of an encrypted frame in the format as of [sframe draft 06 4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-4.2),
+/// owing an internal buffer containing the cipher text and optionally associated meta data (e.g. be a media header).
 pub struct EncryptedFrame {
     buffer: Vec<u8>,
     header: SframeHeader,
@@ -210,6 +239,8 @@ pub struct EncryptedFrame {
 }
 
 impl EncryptedFrame {
+    /// Tries to create a new encrypted frame, copying the data of the buffer and deserializing the contained [`SframeHeader`].
+    /// Fails with an [`crate::error::SframeError`] if the buffer/header is invalid.
     pub fn new<D>(data: D) -> Result<Self>
     where
         D: AsRef<[u8]>,
@@ -217,6 +248,8 @@ impl EncryptedFrame {
         EncryptedFrame::with_meta_data(data, [])
     }
 
+    /// Tries to create a new encrypted frame, copying the data of the data and meta data buffer and deserializing the contained [`SframeHeader`].
+    /// Fails with an [`crate::error::SframeError`] if the buffer/header is invalid.
     pub fn with_meta_data<D, M>(data: D, meta_data: M) -> Result<Self>
     where
         D: AsRef<[u8]>,
@@ -237,7 +270,11 @@ impl EncryptedFrame {
         buffer.extend(meta_data);
         buffer.extend(data);
 
-        Ok(Self { buffer, header, meta_len })
+        Ok(Self {
+            buffer,
+            header,
+            meta_len,
+        })
     }
     pub(super) fn from_buffer(buffer: Vec<u8>, header: SframeHeader, meta_len: usize) -> Self {
         EncryptedFrame {
@@ -247,24 +284,39 @@ impl EncryptedFrame {
         }
     }
 
+    /// the header of the encrypted frame
     pub fn header(&self) -> &SframeHeader {
         &self.header
     }
 
+    /// the associated meta data of the encrypted frame
     pub fn meta_data(&self) -> &[u8] {
         &self.buffer[..self.meta_len]
     }
 
+    /// the cipher text (Sframe Header + Encrypted Data + Authentication Tag) of the encrypted frame
     pub fn cipher_text(&self) -> &[u8] {
         &self.buffer[self.meta_len + self.header.len()..]
     }
 
-    pub fn validate(self, validator: &impl FrameValidation) -> Result<Self> {
+    /// Validates the header of the encrypted frame
+    /// Semantic sugar to allow chaining the validation with decryption
+    /// returns an [`crate::error::SframeError`] when validation fails
+    pub fn validate<V>(self, validator: &V) -> Result<Self>
+    where
+        V: FrameValidation + ?Sized,
+    {
+        log::trace!("Validating EncryptedFrame # {}", self.header.frame_count());
         validator.validate(&self.header)?;
 
         Ok(self)
     }
 
+    /// Tries to decrypt the encrypted frame with a key from the provided key store.
+    /// As [`SframeKey`] implements [`KeyStore`] this can also be a single key.
+    /// Dynamically allocats memory for the resulting [`MediaFrame`]
+    /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
+    /// or if decryption has failed in general.
     pub fn decrypt(&self, key_store: &mut impl KeyStore) -> Result<MediaFrame> {
         let view = EncryptedFrameView::with_header(
             self.header,
@@ -275,6 +327,11 @@ impl EncryptedFrame {
         view.decrypt(key_store)
     }
 
+    /// Tries to decrypt the encrypted frame with a key from the provided key store and stores the result
+    /// into the provided buffer. On success an [`MediaFrameView`] on the buffer is returned.
+    /// As [`SframeKey`] implements [`KeyStore`] this can also be a single key.
+    /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
+    /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf>(
         &self,
         key_store: &mut impl KeyStore,

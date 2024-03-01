@@ -7,7 +7,10 @@ use crate::{
 
 use super::SframeKey;
 
+/// Abstraction for a key store that allows retrieving encryption keys by their respective key id.
 pub trait KeyStore {
+    /// Tries to retrieve a key with by its matching key ID.
+    /// If no such key is found an error ([`SframeError`]) is returned.
     fn get_key<K>(&mut self, key_id: K) -> Result<&SframeKey>
     where
         K: Into<KeyId>;

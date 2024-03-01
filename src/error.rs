@@ -22,11 +22,11 @@ pub enum SframeError {
     #[error("Failed to Encrypt")]
     EncryptionFailure,
 
-    /// Could not expand encryption key for [crate::sender::Sender] or decryption key for [crate::receiver::Receiver] with HKDF
+    /// Could not expand encryption key with HKDF
     #[error("Unable to create unbound encryption key")]
     KeyDerivation,
 
-    /// frame validation failed in the [crate::receiver::Receiver] before decryption
+    /// frame validation failed before decryption
     #[error("{0}")]
     FrameValidationFailed(String),
 

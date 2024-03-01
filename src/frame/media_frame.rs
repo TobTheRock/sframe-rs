@@ -12,6 +12,8 @@ use super::{
     FrameBuffer,
 };
 
+/// A view on a buffer (as a continuous slice of memory), representing a media frame.
+/// Can optionally have meta data (e.g. a header) associated to it, which is considered for authentication.
 #[derive(Debug, PartialEq, Eq)]
 pub struct MediaFrameView<'buf> {
     frame_count: FrameCount,
@@ -20,6 +22,7 @@ pub struct MediaFrameView<'buf> {
 }
 
 impl<'ibuf> MediaFrameView<'ibuf> {
+    /// Creates a new view on a payload buffer and assigns it the given frame count
     pub fn new<F, P>(frame_count: F, payload: &'ibuf P) -> Self
     where
         F: Into<FrameCount>,
@@ -28,6 +31,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         Self::with_meta_data(frame_count, payload, &[])
     }
 
+    /// Creates a new view on a payload buffer, assigns it the given frame count and associates it with the meta data
     pub fn with_meta_data<F, P, M>(frame_count: F, payload: &'ibuf P, meta_data: &'ibuf M) -> Self
     where
         F: Into<FrameCount>,
@@ -50,18 +54,24 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         }
     }
 
+    /// Meta data associated with this media frame
     pub fn meta_data(&self) -> &[u8] {
         self.meta_data
     }
 
+    /// Payload of this media frame
     pub fn payload(&self) -> &[u8] {
         self.payload
     }
 
+    /// Frame count for the Sframe scheme associated to this media frame
     pub fn frame_count(&self) -> FrameCount {
         self.frame_count
     }
 
+    /// Encrypts the media frame with the sframe key according to [sframe draft 06 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-encryption). Dynamically allocates memory for the resulting [`EncryptedFrame`].
+    /// The associated meta data is not encrypted but considered for the authentication tag.
+    /// Returns an [`crate::error::SframeError`] when encryption fails.
     pub fn encrypt(&self, key: &SframeKey) -> Result<EncryptedFrame> {
         let mut buffer = Vec::new();
         let view = self.encrypt_into(key, &mut buffer)?;
@@ -74,6 +84,9 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         Ok(encrypted_frame)
     }
 
+    /// Encrypts the media frame with the sframe key according to [sframe draft 06 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-encryption) and stores the result, an [`EncryptedFrameView`], into the provided buffer.
+    /// The associated meta data is not encrypted but considered for the authentication tag.
+    /// Returns an [`crate::error::SframeError`] when encryption fails.
     pub fn encrypt_into<'obuf>(
         &self,
         key: &SframeKey,
@@ -148,6 +161,8 @@ impl<'ibuf> MediaFrameView<'ibuf> {
     }
 }
 
+/// A an abstraction of a media frame owning an internal buffer.
+/// Can optionally have meta data (e.g. a header) associated to it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MediaFrame {
     frame_count: FrameCount,
@@ -156,6 +171,7 @@ pub struct MediaFrame {
 }
 
 impl MediaFrame {
+    /// Creates a new media frame by copying the data of a payload buffer and assigning it the given frame count.
     pub fn new<F, P>(frame_count: F, payload: P) -> Self
     where
         F: Into<FrameCount>,
@@ -164,6 +180,8 @@ impl MediaFrame {
         Self::with_meta_data(frame_count, payload, [])
     }
 
+    /// Creates a new media frame and assigns it the given frame count.
+    /// Payload and meta data are copied into an internal buffer.
     pub fn with_meta_data<F, P, M>(frame_count: F, payload: P, meta_data: M) -> Self
     where
         F: Into<FrameCount>,
@@ -202,24 +220,35 @@ impl MediaFrame {
         }
     }
 
+    /// Meta data associated with this media frame
     pub fn meta_data(&self) -> &[u8] {
         &self.buffer[..self.meta_len]
     }
 
+    /// Payload of this media frame
     pub fn payload(&self) -> &[u8] {
         &self.buffer[self.meta_len..]
     }
 
+    /// Frame count for the Sframe scheme associated to this media frame
     pub fn frame_count(&self) -> FrameCount {
         self.frame_count
     }
 
+    /// Encrypts the media frame with the sframe key according to [sframe draft 06 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-encryption).
+    /// Dynamically allocates memory for the resulting [`EncryptedFrame`].
+    /// The associated meta data is not encrypted but considered for the authentication tag.
+    /// Returns an [`crate::error::SframeError`] when encryption fails
     pub fn encrypt(&self, key: &SframeKey) -> Result<EncryptedFrame> {
         let view =
             MediaFrameView::with_meta_data(self.frame_count, self.payload(), self.meta_data());
         view.encrypt(key)
     }
 
+    /// Encrypts the media frame with the sframe key according to [sframe draft 06 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-encryption)
+    /// and stores the result into the provided buffer. An [`EncryptedFrameView`] on the buffer is returned on success.
+    /// The associated meta data is not encrypted but considered for the authentication tag.
+    /// Returns an [`crate::error::SframeError`] when encryption fails.
     pub fn encrypt_into<'obuf>(
         &self,
         key: &SframeKey,

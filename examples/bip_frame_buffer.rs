@@ -6,10 +6,7 @@ use cgisf_lib::{gen_sentence, SentenceConfigBuilder};
 use rand::{thread_rng, Rng};
 use sframe::{
     error::SframeError,
-    frame::{
-        encrypted_frame::EncryptedFrameView, frame_buffer::Truncate, media_frame::MediaFrameView,
-        FrameBuffer,
-    },
+    frame::{EncryptedFrameView, FrameBuffer, MediaFrameView, Truncate},
     key::SframeKey,
     CipherSuiteVariant,
 };
@@ -132,7 +129,6 @@ fn consumer_task(mut consumer: FrameConsumer<BUF_SIZE>) {
 
                 let decrypted = decrypted.unwrap();
 
-                // note: on could also use the MediaFrameView result from decrypt_into to access the data
                 let payload = std::str::from_utf8(decrypted.payload()).unwrap();
                 println!(
                     "[Consumer] Consumed frame # {}: {}",
