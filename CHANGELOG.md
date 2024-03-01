@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2024-03-01
+
+### Features
+
+- Add bencher benchmark tracking
+- Frame based API
+- Add a public sframe key implementation
+
 ## [0.5.0] - 2024-02-04
 
 ### Features
