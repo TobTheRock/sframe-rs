@@ -116,7 +116,7 @@ fn consumer_task(mut consumer: FrameConsumer<BUF_SIZE>) {
     loop {
         // Read data from the buffer
         if let Some(grant) = consumer.read() {
-            if let Ok(encrypted_frame) = EncryptedFrameView::new(grant.as_ref()) {
+            if let Ok(encrypted_frame) = EncryptedFrameView::try_new(grant.as_ref()) {
                 let decrypted = encrypted_frame.decrypt(&mut key);
                 if let Err(err) = decrypted {
                     println!(

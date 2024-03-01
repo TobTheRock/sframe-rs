@@ -77,7 +77,7 @@ impl Receiver {
 
         let data = &encrypted_frame[skip..];
         let meta_data = &encrypted_frame[..skip];
-        let encrypted_frame = EncryptedFrameView::with_meta_data(data, meta_data)?;
+        let encrypted_frame = EncryptedFrameView::try_with_meta_data(data, meta_data)?;
 
         // todo dummy validator
         if let Some(validator) = &self.frame_validation {
