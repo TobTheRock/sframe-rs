@@ -19,7 +19,7 @@ pub struct SenderOptions {
     ///
     /// default: [CipherSuiteVariant::AesGcm256Sha512]
     pub cipher_suite_variant: CipherSuiteVariant,
-    /// maximum frame count, to limit the header ([SframeHeader]) size
+    /// maximum frame count, to limit the header ([crate::header::SframeHeader]) size
     ///
     /// default: [u64::MAX]
     pub max_frame_count: FrameCount,

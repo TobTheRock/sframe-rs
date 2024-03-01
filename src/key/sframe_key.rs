@@ -17,7 +17,7 @@ pub struct SframeKey {
 impl SframeKey {
     /// Tries to derive an Sframe key from the provided base key material using the given cipher suite variant (as of [sframe draft 06 4.4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-4.4.2))
     /// It is then assigned the provided key ID and the cipher suite vrriant.
-    /// If key derivation fails an error ([`SframeError::KeyDerivation`]) is returned.
+    /// If key derivation fails an error ([`crate::error::SframeError::KeyDerivation`]) is returned.
     pub fn derive_from<K, M>(
         variant: CipherSuiteVariant,
         key_id: K,

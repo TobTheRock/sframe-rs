@@ -10,11 +10,11 @@ use sframe::{
 fn encrypt_decrypt_1000_frames(participant_id: u64, skipped_payload: usize) {
     let mut sender = Sender::new(participant_id);
     let key_material = "THIS_IS_SOME_MATERIAL";
-    sender.set_encryption_key(key_material.as_bytes()).unwrap();
+    sender.set_encryption_key(key_material).unwrap();
 
     let mut receiver = Receiver::default();
     receiver
-        .set_encryption_key(participant_id, key_material.as_bytes())
+        .set_encryption_key(participant_id, key_material)
         .unwrap();
 
     (0..1000)

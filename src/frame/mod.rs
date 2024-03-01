@@ -1,5 +1,50 @@
-//! Frame API
-//! TODO
+//! # Frame-based API
+//!
+//! This API provides low-level access to encryption and decryption at the frame level, offering more granular control.
+//!
+//! ## Usage
+//!
+//! It allows the use of arbitrary buffers, enabling the creation of views to avoid unnecessary copies:
+//! - [`MediaFrameView`] for unencrypted data
+//! - [`EncryptedFrameView`] for encrypted data
+//!
+//! For encryption and decryption, a buffer must be provided implementing the [`FrameBuffer`] trait to allocate the necessary memory.
+//! For convenience, this trait has already been implemented for `Vec<u8>`.
+//!
+//! Additionally, owning variants with an internal buffer are available, which dynamically allocate the necessary memory for encryption and decryption:
+//! - [`MediaFrame`] for unencrypted data
+//! - [`EncryptedFrame`] for encrypted data
+//!
+//! ## Example
+//!
+//! ```rust
+//! use sframe::{
+//!     frame::{EncryptedFrameView, MediaFrameView},
+//!     key::SframeKey,
+//!     CipherSuiteVariant,
+//! };
+//!
+//! let key_id = 42u64;
+//! let mut key = SframeKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "pw123").unwrap();
+//! let frame_count = 1u8;
+//! let payload = "Something secret";
+//!
+//! let mut encrypt_buffer = Vec::new();
+//! let mut decrypt_buffer = Vec::new();
+//! let media_frame = MediaFrameView::new(frame_count, payload);
+//!
+//! let encrypted_frame = media_frame.encrypt_into(&key, &mut encrypt_buffer).unwrap();
+//!
+//! let decrypted_media_frame = encrypted_frame
+//!     .decrypt_into(&mut key, &mut decrypt_buffer)
+//!     .unwrap();
+//!
+//! assert_eq!(decrypted_media_frame, media_frame);
+//! ```
+//!
+//! Additionally, to see how the API is used with another buffer type,
+//! you can check out the [bip_frame_buffer example](https://github.com/TobTheRock/sframe-rs/blob/main/examples/bip_frame_buffer.rs).
+//!
 
 /// abstractions for encrypted sframes
 pub mod encrypted_frame;
