@@ -25,21 +25,19 @@ pub struct EncryptedFrameView<'buf> {
 }
 
 impl<'ibuf> EncryptedFrameView<'ibuf> {
-    // TODO try from trait, rename?
     /// Tries to create a new view on a buffer deserializing the contained [`SframeHeader`].
     /// Fails with an [`crate::error::SframeError`] if the buffer/header is invalid
-    pub fn new<D>(data: &'ibuf D) -> Result<Self>
+    pub fn try_new<D>(data: &'ibuf D) -> Result<Self>
     where
         D: AsRef<[u8]> + ?Sized,
     {
-        EncryptedFrameView::with_meta_data(data, &[])
+        EncryptedFrameView::try_with_meta_data(data, &[])
     }
 
-    // TODO rename try_...
     /// Tries to create a new view on a buffer deserializing the contained [`SframeHeader`].
     /// Associates the provided meta data with the frame.
     /// Fails with an [`crate::error::SframeError`] if the buffer is invalid
-    pub fn with_meta_data<D, M>(data: &'ibuf D, meta_data: &'ibuf M) -> Result<Self>
+    pub fn try_with_meta_data<D, M>(data: &'ibuf D, meta_data: &'ibuf M) -> Result<Self>
     where
         D: AsRef<[u8]> + ?Sized,
         M: AsRef<[u8]> + ?Sized,
@@ -219,7 +217,7 @@ impl<'buf> TryFrom<&'buf [u8]> for EncryptedFrameView<'buf> {
     type Error = SframeError;
 
     fn try_from(data: &'buf [u8]) -> Result<Self> {
-        EncryptedFrameView::with_meta_data(data, &[])
+        EncryptedFrameView::try_new(data)
     }
 }
 
@@ -227,7 +225,7 @@ impl<'buf> TryFrom<&'buf Vec<u8>> for EncryptedFrameView<'buf> {
     type Error = SframeError;
 
     fn try_from(data: &'buf Vec<u8>) -> Result<Self> {
-        EncryptedFrameView::with_meta_data(data, &[])
+        EncryptedFrameView::try_new(data)
     }
 }
 /// An abstraction of an encrypted frame in the format as of [sframe draft 06 4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-4.2),
@@ -241,16 +239,16 @@ pub struct EncryptedFrame {
 impl EncryptedFrame {
     /// Tries to create a new encrypted frame, copying the data of the buffer and deserializing the contained [`SframeHeader`].
     /// Fails with an [`crate::error::SframeError`] if the buffer/header is invalid.
-    pub fn new<D>(data: D) -> Result<Self>
+    pub fn try_new<D>(data: D) -> Result<Self>
     where
         D: AsRef<[u8]>,
     {
-        EncryptedFrame::with_meta_data(data, [])
+        EncryptedFrame::try_with_meta_data(data, [])
     }
 
     /// Tries to create a new encrypted frame, copying the data of the data and meta data buffer and deserializing the contained [`SframeHeader`].
     /// Fails with an [`crate::error::SframeError`] if the buffer/header is invalid.
-    pub fn with_meta_data<D, M>(data: D, meta_data: M) -> Result<Self>
+    pub fn try_with_meta_data<D, M>(data: D, meta_data: M) -> Result<Self>
     where
         D: AsRef<[u8]>,
         M: AsRef<[u8]>,
@@ -353,6 +351,22 @@ impl AsRef<[u8]> for EncryptedFrame {
     }
 }
 
+impl TryFrom<&[u8]> for EncryptedFrame {
+    type Error = SframeError;
+
+    fn try_from(data: &[u8]) -> Result<Self> {
+        EncryptedFrame::try_new(data)
+    }
+}
+
+impl TryFrom<&Vec<u8>> for EncryptedFrame {
+    type Error = SframeError;
+
+    fn try_from(data: &Vec<u8>) -> Result<Self> {
+        EncryptedFrame::try_new(data)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::EncryptedFrameView;
@@ -366,7 +380,7 @@ mod test {
         let cipher_text = vec![6u8; 3];
         let data = [header_buf.clone(), cipher_text.clone()].concat();
 
-        let frame_view = EncryptedFrameView::with_meta_data(&data, &meta_data).unwrap();
+        let frame_view = EncryptedFrameView::try_with_meta_data(&data, &meta_data).unwrap();
 
         assert_eq!(frame_view.header(), &header);
         assert_eq!(frame_view.cipher_text(), &cipher_text);
@@ -381,7 +395,7 @@ mod test {
         let cipher_text = vec![6u8; 3];
         let data = [header_buf.clone(), cipher_text.clone()].concat();
 
-        let frame = EncryptedFrame::with_meta_data(data, meta_data).unwrap();
+        let frame = EncryptedFrame::try_with_meta_data(data, meta_data).unwrap();
 
         assert_eq!(frame.header(), &header);
         assert_eq!(frame.cipher_text(), &cipher_text);

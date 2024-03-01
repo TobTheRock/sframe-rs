@@ -40,7 +40,7 @@ mod test {
         let media_frame = MediaFrameView::new(FRAME_COUNT, PAYLOAD);
         media_frame.encrypt_into(&key, &mut encrypt_buffer).unwrap();
 
-        let encrypted_frame = EncryptedFrameView::new(&encrypt_buffer).unwrap();
+        let encrypted_frame = EncryptedFrameView::try_new(&encrypt_buffer).unwrap();
         let decrypted_media_frame = encrypted_frame
             .decrypt_into(&mut key, &mut decrypt_buffer)
             .unwrap();
@@ -60,7 +60,7 @@ mod test {
         let (meta_data, encrypted) = encrypt_buffer.split_at(META_DATA.len());
         assert_bytes_eq(meta_data, META_DATA);
 
-        let encrypted_frame = EncryptedFrameView::with_meta_data(encrypted, META_DATA).unwrap();
+        let encrypted_frame = EncryptedFrameView::try_with_meta_data(encrypted, META_DATA).unwrap();
         let decrypted_media_frame = encrypted_frame
             .decrypt_into(&mut key, &mut decrypt_buffer)
             .unwrap();
