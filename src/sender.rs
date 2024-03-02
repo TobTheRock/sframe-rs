@@ -1,7 +1,7 @@
 use crate::{
     crypto::cipher_suite::{CipherSuite, CipherSuiteVariant},
     error::{Result, SframeError},
-    frame::media_frame::MediaFrame,
+    frame::MediaFrameView,
     frame_count_generator::FrameCountGenerator,
     header::{FrameCount, KeyId},
     key::SframeKey,
@@ -92,7 +92,7 @@ impl Sender {
             let frame_count = self.frame_count.increment();
             let payload = &unencrypted_frame[skip..];
             let meta_data = &unencrypted_frame[..skip];
-            let media_frame = MediaFrame::with_meta_data(frame_count, payload, meta_data);
+            let media_frame = MediaFrameView::with_meta_data(frame_count, payload, meta_data);
 
             media_frame.encrypt_into(sframe_key, &mut self.buffer)?;
 
