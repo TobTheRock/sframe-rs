@@ -233,7 +233,6 @@ impl std::fmt::Display for SframeHeader {
 mod test {
     use super::SframeHeader;
     use crate::util::test::assert_bytes_eq;
-
     use pretty_assertions::assert_eq;
 
     #[test]

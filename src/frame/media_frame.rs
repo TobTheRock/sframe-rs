@@ -274,13 +274,14 @@ struct IoBufferView<'buf> {
 
 #[cfg(test)]
 mod test {
-
     use crate::{
         frame::media_frame::{MediaFrame, MediaFrameView},
         key::SframeKey,
         util::test::assert_bytes_eq,
         CipherSuiteVariant,
     };
+    use pretty_assertions::assert_eq;
+
     const FRAME_COUNT: u64 = 42;
     const PAYLOAD: &[u8] = &[6, 6, 6, 6, 6, 6];
     const KEY_ID: u64 = 666;

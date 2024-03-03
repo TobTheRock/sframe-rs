@@ -371,6 +371,7 @@ impl TryFrom<&Vec<u8>> for EncryptedFrame {
 mod test {
     use super::EncryptedFrameView;
     use crate::{frame::encrypted_frame::EncryptedFrame, header::SframeHeader};
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn new_encrypted_frame_view_with_meta_data() {

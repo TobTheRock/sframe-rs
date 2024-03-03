@@ -128,11 +128,9 @@ impl Hash for RatchetingKeyId {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
-    use pretty_assertions::assert_eq;
-
     use crate::{header::KeyId, ratchet::ratcheting_key_id::RatchetingKeyId};
+    use pretty_assertions::assert_eq;
+    use std::collections::HashMap;
 
     #[test]
     fn returns_correct_ratcheting_params() {

@@ -185,6 +185,7 @@ impl FrameValidation for Box<dyn FrameValidation> {
 #[cfg(test)]
 mod test {
     use crate::error::SframeError;
+    use pretty_assertions::assert_eq;
 
     use super::*;
 
