@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.2] - 2024-03-03
+
+### Features
+
+- MLS definitions as of section 5.2
+
+### Performance
+
+- Do not copy media frame data in sframe sender
+
 ## [0.5.1] - 2024-03-01
 
 ### Features
