@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use crate::header::KeyId;
+use crate::{header::KeyId, util::limit_bit_len};
 
 /// Special key id format as of [sframe draft 06 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-5.1)
 /// It has the following format:
@@ -33,15 +33,8 @@ impl RatchetingKeyId {
     where
         G: Into<u64>,
     {
-        const U64_BITS: u8 = u64::BITS as u8;
-
         let generation = generation.into();
-        let mut n_ratchet_bits = n_ratchet_bits;
-
-        if n_ratchet_bits >= U64_BITS {
-            log::warn!("n_ratchet_bits of {n_ratchet_bits} cannot be eq or larger than {U64_BITS} bits, limiting it to {}", U64_BITS -1);
-            n_ratchet_bits = U64_BITS - 1;
-        }
+        let n_ratchet_bits = limit_bit_len("n_ratchet_bits", n_ratchet_bits, u64::BITS as u8 - 1);
 
         // this means we start with ratchet step 0
         let value = generation << n_ratchet_bits;
@@ -128,11 +121,9 @@ impl Hash for RatchetingKeyId {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
-    use pretty_assertions::assert_eq;
-
     use crate::{header::KeyId, ratchet::ratcheting_key_id::RatchetingKeyId};
+    use pretty_assertions::assert_eq;
+    use std::collections::HashMap;
 
     #[test]
     fn returns_correct_ratcheting_params() {

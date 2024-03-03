@@ -59,14 +59,15 @@ pub use media_frame::{MediaFrame, MediaFrameView};
 
 #[cfg(test)]
 mod test {
+    use super::media_frame::MediaFrameView;
     use crate::{
         frame::{encrypted_frame::EncryptedFrameView, media_frame::MediaFrame},
         key::SframeKey,
         util::test::assert_bytes_eq,
         CipherSuiteVariant,
     };
+    use pretty_assertions::assert_eq;
 
-    use super::media_frame::MediaFrameView;
     const FRAME_COUNT: u64 = 42;
     const PAYLOAD: &[u8] = b"TIME TO PAY";
     const META_DATA: &[u8] = b"META";

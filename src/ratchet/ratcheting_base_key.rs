@@ -67,9 +67,9 @@ impl RatchetingBaseKey {
 
 #[cfg(test)]
 mod test {
-    use crate::ratchet::ratcheting_key_id::RatchetingKeyId;
-
     use super::RatchetingBaseKey;
+    use crate::ratchet::ratcheting_key_id::RatchetingKeyId;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn should_ratchet_forward() {

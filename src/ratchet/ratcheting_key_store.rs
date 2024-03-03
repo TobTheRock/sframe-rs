@@ -122,6 +122,7 @@ pub struct RatchetingKeys {
 mod test {
     use super::RatchetingKeyStore;
     use crate::{header::KeyId, ratchet::ratcheting_key_id::RatchetingKeyId, CipherSuiteVariant};
+    use pretty_assertions::assert_eq;
 
     const N_RATCHET_BITS: u8 = 8;
     const KEY_MATERIAL: &[u8] = b"SECRET";

@@ -39,6 +39,7 @@ impl Truncate for Vec<u8> {
 #[cfg(test)]
 mod test {
     use super::FrameBuffer;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn allocate_vec_buffer() {

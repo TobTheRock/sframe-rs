@@ -69,6 +69,7 @@ impl FrameValidation for ReplayAttackProtection {
 #[cfg(test)]
 mod test {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn accept_newer_headers() {

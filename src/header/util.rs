@@ -17,6 +17,7 @@ pub fn min_len_in_bytes(value: u64) -> u8 {
 #[cfg(test)]
 mod test {
     use super::min_len_in_bytes;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn nof_non_zero_bytes() {

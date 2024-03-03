@@ -36,12 +36,17 @@ impl std::fmt::Display for CipherSuiteVariant {
     }
 }
 
+/// cipher suite as of [sframe draft 06 4.5](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#cipher-suites)
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct CipherSuite {
     pub variant: CipherSuiteVariant,
+    /// Hash.Nh - The size in bytes of the output of the hash function
     pub hash_len: usize,
+    /// AEAD.Nk - The size in bytes of a key for the encryption algorithm
     pub key_len: usize,
+    /// AEAD.Nn - The size in bytes of a nonce for the encryption algorithm
     pub nonce_len: usize,
+    /// AEAD.Nt - The overhead in bytes of the encryption algorithm (typically the size of a "tag" that is added to the plaintext)
     pub auth_tag_len: usize,
 }
 

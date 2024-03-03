@@ -39,17 +39,19 @@ mod util;
 /// error definitions
 pub mod error;
 pub mod frame;
-/// sframe header validation before decryption, e.g. to detect replay attacks see [sframe draft 06 9.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-anti-replay)
+/// Sframe header validation before decryption, e.g. to detect replay attacks see [sframe draft 06 9.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-anti-replay)
 pub mod frame_validation;
-/// sframe header definitions as of [sframe draft 06 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-sframe-header)
+/// Sframe header definitions as of [sframe draft 06 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-sframe-header)
 pub mod header;
 /// sframe key definitions as of [sframe draft 06 4.4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-4.4.2)
 pub mod key;
-/// ratchet support as of [sframe draft 06 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-5.1)
+/// Sframe MLS definitions as of [sframe draft 06 5.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-mls)
+pub mod mls;
+/// Ratchet support as of [sframe draft 06 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-5.1)
 pub mod ratchet;
-/// receiver API: models the sframe decryption block in the receiver path, see [sframe draft 06 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context)
+/// Receiver API: models the sframe decryption block in the receiver path, see [sframe draft 06 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context)
 pub mod receiver;
-/// sender API: models the sframe encryption block in the sender path, [sframe draft 06 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context)
+/// Sender API: models the sframe encryption block in the sender path, [sframe draft 06 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context)
 pub mod sender;
 
 pub use crypto::cipher_suite::CipherSuiteVariant;
