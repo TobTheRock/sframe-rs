@@ -6,9 +6,7 @@ use crate::{
 //
 
 /// Represents the bit range for an MLS Key ID as of [sframe draft 06 5.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-mls)
-///
 /// The bit range specifies the number of bits allocated for the epoch (E) and member index (S) components of the MLS Key ID,
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MlsKeyIdBitRange {
     n_epoch_bits: u8,
@@ -44,14 +42,6 @@ impl MlsKeyIdBitRange {
     }
 }
 
-///
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct MlsKeyId {
-    value: u64,
-    bit_range: MlsKeyIdBitRange,
-}
-
 /// Special Key ID format as of [sframe draft 06 5.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-5.2)
 /// to be used with [MLS](https://datatracker.ietf.org/doc/html/rfc9420).
 /// It has the following format:
@@ -66,6 +56,12 @@ pub struct MlsKeyId {
 /// - Epoch: E least significant bits of the MLS epoch
 /// - Index: MLS member index of the sender, the group size must be <= (1 << S)
 /// - Context ID: context value chosen by the sender, a value of 0 will produce the shortest Key ID
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MlsKeyId {
+    value: u64,
+    bit_range: MlsKeyIdBitRange,
+}
+
 impl MlsKeyId {
     /// Creates a new MLS specific Key ID with the given context, epoch and member index,
     /// using the bit ranges configured for each of them.
