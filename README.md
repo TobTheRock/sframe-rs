@@ -8,7 +8,6 @@
 ![maintenance](https://img.shields.io/maintenance/yes/2024)
 
 This library is an implementation of [draft-ietf-sframe-enc-06](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06) and provides and end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
-It is in it's current form a subset of the specification.
 It was forked from the original [goto-opensource/secure-frame-rs](https://github.com/goto-opensource/secure-frame-rs) and is continued here.
 
 ## Supported crypto libraries
@@ -41,9 +40,8 @@ This API provides an easy to use interface to the `Sframe` implementation. The `
 - keep an internal, dynamic buffer to encrypt/ decrypt a single frame at one time
 - provide ratchet support as of [sframe draft 06 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-5.1)
 - optional frame validation before decryption
-
-To use them you can use for example:
-
+- 
+For example you can use them like this:
 ```rust
 ...
 
@@ -105,11 +103,11 @@ assert_eq!(decrypted_media_frame, media_frame);
 - `MediaFrame` for unencrypted data
 - `EncryptedFrame` for encrypted data
 
-To see how the API is used with another buffer type, you can check out the [bip_frame_buffer example](https://github.com/TobTheRock/sframe-rs/blob/main/examples/bip_frame_buffer.rs)..
+To see how the API is used with another buffer type, you can check out the [bip_frame_buffer example](https://github.com/TobTheRock/sframe-rs/blob/main/examples/bip_frame_buffer.rs).
 
 ## Benchmarks
 
-The `criterion` benchmarks [benches](https://github.com/TobTheRock/sframe-rs/tree/feat/low-level-api/benches) currenyl test
+The `criterion` benchmarks located at [./benches](https://github.com/TobTheRock/sframe-rs/tree/feat/low-level-api/benches) currently test
 
 - encryption/decryption with all available cipher suites and different frame size
 - key derivation with all available cipher suites
