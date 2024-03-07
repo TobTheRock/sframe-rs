@@ -40,8 +40,8 @@ This API provides an easy to use interface to the `Sframe` implementation. The `
 - keep an internal, dynamic buffer to encrypt/ decrypt a single frame at one time
 - provide ratchet support as of [sframe draft 06 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-5.1)
 - optional frame validation before decryption
-- 
-For example you can use them like this:
+- For example you can use them like this:
+
 ```rust
 ...
 
@@ -114,7 +114,9 @@ The `criterion` benchmarks located at [./benches](https://github.com/TobTheRock/
 - header (de)serialization
 
 They are tracked continously with a [Bencher Perf Page](https://bencher.dev/perf/sframe-rs?back=L2NvbnNvbGUvb3JnYW5pemF0aW9ucy90b2J0aGVyb2NrL3Byb2plY3RzP3Blcl9wYWdlPTgmcGFnZT0x&key=true&reports_per_page=4&branches_per_page=8&testbeds_per_page=8&benchmarks_per_page=8&reports_page=1&branches_page=1&testbeds_page=1&benchmarks_page=1):
-<a href="https://bencher.dev/perf/sframe-rs?back=L2NvbnNvbGUvb3JnYW5pemF0aW9ucy90b2J0aGVyb2NrL3Byb2plY3RzP3Blcl9wYWdlPTgmcGFnZT0x&key=true&reports_per_page=4&branches_per_page=8&testbeds_per_page=8&benchmarks_per_page=8&reports_page=1&branches_page=1&testbeds_page=1&benchmarks_page=1"><img src="https://api.bencher.dev/v0/projects/sframe-rs/perf/img?branches=99fe8511-3287-48d2-93f3-36379605c572&testbeds=388324aa-501e-49ca-b012-3e1054b4b2a5%2Cb02e6299-bb69-4543-a09f-e168f88d72a0&benchmarks=39a83bdc-6d52-408d-8b36-c10f9c79c97b%2C803459c5-7e0e-4006-8621-ba9ea0e28c4f%2C135980b4-294a-48b2-af13-4ef7843febff%2C9abf5bc5-fdec-4691-88b7-6125e3166d8e%2Cec43f47b-332f-454c-9dba-eb96cca9c5bb%2Cc8d8f9c2-690c-4ab2-8e55-b55733d2ed84&measures=e050a8d7-e788-4ce5-9e95-48870f805da3" title="sframe-rs" alt="sframe-rs - Bencher" /></a>
+<a href="https://bencher.dev/perf/sframe-rs?back=L2NvbnNvbGUvb3JnYW5pemF0aW9ucy90b2J0aGVyb2NrL3Byb2plY3RzP3Blcl9wYWdlPTgmcGFnZT0x&key=true&reports_per_page=4&branches_per_page=8&testbeds_per_page=8&benchmarks_per_page=8&reports_page=1&branches_page=1&testbeds_page=1&benchmarks_page=1"><img src="https://api.bencher.dev/v0/projects/sframe-rs/perf/img?branches=99fe8511-3287-48d2-93f3-36379605c572&testbeds=b02e6299-bb69-4543-a09f-e168f88d72a0%2C388324aa-501e-49ca-b012-3e1054b4b2a5&benchmarks=ac01dbfe-7841-4813-9016-e6c2fb5b3e2a%2C7dab951e-b008-4748-9467-bceddbdc6c97%2Caa4e3c86-7cbe-4531-9cda-f1718843eece%2C49f6ad47-88db-4648-82f2-cbd9f6c8c0dd%2Ca8fc78f0-437f-4015-bbca-54988a7ef2c3&measures=e050a8d7-e788-4ce5-9e95-48870f805da3&start_time=1707195810000&end_time=1709788040000&title=Decryption" title="Decryption" alt="Decryption for sframe-rs - Bencher" /></a>
+<a href="https://bencher.dev/perf/sframe-rs?back=L2NvbnNvbGUvb3JnYW5pemF0aW9ucy90b2J0aGVyb2NrL3Byb2plY3RzP3Blcl9wYWdlPTgmcGFnZT0x&key=true&reports_per_page=4&branches_per_page=8&testbeds_per_page=8&benchmarks_per_page=8&reports_page=1&branches_page=1&testbeds_page=1&benchmarks_page=1"><img src="https://api.bencher.dev/v0/projects/sframe-rs/perf/img?branches=99fe8511-3287-48d2-93f3-36379605c572&testbeds=b02e6299-bb69-4543-a09f-e168f88d72a0%2C388324aa-501e-49ca-b012-3e1054b4b2a5&benchmarks=acf725e4-cd56-4471-bd94-ef143db7da78%2C8fa81434-f422-4dbf-b209-df4a7ec710a8%2C757fa277-0938-49d6-8627-4502a9de9a29%2C957e48a3-1efe-4fe5-a1dd-d8c5405d77d9%2C8a5754f5-c03a-495d-b9a8-9ab927ccfebf&measures=e050a8d7-e788-4ce5-9e95-48870f805da3&start_time=1707195810000&end_time=1709788040000&title=Encryption" title="Encryption" alt="Encryption for sframe-rs - Bencher" /></a>
+<a href="https://bencher.dev/perf/sframe-rs?back=L2NvbnNvbGUvb3JnYW5pemF0aW9ucy90b2J0aGVyb2NrL3Byb2plY3RzP3Blcl9wYWdlPTgmcGFnZT0x&key=true&reports_per_page=4&branches_per_page=8&testbeds_per_page=8&benchmarks_per_page=8&reports_page=1&branches_page=1&testbeds_page=1&benchmarks_page=1"><img src="https://api.bencher.dev/v0/projects/sframe-rs/perf/img?branches=99fe8511-3287-48d2-93f3-36379605c572&testbeds=b02e6299-bb69-4543-a09f-e168f88d72a0%2C388324aa-501e-49ca-b012-3e1054b4b2a5&benchmarks=f817d982-5073-45d1-8727-021569683502%2Cf144e648-b192-4514-81fc-f14bca4fba41%2Cabd325b0-57e2-411c-8a86-4ef6d1c45279%2C8c97fef3-a7e3-48ea-b20b-16c26f5d6a98%2Cabca60fb-54e9-4dff-9041-81314d0012d5&measures=e050a8d7-e788-4ce5-9e95-48870f805da3&start_time=1707195810000&end_time=1709788040000&title=Key+Derivation" title="Key Derivation" alt="Key Derivation for sframe-rs - Bencher" /></a>
 
 ## Contribution
 
