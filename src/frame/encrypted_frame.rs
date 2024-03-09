@@ -1,7 +1,6 @@
 use crate::{
     crypto::aead::AeadDecrypt,
     error::{Result, SframeError},
-    frame_validation::FrameValidation,
     header::SframeHeader,
     key::{KeyStore, SframeKey},
 };
@@ -9,7 +8,7 @@ use crate::{
 use super::{
     frame_buffer::Truncate,
     media_frame::{MediaFrame, MediaFrameView},
-    FrameBuffer,
+    FrameBuffer, FrameValidation,
 };
 /// A view on a buffer which contains an encrypted frame in the format as of [sframe draft 06 4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-4.2).
 /// The frame is assumed to be stored in the buffer as follows:

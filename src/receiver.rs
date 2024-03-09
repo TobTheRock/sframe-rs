@@ -1,11 +1,10 @@
-use std::{collections::HashMap, ops::Deref};
+use std::collections::HashMap;
 
 use crate::{
     crypto::cipher_suite::{CipherSuite, CipherSuiteVariant},
     error::{Result, SframeError},
-    frame::EncryptedFrameView,
-    frame_validation::{FrameValidation, FrameValidationBox, ReplayAttackProtection},
-    header::{KeyId, SframeHeader},
+    frame::{EncryptedFrameView, FrameValidationBox, ReplayAttackProtection},
+    header::KeyId,
     key::SframeKey,
     ratchet::RatchetingKeyStore,
 };
@@ -173,12 +172,6 @@ impl crate::key::KeyStore for KeyStore {
                 .ok_or(SframeError::MissingDecryptionKey(key_id)),
             KeyStore::Ratcheting(keys) => keys.ratcheting_get(key_id),
         }
-    }
-}
-
-impl FrameValidation for Box<dyn FrameValidation> {
-    fn validate(&self, header: &SframeHeader) -> Result<()> {
-        self.deref().validate(header)
     }
 }
 

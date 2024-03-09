@@ -2,7 +2,7 @@ use crate::{
     error::{Result, SframeError},
     header::{FrameCount, SframeHeader},
 };
-use std::cell::Cell;
+use std::{cell::Cell, ops::Deref};
 
 /// Allows to validate frames by their sframe header before the decryption
 pub trait FrameValidation {
@@ -13,9 +13,15 @@ pub trait FrameValidation {
 /// Box to any implementation of the `FrameValidation` trait
 pub type FrameValidationBox = Box<dyn FrameValidation>;
 
+impl FrameValidation for FrameValidationBox {
+    fn validate(&self, header: &SframeHeader) -> Result<()> {
+        self.deref().validate(header)
+    }
+}
+
 /// This implementation allows to detect replay attacks by omitting frames with
-/// to old frame counters. The window of allowed frame counts is given with a
-/// certain tolerance.
+/// to old frame counters, see [sframe draft 06 9.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-anti-replay).
+/// The window of allowed frame counts is given with a certain tolerance.
 pub struct ReplayAttackProtection {
     tolerance: u64,
     last_frame_count: Cell<FrameCount>,

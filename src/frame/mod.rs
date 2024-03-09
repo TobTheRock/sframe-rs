@@ -49,10 +49,12 @@
 mod encrypted_frame;
 mod frame_buffer;
 mod media_frame;
+mod validation;
 
 pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView};
 pub use frame_buffer::{FrameBuffer, Truncate};
 pub use media_frame::{MediaFrame, MediaFrameView};
+pub use validation::*;
 
 #[cfg(test)]
 mod test {
