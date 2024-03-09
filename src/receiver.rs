@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops::Deref};
 use crate::{
     crypto::cipher_suite::{CipherSuite, CipherSuiteVariant},
     error::{Result, SframeError},
-    frame::encrypted_frame::EncryptedFrameView,
+    frame::EncryptedFrameView,
     frame_validation::{FrameValidation, FrameValidationBox, ReplayAttackProtection},
     header::{KeyId, SframeHeader},
     key::SframeKey,

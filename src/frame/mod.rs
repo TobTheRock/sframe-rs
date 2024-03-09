@@ -46,12 +46,9 @@
 //! you can check out the [bip_frame_buffer example](https://github.com/TobTheRock/sframe-rs/blob/main/examples/bip_frame_buffer.rs).
 //!
 
-/// abstractions for encrypted sframes
-pub mod encrypted_frame;
-/// frame buffer abstractions
-pub mod frame_buffer;
-/// abstractions for unencrypted media frames
-pub mod media_frame;
+mod encrypted_frame;
+mod frame_buffer;
+mod media_frame;
 
 pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView};
 pub use frame_buffer::{FrameBuffer, Truncate};
