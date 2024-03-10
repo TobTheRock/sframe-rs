@@ -7,7 +7,7 @@
 [![documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/sframe/)
 ![maintenance](https://img.shields.io/maintenance/yes/2024)
 
-This library is an implementation of [draft-ietf-sframe-enc-06](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07) and provides and end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
+This library is an implementation of [draft-ietf-sframe-enc-07](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html) and provides and end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
 It was forked from the original [goto-opensource/secure-frame-rs](https://github.com/goto-opensource/secure-frame-rs) and is continued here.
 
 ## Supported crypto libraries
@@ -35,10 +35,10 @@ Depending on your use case, this library offers two distinct APIs.
 
 This API provides an easy to use interface to the `Sframe` implementation. The `Sender` / `Receiver`:
 
-- model the sframe encryption/decryption block in the data path, see [sframe draft 07 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context)
+- model the sframe encryption/decryption block in the data path, see [sframe draft 07 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-application-context)
 - derive and store the necessary `Sframe` key(s)
 - keep an internal, dynamic buffer to encrypt/ decrypt a single frame at one time
-- provide ratchet support as of [sframe draft 07 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#section-5.1)
+- provide ratchet support as of [sframe draft 07 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#section-5.1)
 - optional frame validation before decryption
 - For example you can use them like this:
 

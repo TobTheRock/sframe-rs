@@ -69,7 +69,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         self.frame_count
     }
 
-    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-encryption). Dynamically allocates memory for the resulting [`EncryptedFrame`].
+    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-encryption). Dynamically allocates memory for the resulting [`EncryptedFrame`].
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails.
     pub fn encrypt(&self, key: &EncryptionKey) -> Result<EncryptedFrame> {
@@ -84,7 +84,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         Ok(encrypted_frame)
     }
 
-    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-encryption) and stores the result, an [`EncryptedFrameView`], into the provided buffer.
+    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-encryption) and stores the result, an [`EncryptedFrameView`], into the provided buffer.
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails.
     pub fn encrypt_into<'obuf>(
@@ -235,7 +235,7 @@ impl MediaFrame {
         self.frame_count
     }
 
-    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-encryption).
+    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-encryption).
     /// Dynamically allocates memory for the resulting [`EncryptedFrame`].
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails
@@ -245,7 +245,7 @@ impl MediaFrame {
         view.encrypt(key)
     }
 
-    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-encryption)
+    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-encryption)
     /// and stores the result into the provided buffer. An [`EncryptedFrameView`] on the buffer is returned on success.
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails.

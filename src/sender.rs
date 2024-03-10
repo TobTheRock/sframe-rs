@@ -15,7 +15,7 @@ pub struct SenderOptions {
     ///
     /// default: `0`
     pub key_id: KeyId,
-    /// encryption/ key expansion algorithm used, see [sframe draft 07 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-cipher-suites)
+    /// encryption/ key expansion algorithm used, see [sframe draft 07 4.4](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-cipher-suites)
     ///
     /// default: [CipherSuiteVariant::AesGcm256Sha512]
     pub cipher_suite_variant: CipherSuiteVariant,
@@ -35,7 +35,7 @@ impl Default for SenderOptions {
     }
 }
 
-/// models the sframe encryption block in the sender path, [sframe draft 07 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context).
+/// models the sframe encryption block in the sender path, [sframe draft 07 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-application-context).
 /// The [Sender] allows to encrypt outgoing media frames. To do so, it is associated with a
 /// single key id ([`KeyId`]). It needs to be initialised with a base key (aka key material) first.
 /// For encryption/ key expansion the used algorithms are configurable (see [`CipherSuiteVariant`]).
