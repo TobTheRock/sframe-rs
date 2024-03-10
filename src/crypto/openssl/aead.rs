@@ -1,8 +1,11 @@
 use crate::{
-    crypto::aead::{AeadDecrypt, AeadEncrypt},
+    crypto::{
+        aead::{AeadDecrypt, AeadEncrypt},
+        cipher_suite::CipherSuite,
+    },
     error::Result,
     header::FrameCount,
-    key::SframeKey,
+    key::{DecryptionKey, EncryptionKey},
 };
 
 use crate::{crypto::cipher_suite::CipherSuiteVariant, error::SframeError};
@@ -12,7 +15,7 @@ use super::tag::Tag;
 const AES_GCM_IV_LEN: usize = 12;
 const AES_CTR_IVS_LEN: usize = 16;
 
-impl AeadEncrypt for SframeKey {
+impl AeadEncrypt for EncryptionKey {
     type AuthTag = Tag;
     fn encrypt<IoBuffer, Aad>(
         &self,
@@ -42,7 +45,7 @@ impl AeadEncrypt for SframeKey {
     }
 }
 
-impl AeadDecrypt for SframeKey {
+impl AeadDecrypt for DecryptionKey {
     fn decrypt<'a, IoBuffer, Aad>(
         &self,
         io_buffer: &'a mut IoBuffer,
@@ -96,7 +99,7 @@ impl AeadDecrypt for SframeKey {
     }
 }
 
-impl SframeKey {
+impl EncryptionKey {
     fn encrypt_aead(
         &self,
         plain_text: &[u8],
@@ -136,10 +139,12 @@ impl SframeKey {
             Some(&initial_counter),
             plain_text,
         )?;
-        let tag = self.compute_tag(auth_key, aad, nonce, &encrypted)?;
+        let tag = compute_tag(&self.cipher_suite(), auth_key, aad, nonce, &encrypted)?;
         Ok((encrypted, tag))
     }
+}
 
+impl DecryptionKey {
     fn decrypt_aes_ctr(
         &self,
         cipher: openssl::symm::Cipher,
@@ -153,8 +158,7 @@ impl SframeKey {
         let nonce = &initial_counter[..self.cipher_suite().nonce_len];
         let auth_key = secret.auth.as_ref().ok_or(SframeError::DecryptionFailure)?;
 
-        let candidate_tag = self
-            .compute_tag(auth_key, aad, nonce, encrypted)
+        let candidate_tag = compute_tag(&self.cipher_suite(), auth_key, aad, nonce, encrypted)
             .map_err(|err| {
                 log::debug!("Decryption failed, OpenSSL error stack: {}", err);
                 SframeError::DecryptionFailure
@@ -171,30 +175,29 @@ impl SframeKey {
             },
         )
     }
+}
+fn compute_tag(
+    &cipher_suite: &CipherSuite,
+    auth_key: &[u8],
+    aad: &[u8],
+    nonce: &[u8],
+    encrypted: &[u8],
+) -> std::result::Result<Tag, openssl::error::ErrorStack> {
+    let key = openssl::pkey::PKey::hmac(auth_key)?;
+    let mut signer = openssl::sign::Signer::new(openssl::hash::MessageDigest::sha256(), &key)?;
 
-    fn compute_tag(
-        &self,
-        auth_key: &[u8],
-        aad: &[u8],
-        nonce: &[u8],
-        encrypted: &[u8],
-    ) -> std::result::Result<Tag, openssl::error::ErrorStack> {
-        let key = openssl::pkey::PKey::hmac(auth_key)?;
-        let mut signer = openssl::sign::Signer::new(openssl::hash::MessageDigest::sha256(), &key)?;
+    // for current platforms there is no issue casting from usize to u64
+    signer.update(&(aad.len() as u64).to_be_bytes())?;
+    signer.update(&(encrypted.len() as u64).to_be_bytes())?;
+    signer.update(&(cipher_suite.auth_tag_len as u64).to_be_bytes())?;
+    signer.update(nonce)?;
+    signer.update(aad)?;
+    signer.update(encrypted)?;
 
-        // for current platforms there is no issue casting from usize to u64
-        signer.update(&(aad.len() as u64).to_be_bytes())?;
-        signer.update(&(encrypted.len() as u64).to_be_bytes())?;
-        signer.update(&(self.cipher_suite().auth_tag_len as u64).to_be_bytes())?;
-        signer.update(nonce)?;
-        signer.update(aad)?;
-        signer.update(encrypted)?;
+    let mut tag = signer.sign_to_vec()?;
+    tag.resize(cipher_suite.auth_tag_len, 0);
 
-        let mut tag = signer.sign_to_vec()?;
-        tag.resize(self.cipher_suite().auth_tag_len, 0);
-
-        Ok(tag.into())
-    }
+    Ok(tag.into())
 }
 
 impl From<openssl::error::ErrorStack> for SframeError {

@@ -13,7 +13,7 @@ body = """
     ### {{ group | upper_first }}
     {% for commit in commits %}
         - {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message | upper_first }}\
-          {% if commit.breaking %} \n {{ commit.breaking_description }}{% endif %}\
+          {% if commit.breaking %} \n> {{ commit.breaking_description }}{% endif %}\
     {% endfor %}
 {% endfor %}\n
 """
@@ -24,17 +24,17 @@ conventional_commits = true
 filter_unconventional = true
 split_commits = false
 commit_parsers = [
-    { message = "^feat", group = "Features"},
-    { message = "^fix", group = "Bug Fixes"},
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
     # { message = "^doc", group = "Documentation"},
-    { message = "^perf", group = "Performance"},
+    { message = "^perf", group = "Performance" },
     # { message = "^refactor", group = "Refactor"},
     # { message = "^style", group = "Styling"},
     # { message = "^test", group = "Testing"},
 ]
 filter_commits = true
 commit_preprocessors = [
-    { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "([#${2}](https://github.com/TobTheRock/sframe-rs/issues/${2}))"},
+    { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "([#${2}](https://github.com/TobTheRock/sframe-rs/issues/${2}))" },
 ]
 protect_breaking_commits = true
 tag_pattern = "v[0-9]*"
@@ -42,5 +42,5 @@ ignore_tags = ""
 topo_order = false
 sort_commits = "oldest"
 link_parsers = [
-    { pattern = "#(\\d+)", href = "https://github.com/TobTheRock/sframe-rs/issues/$1"},
-] 
+    { pattern = "#(\\d+)", href = "https://github.com/TobTheRock/sframe-rs/issues/$1" },
+]

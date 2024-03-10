@@ -4,7 +4,7 @@ use crate::{
     crypto::aead::AeadEncrypt,
     error::Result,
     header::{FrameCount, SframeHeader},
-    key::SframeKey,
+    key::EncryptionKey,
 };
 
 use super::{
@@ -69,10 +69,10 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         self.frame_count
     }
 
-    /// Encrypts the media frame with the sframe key according to [sframe draft 06 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-encryption). Dynamically allocates memory for the resulting [`EncryptedFrame`].
+    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-encryption). Dynamically allocates memory for the resulting [`EncryptedFrame`].
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails.
-    pub fn encrypt(&self, key: &SframeKey) -> Result<EncryptedFrame> {
+    pub fn encrypt(&self, key: &EncryptionKey) -> Result<EncryptedFrame> {
         let mut buffer = Vec::new();
         let view = self.encrypt_into(key, &mut buffer)?;
 
@@ -84,12 +84,12 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         Ok(encrypted_frame)
     }
 
-    /// Encrypts the media frame with the sframe key according to [sframe draft 06 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-encryption) and stores the result, an [`EncryptedFrameView`], into the provided buffer.
+    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-encryption) and stores the result, an [`EncryptedFrameView`], into the provided buffer.
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails.
     pub fn encrypt_into<'obuf>(
         &self,
-        key: &SframeKey,
+        key: &EncryptionKey,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<EncryptedFrameView<'obuf>> {
         let key_id = key.key_id();
@@ -235,23 +235,23 @@ impl MediaFrame {
         self.frame_count
     }
 
-    /// Encrypts the media frame with the sframe key according to [sframe draft 06 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-encryption).
+    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-encryption).
     /// Dynamically allocates memory for the resulting [`EncryptedFrame`].
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails
-    pub fn encrypt(&self, key: &SframeKey) -> Result<EncryptedFrame> {
+    pub fn encrypt(&self, key: &EncryptionKey) -> Result<EncryptedFrame> {
         let view =
             MediaFrameView::with_meta_data(self.frame_count, self.payload(), self.meta_data());
         view.encrypt(key)
     }
 
-    /// Encrypts the media frame with the sframe key according to [sframe draft 06 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-encryption)
+    /// Encrypts the media frame with the sframe key according to [sframe draft 07 4.4.3](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-encryption)
     /// and stores the result into the provided buffer. An [`EncryptedFrameView`] on the buffer is returned on success.
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails.
     pub fn encrypt_into<'obuf>(
         &self,
-        key: &SframeKey,
+        key: &EncryptionKey,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<EncryptedFrameView<'obuf>> {
         let view =
@@ -276,7 +276,7 @@ struct IoBufferView<'buf> {
 mod test {
     use crate::{
         frame::media_frame::{MediaFrame, MediaFrameView},
-        key::SframeKey,
+        key::EncryptionKey,
         util::test::assert_bytes_eq,
         CipherSuiteVariant,
     };
@@ -298,8 +298,8 @@ mod test {
 
     #[test]
     fn encrypt_media_frame_view() {
-        let key =
-            SframeKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET").unwrap();
+        let key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET")
+            .unwrap();
         let mut encrypt_buffer = Vec::new();
 
         let media_frame = MediaFrameView::with_meta_data(FRAME_COUNT, &PAYLOAD, META_DATA);
@@ -313,8 +313,8 @@ mod test {
 
     #[test]
     fn encrypt_media_frame() {
-        let key =
-            SframeKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET").unwrap();
+        let key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET")
+            .unwrap();
 
         let media_frame = MediaFrame::with_meta_data(FRAME_COUNT, PAYLOAD, META_DATA);
         let encrypted_frame = media_frame.encrypt(&key).unwrap();

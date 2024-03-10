@@ -4,7 +4,7 @@ use crate::{
     frame::MediaFrameView,
     frame_count_generator::FrameCountGenerator,
     header::{FrameCount, KeyId},
-    key::SframeKey,
+    key::EncryptionKey,
 };
 
 /// options for the encryption block,
@@ -15,7 +15,7 @@ pub struct SenderOptions {
     ///
     /// default: `0`
     pub key_id: KeyId,
-    /// encryption/ key expansion algorithm used, see [sframe draft 06 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-cipher-suites)
+    /// encryption/ key expansion algorithm used, see [sframe draft 07 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-cipher-suites)
     ///
     /// default: [CipherSuiteVariant::AesGcm256Sha512]
     pub cipher_suite_variant: CipherSuiteVariant,
@@ -35,7 +35,7 @@ impl Default for SenderOptions {
     }
 }
 
-/// models the sframe encryption block in the sender path, [sframe draft 06 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context).
+/// models the sframe encryption block in the sender path, [sframe draft 07 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context).
 /// The [Sender] allows to encrypt outgoing media frames. To do so, it is associated with a
 /// single key id ([`KeyId`]). It needs to be initialised with a base key (aka key material) first.
 /// For encryption/ key expansion the used algorithms are configurable (see [`CipherSuiteVariant`]).
@@ -43,7 +43,7 @@ pub struct Sender {
     frame_count: FrameCountGenerator,
     key_id: KeyId,
     cipher_suite: CipherSuite,
-    sframe_key: Option<SframeKey>,
+    enc_key: Option<EncryptionKey>,
     buffer: Vec<u8>,
 }
 
@@ -73,7 +73,7 @@ impl Sender {
             frame_count: Default::default(),
             key_id,
             cipher_suite,
-            sframe_key: None,
+            enc_key: None,
             buffer: Default::default(),
         }
     }
@@ -86,7 +86,7 @@ impl Sender {
     where
         F: AsRef<[u8]>,
     {
-        if let Some(sframe_key) = &self.sframe_key {
+        if let Some(enc_key) = &self.enc_key {
             let unencrypted_frame = unencrypted_frame.as_ref();
 
             let frame_count = self.frame_count.increment();
@@ -94,7 +94,7 @@ impl Sender {
             let meta_data = &unencrypted_frame[..skip];
             let media_frame = MediaFrameView::with_meta_data(frame_count, payload, meta_data);
 
-            media_frame.encrypt_into(sframe_key, &mut self.buffer)?;
+            media_frame.encrypt_into(enc_key, &mut self.buffer)?;
 
             Ok(&self.buffer)
         } else {
@@ -110,7 +110,7 @@ impl Sender {
     where
         M: AsRef<[u8]>,
     {
-        self.sframe_key = Some(SframeKey::derive_from(
+        self.enc_key = Some(EncryptionKey::derive_from(
             self.cipher_suite.variant,
             self.key_id,
             key_material,
@@ -140,7 +140,7 @@ impl From<SenderOptions> for Sender {
         Self {
             key_id: options.key_id,
             cipher_suite: options.cipher_suite_variant.into(),
-            sframe_key: None,
+            enc_key: None,
             frame_count: FrameCountGenerator::new(options.max_frame_count),
             buffer: Default::default(),
         }

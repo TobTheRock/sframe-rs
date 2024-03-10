@@ -1,17 +1,16 @@
 use crate::{
     crypto::aead::AeadDecrypt,
     error::{Result, SframeError},
-    frame_validation::FrameValidation,
     header::SframeHeader,
-    key::{KeyStore, SframeKey},
+    key::{DecryptionKey, KeyStore},
 };
 
 use super::{
     frame_buffer::Truncate,
     media_frame::{MediaFrame, MediaFrameView},
-    FrameBuffer,
+    FrameBuffer, FrameValidation,
 };
-/// A view on a buffer which contains an encrypted frame in the format as of [sframe draft 06 4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-4.2).
+/// A view on a buffer which contains an encrypted frame in the format as of [sframe draft 07 4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#section-4.2).
 /// The frame is assumed to be stored in the buffer as follows:
 /// ```txt
 /// | Meta Data | Sframe Header | Encrypted Data | Auth Tag |
@@ -101,7 +100,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     }
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store.
-    /// As [`SframeKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`DecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// Dynamically allocates memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
@@ -118,7 +117,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store and stores the result
     /// into the provided buffer. On success an [`MediaFrameView`] on the buffer is returned.
-    /// As [`SframeKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`DecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf>(
@@ -191,7 +190,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         (payload, meta_data)
     }
 
-    fn buffer_len(&self, key: &SframeKey) -> BufferLengths {
+    fn buffer_len(&self, key: &DecryptionKey) -> BufferLengths {
         let header = self.header.len();
         let meta = self.meta_data.len();
         let aad_buffer = header + meta;
@@ -228,7 +227,7 @@ impl<'buf> TryFrom<&'buf Vec<u8>> for EncryptedFrameView<'buf> {
         EncryptedFrameView::try_new(data)
     }
 }
-/// An abstraction of an encrypted frame in the format as of [sframe draft 06 4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-4.2),
+/// An abstraction of an encrypted frame in the format as of [sframe draft 07 4.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#section-4.2),
 /// owing an internal buffer containing the cipher text and optionally associated meta data (e.g. be a media header).
 pub struct EncryptedFrame {
     buffer: Vec<u8>,
@@ -311,7 +310,7 @@ impl EncryptedFrame {
     }
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store.
-    /// As [`SframeKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`DecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// Dynamically allocats memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
@@ -327,7 +326,7 @@ impl EncryptedFrame {
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store and stores the result
     /// into the provided buffer. On success an [`MediaFrameView`] on the buffer is returned.
-    /// As [`SframeKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`DecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf>(

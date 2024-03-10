@@ -10,10 +10,10 @@ pub trait FrameBuffer {
     fn allocate(&mut self, size: usize) -> Result<&mut Self::BufferSlice>;
 }
 
-/// As during decryption a larger buffer is temporarily needed than the size of resulting decrypted payload.
-/// Due to this the size of the buffer can be truncated after the decryption was successful.
-/// As this is purely optional and sometimes only informative (depending on the buffer design) this is implemented as
-/// a NOOP per default.  
+/// During decryption a larger buffer is temporarily needed than the size of resulting decrypted payload.
+/// Due to this, the size of the buffer can be truncated after the decryption was successful.
+/// However, as this is purely optional and sometimes only informative (depending on the buffer design),
+/// the truncation is implemented as a NOOP per default.  
 pub trait Truncate {
     /// shortens the allocated memory in the  buffer by keeping the first `len` bytes and dropping the rest
     fn truncate(&mut self, _len: usize) {

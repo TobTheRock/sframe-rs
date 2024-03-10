@@ -5,7 +5,7 @@ use crate::{
 
 //
 
-/// Represents the bit range for an MLS Key ID as of [sframe draft 06 5.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-mls)
+/// Represents the bit range for an MLS Key ID as of [sframe draft 07 5.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-mls)
 /// The bit range specifies the number of bits allocated for the epoch (E) and member index (S) components of the MLS Key ID,
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MlsKeyIdBitRange {
@@ -42,7 +42,7 @@ impl MlsKeyIdBitRange {
     }
 }
 
-/// Special Key ID format as of [sframe draft 06 5.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-5.2)
+/// Special Key ID format as of [sframe draft 07 5.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#section-5.2)
 /// to be used with [MLS](https://datatracker.ietf.org/doc/html/rfc9420).
 /// It has the following format:
 /// ```txt

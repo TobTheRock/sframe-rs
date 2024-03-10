@@ -1,8 +1,11 @@
 use crate::{
-    crypto::aead::{AeadDecrypt, AeadEncrypt},
+    crypto::{
+        aead::{AeadDecrypt, AeadEncrypt},
+        secret::Secret,
+    },
     error::Result,
     header::FrameCount,
-    key::SframeKey,
+    key::{DecryptionKey, EncryptionKey},
 };
 
 use ring::aead::{BoundKey, SealingKey, Tag};
@@ -36,15 +39,16 @@ impl From<CipherSuiteVariant> for &'static ring::aead::Algorithm {
     }
 }
 
-impl SframeKey {
-    fn unbound_encryption_key(&self) -> Result<ring::aead::UnboundKey> {
-        let algorithm = self.cipher_suite_variant().into();
-        ring::aead::UnboundKey::new(algorithm, self.secret().key.as_slice())
-            .map_err(|_| SframeError::KeyDerivation)
-    }
+fn unbound_encryption_key(
+    variant: CipherSuiteVariant,
+    secret: &Secret,
+) -> Result<ring::aead::UnboundKey> {
+    let algorithm = variant.into();
+    ring::aead::UnboundKey::new(algorithm, secret.key.as_slice())
+        .map_err(|_| SframeError::KeyDerivation)
 }
 
-impl AeadEncrypt for SframeKey {
+impl AeadEncrypt for EncryptionKey {
     type AuthTag = Tag;
     fn encrypt<IoBuffer, Aad>(
         &self,
@@ -57,7 +61,7 @@ impl AeadEncrypt for SframeKey {
         Aad: AsRef<[u8]> + ?Sized,
     {
         let mut sealing_key = SealingKey::<FrameNonceSequence>::new(
-            self.unbound_encryption_key()?,
+            unbound_encryption_key(self.cipher_suite_variant(), self.secret())?,
             self.secret().create_nonce(frame_count).into(),
         );
 
@@ -72,7 +76,7 @@ impl AeadEncrypt for SframeKey {
     }
 }
 
-impl AeadDecrypt for SframeKey {
+impl AeadDecrypt for DecryptionKey {
     fn decrypt<'a, IoBuffer, Aad>(
         &self,
         io_buffer: &'a mut IoBuffer,
@@ -86,7 +90,7 @@ impl AeadDecrypt for SframeKey {
         let aad = ring::aead::Aad::from(&aad_buffer);
 
         let mut opening_key = ring::aead::OpeningKey::<FrameNonceSequence>::new(
-            self.unbound_encryption_key()?,
+            unbound_encryption_key(self.cipher_suite_variant(), self.secret())?,
             self.secret().create_nonce(frame_count).into(),
         );
         opening_key

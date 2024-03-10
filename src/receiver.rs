@@ -1,19 +1,18 @@
-use std::{collections::HashMap, ops::Deref};
+use std::collections::HashMap;
 
 use crate::{
     crypto::cipher_suite::{CipherSuite, CipherSuiteVariant},
     error::{Result, SframeError},
-    frame::encrypted_frame::EncryptedFrameView,
-    frame_validation::{FrameValidation, FrameValidationBox, ReplayAttackProtection},
-    header::{KeyId, SframeHeader},
-    key::SframeKey,
+    frame::{EncryptedFrameView, FrameValidationBox, ReplayAttackProtection},
+    header::KeyId,
+    key::DecryptionKey,
     ratchet::RatchetingKeyStore,
 };
 
 /// options for the decryption block,
 /// allows to create a [Receiver] object using [Into]/[From]
 pub struct ReceiverOptions {
-    /// decryption/ key expansion algorithm used, see [sframe draft 06 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-cipher-suites)
+    /// decryption/ key expansion algorithm used, see [sframe draft 07 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-cipher-suites)
     ///
     /// default: [CipherSuiteVariant::AesGcm256Sha512]
     pub cipher_suite_variant: CipherSuiteVariant,
@@ -21,7 +20,7 @@ pub struct ReceiverOptions {
     ///
     /// default: [ReplayAttackProtection] with tolerance `128`
     pub frame_validation: Option<FrameValidationBox>,
-    /// optional ratcheting support as of [sframe draft 06 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#section-5.1),
+    /// optional ratcheting support as of [sframe draft 07 5.1](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#section-5.1),
     /// using `n_ratchet_bits` to depict the Ratchet Step
     ///
     /// default: [None]
@@ -38,7 +37,7 @@ impl Default for ReceiverOptions {
     }
 }
 
-/// Models the sframe decryption block in the receiver path, see [sframe draft 06 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context), by
+/// Models the sframe decryption block in the receiver path, see [sframe draft 07 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-06.html#name-application-context), by
 /// - internally storing a map of encryption keys each associated with a key id ([`KeyId`])
 /// - decrypting incoming `SFrame` frames using an internal buffer and the stored keys
 /// - performing optional frame validation and ratcheting
@@ -103,7 +102,7 @@ impl Receiver {
             KeyStore::Standard(key_store) => {
                 key_store.insert(
                     key_id,
-                    SframeKey::derive_from(self.cipher_suite.variant, key_id, key_material)?,
+                    DecryptionKey::derive_from(self.cipher_suite.variant, key_id, key_material)?,
                 );
             }
             KeyStore::Ratcheting(key_store) => {
@@ -151,7 +150,7 @@ impl Default for Receiver {
 }
 
 enum KeyStore {
-    Standard(HashMap<KeyId, SframeKey>),
+    Standard(HashMap<KeyId, DecryptionKey>),
     Ratcheting(RatchetingKeyStore),
 }
 
@@ -162,7 +161,7 @@ impl Default for KeyStore {
 }
 
 impl crate::key::KeyStore for KeyStore {
-    fn get_key<K>(&mut self, key_id: K) -> Result<&SframeKey>
+    fn get_key<K>(&mut self, key_id: K) -> Result<&DecryptionKey>
     where
         K: Into<KeyId>,
     {
@@ -173,12 +172,6 @@ impl crate::key::KeyStore for KeyStore {
                 .ok_or(SframeError::MissingDecryptionKey(key_id)),
             KeyStore::Ratcheting(keys) => keys.ratcheting_get(key_id),
         }
-    }
-}
-
-impl FrameValidation for Box<dyn FrameValidation> {
-    fn validate(&self, header: &SframeHeader) -> Result<()> {
-        self.deref().validate(header)
     }
 }
 
