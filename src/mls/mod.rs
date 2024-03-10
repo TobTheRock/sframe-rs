@@ -6,13 +6,13 @@ use crate::{
 };
 use log::error;
 
-/// definitions of a key id according to [sframe draft 07 5.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#section-5.2)
+/// definitions of a key id according to [sframe draft 07 5.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#section-5.2)
 pub mod mls_key_id;
 
 pub use mls_key_id::{MlsKeyId, MlsKeyIdBitRange};
 
 /// Trait abstraction for an MLS exporter defined in [RFC 9420](https://datatracker.ietf.org/doc/html/rfc9420#exporters).
-/// As of  [sframe draft 07 5.2](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#section-5.2) this exporter
+/// As of  [sframe draft 07 5.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#section-5.2) this exporter
 /// can be used to derive an [`EncryptionKey`].
 pub trait MlsExporter {
     /// Type of the base key returned by the MLS exporter
