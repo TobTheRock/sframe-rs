@@ -7,7 +7,7 @@ use rand::{thread_rng, Rng};
 use sframe::{
     error::SframeError,
     frame::{EncryptedFrameView, FrameBuffer, MediaFrameView, Truncate},
-    key::SframeKey,
+    key::{DecryptionKey, EncryptionKey},
     CipherSuiteVariant,
 };
 use std::{thread, time::Duration};
@@ -81,7 +81,7 @@ fn sleep(name: &str) {
 }
 
 fn producer_task(producer: FrameProducer<BUF_SIZE>) {
-    let key = SframeKey::derive_from(VARIANT, KEY_ID, SECRET).unwrap();
+    let key = EncryptionKey::derive_from(VARIANT, KEY_ID, SECRET).unwrap();
     let mut frame_count: u64 = 0;
     let mut buffer = ProducerBuffer {
         producer,
@@ -112,7 +112,7 @@ fn producer_task(producer: FrameProducer<BUF_SIZE>) {
 }
 
 fn consumer_task(mut consumer: FrameConsumer<BUF_SIZE>) {
-    let mut key = SframeKey::derive_from(VARIANT, KEY_ID, SECRET).unwrap();
+    let mut key = DecryptionKey::derive_from(VARIANT, KEY_ID, SECRET).unwrap();
     loop {
         // Read data from the buffer
         if let Some(grant) = consumer.read() {

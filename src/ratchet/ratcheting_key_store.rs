@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     error::{Result, SframeError},
     header::KeyId,
-    key::SframeKey,
+    key::DecryptionKey,
     CipherSuiteVariant,
 };
 
@@ -39,7 +39,7 @@ impl RatchetingKeyStore {
     {
         let key_id = RatchetingKeyId::from_key_id(key_id.into(), self.n_ratchet_bits);
 
-        let sframe_key = SframeKey::derive_from(variant, key_id, &key_material)?;
+        let sframe_key = DecryptionKey::derive_from(variant, key_id, &key_material)?;
         let base_key = RatchetingBaseKey::ratchet_forward(key_id, key_material, variant)?;
 
         self.keys.insert(
@@ -74,7 +74,7 @@ impl RatchetingKeyStore {
     /// returns the encryption key associated with the key id
     /// if the key id indicates a Ratchet Step, which is different from the internally known one
     /// a [`RatchetingBaseKey`] is used to ratchet the encryption key forward accordingly
-    pub fn ratcheting_get<K>(&mut self, key_id: K) -> Result<&SframeKey>
+    pub fn ratcheting_get<K>(&mut self, key_id: K) -> Result<&DecryptionKey>
     where
         K: Into<KeyId>,
     {
@@ -99,7 +99,7 @@ impl RatchetingKeyStore {
         let next_base_key = (0..step_diff).map(|_| keys.base_key.next_base_key()).last();
         if let Some(next_base_key) = next_base_key {
             let (next_key_id, next_material) = next_base_key?;
-            keys.sframe_key = SframeKey::derive_from(
+            keys.sframe_key = DecryptionKey::derive_from(
                 keys.sframe_key.cipher_suite_variant(),
                 next_key_id,
                 next_material,
@@ -115,7 +115,7 @@ pub struct RatchetingKeys {
     /// provides key material used for ratcheting
     pub base_key: RatchetingBaseKey,
     /// secrets used for encryption/decryption
-    pub sframe_key: SframeKey,
+    pub sframe_key: DecryptionKey,
 }
 
 #[cfg(test)]

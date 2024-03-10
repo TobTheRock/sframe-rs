@@ -5,19 +5,19 @@ use crate::{
     header::KeyId,
 };
 
-use super::SframeKey;
+use super::DecryptionKey;
 
-/// Abstraction for a key store that allows retrieving encryption keys by their respective key id.
+/// Abstraction for a key store that allows retrieving decryption keys by their respective key id.
 pub trait KeyStore {
     /// Tries to retrieve a key with by its matching key ID.
     /// If no such key is found an error ([`SframeError`]) is returned.
-    fn get_key<K>(&mut self, key_id: K) -> Result<&SframeKey>
+    fn get_key<K>(&mut self, key_id: K) -> Result<&DecryptionKey>
     where
         K: Into<KeyId>;
 }
 
-impl KeyStore for SframeKey {
-    fn get_key<K>(&mut self, key_id: K) -> Result<&SframeKey>
+impl KeyStore for DecryptionKey {
+    fn get_key<K>(&mut self, key_id: K) -> Result<&DecryptionKey>
     where
         K: Into<KeyId>,
     {
@@ -30,8 +30,8 @@ impl KeyStore for SframeKey {
     }
 }
 
-impl KeyStore for HashMap<KeyId, SframeKey> {
-    fn get_key<K>(&mut self, key_id: K) -> Result<&SframeKey>
+impl KeyStore for HashMap<KeyId, DecryptionKey> {
+    fn get_key<K>(&mut self, key_id: K) -> Result<&DecryptionKey>
     where
         K: Into<KeyId>,
     {

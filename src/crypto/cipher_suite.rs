@@ -1,6 +1,6 @@
 /// Depicts which AEAD algorithm is used for encryption
 /// and which hashing function is used for the key expansion,
-/// see [sframe draft 06 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#name-cipher-suites)
+/// see [sframe draft 07 4.4](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#name-cipher-suites)
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(u16)]
 pub enum CipherSuiteVariant {
@@ -36,7 +36,7 @@ impl std::fmt::Display for CipherSuiteVariant {
     }
 }
 
-/// cipher suite as of [sframe draft 06 4.5](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-06#cipher-suites)
+/// cipher suite as of [sframe draft 07 4.5](https://datatracker.ietf.org/doc/html/draft-ietf-sframe-enc-07#cipher-suites)
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct CipherSuite {
     pub variant: CipherSuiteVariant,

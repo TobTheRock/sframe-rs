@@ -32,7 +32,7 @@ mod test {
     use crate::{
         crypto::cipher_suite::CipherSuiteVariant,
         header::{KeyId, SframeHeader},
-        key::SframeKey,
+        key::{DecryptionKey, EncryptionKey},
         test_vectors::get_sframe_test_vector,
         util::test::assert_bytes_eq,
     };
@@ -47,7 +47,7 @@ mod test {
         let mut data = vec![0u8; 1024];
         thread_rng().fill(data.as_mut_slice());
         let header = SframeHeader::new(0, 0);
-        let sframe_key = SframeKey::derive_from(
+        let sframe_key = EncryptionKey::derive_from(
             CipherSuiteVariant::AesGcm256Sha512,
             KeyId::default(),
             KEY_MATERIAL.as_bytes(),
@@ -67,7 +67,7 @@ mod test {
     fn encrypt_test_vector(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
 
-        let sframe_key = SframeKey::from_test_vector(variant, test_vec);
+        let sframe_key = EncryptionKey::from_test_vector(variant, test_vec);
 
         let mut data_buffer = test_vec.plain_text.clone();
 
@@ -98,7 +98,7 @@ mod test {
     fn decrypt_test_vector(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
 
-        let sframe_key = SframeKey::from_test_vector(variant, test_vec);
+        let sframe_key = DecryptionKey::from_test_vector(variant, test_vec);
         let header = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
         let header_buffer = Vec::from(&header);
 
