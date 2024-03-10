@@ -76,11 +76,11 @@ impl From<CipherSuiteVariant> for ring::hkdf::Algorithm {
 }
 
 fn expand_key(prk: &ring::hkdf::Prk, info: &[u8], key_len: usize) -> Result<Vec<u8>> {
-    let mut sframe_key = vec![0_u8; key_len];
+    let mut key = vec![0_u8; key_len];
 
     prk.expand(&[info], OkmKeyLength(key_len))
-        .and_then(|okm| okm.fill(sframe_key.as_mut_slice()))
+        .and_then(|okm| okm.fill(key.as_mut_slice()))
         .map_err(|_| SframeError::KeyDerivation)?;
 
-    Ok(sframe_key)
+    Ok(key)
 }

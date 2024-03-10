@@ -47,14 +47,14 @@ mod test {
         let mut data = vec![0u8; 1024];
         thread_rng().fill(data.as_mut_slice());
         let header = SframeHeader::new(0, 0);
-        let sframe_key = EncryptionKey::derive_from(
+        let enc_key = EncryptionKey::derive_from(
             CipherSuiteVariant::AesGcm256Sha512,
             KeyId::default(),
             KEY_MATERIAL.as_bytes(),
         )
         .unwrap();
 
-        let _tag = sframe_key
+        let _tag = enc_key
             .encrypt(&mut data, &Vec::from(&header), header.frame_count())
             .unwrap();
     }
@@ -67,7 +67,7 @@ mod test {
     fn encrypt_test_vector(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
 
-        let sframe_key = EncryptionKey::from_test_vector(variant, test_vec);
+        let enc_key = EncryptionKey::from_test_vector(variant, test_vec);
 
         let mut data_buffer = test_vec.plain_text.clone();
 
@@ -76,7 +76,7 @@ mod test {
 
         let aad_buffer = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
 
-        let tag = sframe_key
+        let tag = enc_key
             .encrypt(&mut data_buffer, &aad_buffer, header.frame_count())
             .unwrap();
 
@@ -98,7 +98,7 @@ mod test {
     fn decrypt_test_vector(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
 
-        let sframe_key = DecryptionKey::from_test_vector(variant, test_vec);
+        let dec_key = DecryptionKey::from_test_vector(variant, test_vec);
         let header = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
         let header_buffer = Vec::from(&header);
 
@@ -107,7 +107,7 @@ mod test {
 
         let mut data = Vec::from(&test_vec.cipher_text[header.len()..]);
 
-        let decrypted = sframe_key
+        let decrypted = dec_key
             .decrypt(&mut data, &aad_buffer, header.frame_count())
             .unwrap();
 
