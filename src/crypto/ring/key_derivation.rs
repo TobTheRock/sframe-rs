@@ -50,12 +50,12 @@ impl Ratcheting for Vec<u8> {
         let algorithm = cipher_suite.variant.into();
         let pseudo_random_key = ring::hkdf::Salt::new(algorithm, b"").extract(self);
 
-        // TODO map error
         expand_key(
             &pseudo_random_key,
             get_hkdf_ratchet_expand_label(),
             cipher_suite.key_len,
         )
+        .map_err(|_| SframeError::RatchetingFailure)
     }
 }
 
@@ -81,7 +81,7 @@ fn expand_key(prk: &ring::hkdf::Prk, info: &[u8], key_len: usize) -> Result<Vec<
 
     prk.expand(&[info], OkmKeyLength(key_len))
         .and_then(|okm| okm.fill(key.as_mut_slice()))
-        .map_err(|_| SframeError::KeyDerivation)?;
+        .map_err(|_| SframeError::KeyDerivationFailure)?;
 
     Ok(key)
 }

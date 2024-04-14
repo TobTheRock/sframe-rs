@@ -45,7 +45,7 @@ fn unbound_encryption_key(
 ) -> Result<ring::aead::UnboundKey> {
     let algorithm = variant.into();
     ring::aead::UnboundKey::new(algorithm, secret.key.as_slice())
-        .map_err(|_| SframeError::KeyDerivation)
+        .map_err(|_| SframeError::KeyDerivationFailure)
 }
 
 impl AeadEncrypt for EncryptionKey {

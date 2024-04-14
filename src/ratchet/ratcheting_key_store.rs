@@ -126,7 +126,7 @@ impl KeyStore for RatchetingKeyStore {
         K: Into<KeyId>,
     {
         let key_id = RatchetingKeyId::from_key_id(key_id, self.n_ratchet_bits);
-        self.keys.get(&key_id).and_then(|key| Some(&key.dec_key))
+        self.keys.get(&key_id).map(|key| &key.dec_key)
     }
 }
 

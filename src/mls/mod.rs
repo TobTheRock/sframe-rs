@@ -43,7 +43,7 @@ macro_rules! mls_key {
                     .export_secret("SFrame 1.0 Base Key", b"", cipher_suite.key_len)
                     .map_err(|err| {
                         error!("Failed to export base key from MLS: {}", err);
-                        SframeError::KeyDerivation
+                        SframeError::KeyDerivationFailure
                     })?;
 
                 $name::derive_from(variant, key_id, base_key)

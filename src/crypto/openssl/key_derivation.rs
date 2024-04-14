@@ -32,7 +32,7 @@ impl KeyDerivation for Secret {
 
         try_expand().map_err(|err: openssl::error::ErrorStack| {
             log::debug!("Key derivation failed, OpenSSL error stack: {}", err);
-            SframeError::KeyDerivation
+            SframeError::KeyDerivationFailure
         })
     }
 }
@@ -49,7 +49,7 @@ impl Ratcheting for Vec<u8> {
             get_hkdf_ratchet_expand_label(),
             cipher_suite.nonce_len,
         )
-        .map_err(|_: openssl::error::ErrorStack| SframeError::KeyDerivation)
+        .map_err(|_: openssl::error::ErrorStack| SframeError::RatchetingFailure)
     }
 }
 

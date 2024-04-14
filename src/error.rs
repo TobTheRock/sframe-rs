@@ -6,11 +6,11 @@ pub type Result<T> = std::result::Result<T, SframeError>;
 /// Represents an error which has occured in the sframe-rs library
 #[derive(PartialEq, Eq, Debug, thiserror::Error)]
 pub enum SframeError {
-    /// [crate::sender::Sender] has no valid encryption key set
-    #[error("No EncryptionKey has been set")]
+    /// no valid encryption key has been found
+    #[error("No EncryptionKey has been found")]
     MissingEncryptionKey,
 
-    /// `Receiver` has no valid encryption key set
+    /// no valid decryption key has been found
     #[error("No DecryptionKey has been found")]
     MissingDecryptionKey(KeyId),
 
@@ -22,9 +22,13 @@ pub enum SframeError {
     #[error("Failed to Encrypt")]
     EncryptionFailure,
 
-    /// Could not expand encryption key with HKDF
+    /// Could not expand encryption/decryption key with HKDF
     #[error("Unable to create unbound encryption key")]
-    KeyDerivation,
+    KeyDerivationFailure,
+
+    /// Could not ratchet an decryption key with HKDF
+    #[error("Unable to create unbound encryption key")]
+    RatchetingFailure,
 
     /// frame validation failed before decryption
     #[error("{0}")]
