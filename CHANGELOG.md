@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2024-04-14
+
+### Refactor
+
+- [**breaking**] Make get_key a const method returning an option
+> make get_key a const method returning an option
+- [**breaking**] Separate ratcheting and get key for Ratcheting key store
+> separate ratcheting and get key for Ratcheting key store
+- [**breaking**] Key derivation error defintions
+> Renamed `SframeError::KeyDerivation` to `SframeError::KeyDerivationFailure`. Also ratcheting failures now no longer produce `SframeError::KeyDerivationFailure` but `SframeError::RatchetingFailure`.
+
 ## [0.6.0] - 2024-03-10
 
 ### Features
