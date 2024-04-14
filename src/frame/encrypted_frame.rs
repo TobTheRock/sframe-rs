@@ -134,7 +134,9 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
             key_id
         );
 
-        let key = key_store.get_key(key_id)?;
+        let key = key_store
+            .get_key(key_id)
+            .ok_or(SframeError::MissingDecryptionKey(key_id))?;
 
         let buffer_len = self.buffer_len(key);
         let allocate_len = buffer_len.meta + self.data.len();
