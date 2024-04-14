@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     error::{Result, SframeError},
     header::KeyId,
-    key::DecryptionKey,
+    key::{DecryptionKey, KeyStore},
     CipherSuiteVariant,
 };
 
@@ -46,7 +46,7 @@ impl RatchetingKeyStore {
             key_id,
             RatchetingKeys {
                 base_key,
-                sframe_key,
+                dec_key: sframe_key,
             },
         );
 
@@ -71,10 +71,12 @@ impl RatchetingKeyStore {
         self.keys.get(&key_id)
     }
 
-    /// returns the encryption key associated with the key id
-    /// if the key id indicates a Ratchet Step, which is different from the internally known one
-    /// a [`RatchetingBaseKey`] is used to ratchet the encryption key forward accordingly
-    pub fn ratcheting_get<K>(&mut self, key_id: K) -> Result<&DecryptionKey>
+    /// Tries to ratchet a stored [`RatchetingBaseKey`].
+    /// The given Key Id is interpreted as a [`RatchetingKeyId`], which generation is used to select the matching Sframe key.
+    /// If the [`RatchetingKeyId`] indicates a Ratchet Step, which is different from the currently known one
+    /// the [`RatchetingBaseKey`] is ratcheted forward accordingly.
+    /// On success returns the number of ratcheting steps performed.
+    pub fn try_ratchet<K>(&mut self, key_id: K) -> Result<u64>
     where
         K: Into<KeyId>,
     {
@@ -99,14 +101,14 @@ impl RatchetingKeyStore {
         let next_base_key = (0..step_diff).map(|_| keys.base_key.next_base_key()).last();
         if let Some(next_base_key) = next_base_key {
             let (next_key_id, next_material) = next_base_key?;
-            keys.sframe_key = DecryptionKey::derive_from(
-                keys.sframe_key.cipher_suite_variant(),
+            keys.dec_key = DecryptionKey::derive_from(
+                keys.dec_key.cipher_suite_variant(),
                 next_key_id,
                 next_material,
             )?;
         }
 
-        Ok(&keys.sframe_key)
+        Ok(step_diff)
     }
 }
 
@@ -114,14 +116,27 @@ impl RatchetingKeyStore {
 pub struct RatchetingKeys {
     /// provides key material used for ratcheting
     pub base_key: RatchetingBaseKey,
-    /// secrets used for encryption/decryption
-    pub sframe_key: DecryptionKey,
+    /// secrets used for decryption
+    pub dec_key: DecryptionKey,
+}
+
+impl KeyStore for RatchetingKeyStore {
+    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
+    where
+        K: Into<KeyId>,
+    {
+        let key_id = RatchetingKeyId::from_key_id(key_id, self.n_ratchet_bits);
+        self.keys.get(&key_id).and_then(|key| Some(&key.dec_key))
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::RatchetingKeyStore;
-    use crate::{header::KeyId, ratchet::ratcheting_key_id::RatchetingKeyId, CipherSuiteVariant};
+    use crate::{
+        header::KeyId, key::KeyStore, ratchet::ratcheting_key_id::RatchetingKeyId,
+        CipherSuiteVariant,
+    };
     use pretty_assertions::assert_eq;
 
     const N_RATCHET_BITS: u8 = 8;
@@ -149,7 +164,7 @@ mod test {
         let key_id_without_ratcheting_step = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
         assert_eq!(
             KeyId::from(key_id_without_ratcheting_step),
-            keys.sframe_key.key_id()
+            keys.dec_key.key_id()
         );
     }
 
@@ -183,44 +198,48 @@ mod test {
         let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
         let key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
 
-        let keys = key_store.ratcheting_get(key_id);
+        let keys = key_store.try_ratchet(key_id);
 
         assert!(keys.is_err());
     }
 
     #[test]
-    fn inserts_and_ratcheting_gets_key() {
+    fn inserts_and_gets_key() {
         let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
         let key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
 
         key_store
             .insert(CipherSuiteVariant::AesGcm256Sha512, key_id, KEY_MATERIAL)
             .unwrap();
-        let sframe_key = key_store.ratcheting_get(key_id).unwrap();
+        let dec_key = key_store.get_key(key_id).unwrap();
 
-        assert_eq!(KeyId::from(key_id), sframe_key.key_id());
+        assert_eq!(KeyId::from(key_id), dec_key.key_id());
     }
 
     #[test]
     fn inserts_key_and_ratches_forward_if_needed() {
         let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
-
         let mut key_id = RatchetingKeyId::new(42u8, N_RATCHET_BITS);
 
         key_store
             .insert(CipherSuiteVariant::AesGcm256Sha512, key_id, KEY_MATERIAL)
             .unwrap();
 
-        let first_key = key_store.ratcheting_get(key_id).unwrap().clone();
-        let first_key_id = RatchetingKeyId::from_key_id(first_key.key_id(), N_RATCHET_BITS);
+        let ratchet_steps = key_store.try_ratchet(key_id).unwrap();
+        assert_eq!(ratchet_steps, 0);
 
+        let first_key = key_store.get_key(key_id).unwrap().clone();
+        let first_key_id = RatchetingKeyId::from_key_id(first_key.key_id(), N_RATCHET_BITS);
         assert_eq!(first_key_id, key_id);
         assert_eq!(first_key_id.ratchet_step(), 0);
 
         // ratchet
         key_id.inc_ratchet_step();
 
-        let second_key = key_store.ratcheting_get(key_id).unwrap();
+        let ratchet_steps = key_store.try_ratchet(key_id).unwrap();
+        assert_eq!(ratchet_steps, 1);
+
+        let second_key = key_store.get_key(key_id).unwrap();
         assert_ne!(first_key.secret(), second_key.secret());
 
         let second_key_id = RatchetingKeyId::from_key_id(second_key.key_id(), N_RATCHET_BITS);
@@ -238,11 +257,13 @@ mod test {
             .insert(CipherSuiteVariant::AesGcm128Sha256, key_id, KEY_MATERIAL)
             .unwrap();
 
-        // ratchet
         key_id.inc_ratchet_step();
 
-        let first_secret = key_store.ratcheting_get(key_id).unwrap().clone();
-        let second_secret = key_store.ratcheting_get(key_id).unwrap().clone();
+        key_store.try_ratchet(key_id).unwrap();
+        let first_secret = key_store.get_key(key_id).unwrap().clone();
+
+        key_store.try_ratchet(key_id).unwrap();
+        let second_secret = key_store.get_key(key_id).unwrap().clone();
 
         assert_eq!(first_secret, second_secret);
     }
@@ -258,12 +279,13 @@ mod test {
             .insert(CipherSuiteVariant::AesGcm256Sha512, key_id, KEY_MATERIAL)
             .unwrap();
 
-        // ratchet
         key_id.inc_ratchet_step();
-        let first_secret = key_store.ratcheting_get(key_id).unwrap().clone();
+        key_store.try_ratchet(key_id).unwrap();
+        let first_secret = key_store.get_key(key_id).unwrap().clone();
         // ratchet again to overflow
         key_id.inc_ratchet_step();
-        let second_secret = key_store.ratcheting_get(key_id).unwrap().clone();
+        key_store.try_ratchet(key_id).unwrap();
+        let second_secret = key_store.get_key(key_id).unwrap().clone();
 
         assert_ne!(first_secret, second_secret);
     }

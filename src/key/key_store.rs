@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    error::{Result, SframeError},
-    header::KeyId,
-};
+use crate::header::KeyId;
 
 use super::DecryptionKey;
 
