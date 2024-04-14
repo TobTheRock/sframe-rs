@@ -1,5 +1,5 @@
 //! # Secure Frame (`SFrame`)
-//! This library is an implementation of [draft-ietf-sframe-enc-07](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html).
+//! This library is an implementation of [draft-ietf-sframe-enc-09](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html).
 //!
 //! # Optional features
 //!
@@ -39,17 +39,17 @@ mod util;
 /// error definitions
 pub mod error;
 pub mod frame;
-/// Sframe header definitions as of [sframe draft 07 4.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-sframe-header)
+/// Sframe header definitions as of [sframe draft 09 4.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-sframe-header)
 pub mod header;
-/// sframe key definitions as of [sframe draft 07 4.4.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#section-4.4.2)
+/// sframe key definitions as of [sframe draft 09 4.4.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-4.4.2)
 pub mod key;
-/// Sframe MLS definitions as of [sframe draft 07 5.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-mls)
+/// Sframe MLS definitions as of [sframe draft 09 5.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-mls)
 pub mod mls;
-/// Ratchet support as of [sframe draft 07 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#section-5.1)
+/// Ratchet support as of [sframe draft 09 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-5.1)
 pub mod ratchet;
-/// Receiver API: models the sframe decryption block in the receiver path, see [sframe draft 07 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-application-context)
+/// Receiver API: models the sframe decryption block in the receiver path, see [sframe draft 09 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-application-context)
 pub mod receiver;
-/// Sender API: models the sframe encryption block in the sender path, [sframe draft 07 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-application-context)
+/// Sender API: models the sframe encryption block in the sender path, [sframe draft 09 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-application-context)
 pub mod sender;
 
 pub use crypto::cipher_suite::CipherSuiteVariant;

@@ -12,7 +12,7 @@ use crate::{
 /// options for the decryption block,
 /// allows to create a [Receiver] object using [Into]/[From]
 pub struct ReceiverOptions {
-    /// decryption/ key expansion algorithm used, see [sframe draft 07 4.4](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-cipher-suites)
+    /// decryption/ key expansion algorithm used, see [sframe draft 09 4.4](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-cipher-suites)
     ///
     /// default: [CipherSuiteVariant::AesGcm256Sha512]
     pub cipher_suite_variant: CipherSuiteVariant,
@@ -20,7 +20,7 @@ pub struct ReceiverOptions {
     ///
     /// default: [ReplayAttackProtection] with tolerance `128`
     pub frame_validation: Option<FrameValidationBox>,
-    /// optional ratcheting support as of [sframe draft 07 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#section-5.1),
+    /// optional ratcheting support as of [sframe draft 09 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-5.1),
     /// using `n_ratchet_bits` to depict the Ratchet Step
     ///
     /// default: [None]
@@ -37,7 +37,7 @@ impl Default for ReceiverOptions {
     }
 }
 
-/// Models the sframe decryption block in the receiver path, see [sframe draft 07 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-application-context), by
+/// Models the sframe decryption block in the receiver path, see [sframe draft 09 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-application-context), by
 /// - internally storing a map of encryption keys each associated with a key id ([`KeyId`])
 /// - decrypting incoming `SFrame` frames using an internal buffer and the stored keys
 /// - performing optional frame validation and ratcheting

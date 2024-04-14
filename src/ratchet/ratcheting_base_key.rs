@@ -8,7 +8,7 @@ use crate::{
 
 use super::ratcheting_key_id::RatchetingKeyId;
 
-/// Base key used for ratcheting as of [sframe draft 07 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#section-5.1)
+/// Base key used for ratcheting as of [sframe draft 09 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-5.1)
 /// It allows to create a new key id and key material (base key) for each ratchet step, where
 /// - the base key is derived using HKDF
 /// - the part of the key id is used to indicate the current ratchet step (see [`RatchetingKeyId`])
