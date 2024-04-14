@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     crypto::cipher_suite::{CipherSuite, CipherSuiteVariant},
-    error::{Result, SframeError},
+    error::Result,
     frame::{EncryptedFrameView, FrameValidationBox, ReplayAttackProtection},
     header::KeyId,
     key::DecryptionKey,
@@ -12,7 +12,7 @@ use crate::{
 /// options for the decryption block,
 /// allows to create a [Receiver] object using [Into]/[From]
 pub struct ReceiverOptions {
-    /// decryption/ key expansion algorithm used, see [sframe draft 07 4.4](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-cipher-suites)
+    /// decryption/ key expansion algorithm used, see [sframe draft 09 4.4](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-cipher-suites)
     ///
     /// default: [CipherSuiteVariant::AesGcm256Sha512]
     pub cipher_suite_variant: CipherSuiteVariant,
@@ -20,7 +20,7 @@ pub struct ReceiverOptions {
     ///
     /// default: [ReplayAttackProtection] with tolerance `128`
     pub frame_validation: Option<FrameValidationBox>,
-    /// optional ratcheting support as of [sframe draft 07 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#section-5.1),
+    /// optional ratcheting support as of [sframe draft 09 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-5.1),
     /// using `n_ratchet_bits` to depict the Ratchet Step
     ///
     /// default: [None]
@@ -37,7 +37,7 @@ impl Default for ReceiverOptions {
     }
 }
 
-/// Models the sframe decryption block in the receiver path, see [sframe draft 07 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-application-context), by
+/// Models the sframe decryption block in the receiver path, see [sframe draft 09 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-application-context), by
 /// - internally storing a map of encryption keys each associated with a key id ([`KeyId`])
 /// - decrypting incoming `SFrame` frames using an internal buffer and the stored keys
 /// - performing optional frame validation and ratcheting
@@ -78,9 +78,12 @@ impl Receiver {
         let meta_data = &encrypted_frame[..skip];
         let encrypted_frame = EncryptedFrameView::try_with_meta_data(data, meta_data)?;
 
-        // todo dummy validator
         if let Some(validator) = &self.frame_validation {
             encrypted_frame.validate(validator)?;
+        }
+
+        if let KeyStore::Ratcheting(keys) = &mut self.keys {
+            keys.try_ratchet(encrypted_frame.header().key_id())?;
         }
 
         encrypted_frame.decrypt_into(&mut self.keys, &mut self.buffer)?;
@@ -161,16 +164,14 @@ impl Default for KeyStore {
 }
 
 impl crate::key::KeyStore for KeyStore {
-    fn get_key<K>(&mut self, key_id: K) -> Result<&DecryptionKey>
+    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
     where
         K: Into<KeyId>,
     {
         let key_id = key_id.into();
         match self {
-            KeyStore::Standard(keys) => keys
-                .get(&key_id)
-                .ok_or(SframeError::MissingDecryptionKey(key_id)),
-            KeyStore::Ratcheting(keys) => keys.ratcheting_get(key_id),
+            KeyStore::Standard(keys) => keys.get_key(key_id),
+            KeyStore::Ratcheting(keys) => keys.get_key(key_id),
         }
     }
 }

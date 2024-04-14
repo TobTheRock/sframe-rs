@@ -3,7 +3,7 @@ use bitfield::bitfield;
 use super::SframeHeader;
 
 bitfield! {
-    /// Modeled after [sframe draft 07 4.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#name-sframe-header)
+    /// Modeled after [sframe draft 09 4.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-sframe-header)
     /// ```txt
     ///   0 1 2 3 4 5 6 7
     ///  +-+-+-+-+-+-+-+-+

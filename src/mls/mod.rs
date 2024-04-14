@@ -6,13 +6,13 @@ use crate::{
 };
 use log::error;
 
-/// definitions of a key id according to [sframe draft 07 5.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#section-5.2)
+/// definitions of a key id according to [sframe draft 09 5.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-5.2)
 pub mod mls_key_id;
 
 pub use mls_key_id::{MlsKeyId, MlsKeyIdBitRange};
 
 /// Trait abstraction for an MLS exporter defined in [RFC 9420](https://datatracker.ietf.org/doc/html/rfc9420#exporters).
-/// As of  [sframe draft 07 5.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#section-5.2) this exporter
+/// As of  [sframe draft 09 5.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-5.2) this exporter
 /// can be used to derive an [`EncryptionKey`].
 pub trait MlsExporter {
     /// Type of the base key returned by the MLS exporter
@@ -43,7 +43,7 @@ macro_rules! mls_key {
                     .export_secret("SFrame 1.0 Base Key", b"", cipher_suite.key_len)
                     .map_err(|err| {
                         error!("Failed to export base key from MLS: {}", err);
-                        SframeError::KeyDerivation
+                        SframeError::KeyDerivationFailure
                     })?;
 
                 $name::derive_from(variant, key_id, base_key)

@@ -7,7 +7,7 @@ use crate::{
 
 macro_rules! sframe_key {
     ($name:ident, $purpose:literal) => {
-        /// Represents an Sframe key as described in [sframe draft 07 4.4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-07.html#section-4.4.1).
+        /// Represents an Sframe key as described in [sframe draft 09 4.4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-4.4.1).
         /// It is associated with a key ID and a cipher suite which is used for
         #[doc = concat!($purpose, ".")]
         #[derive(Clone, Debug, PartialEq, Eq)]
