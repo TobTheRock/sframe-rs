@@ -38,6 +38,15 @@ version = "0.10"
 features = ["vendored"]
 optional = true
 
+[dependencies.aes-gcm]
+aes-gcm = "0.10.3"
+optional = true
+
+[dependencies.hkdf]
+version = "0.12"
+optional = true
+
+
 [dev-dependencies]
 bbqueue = "0.5"
 cgisf_lib = "0.2"
@@ -55,6 +64,7 @@ test-case = "3.1"
 
 [features]
 default = ["ring"]
+rust-crypto = ["aead", "hkdf"]
 
 [[bench]]
 name = "bench_main"
