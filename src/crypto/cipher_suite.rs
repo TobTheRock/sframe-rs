@@ -96,7 +96,7 @@ impl From<CipherSuiteVariant> for CipherSuite {
 }
 
 impl CipherSuite {
-    #[cfg(any(feature = "openssl", test))]
+    #[cfg(any(feature = "openssl", feature = "rust-crypto", test))]
     pub(crate) fn is_ctr_mode(&self) -> bool {
         match self.variant {
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]

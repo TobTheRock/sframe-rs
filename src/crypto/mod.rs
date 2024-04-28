@@ -8,9 +8,11 @@ if #[cfg(all(feature = "ring", not(feature = "openssl"), not(feature = "rust-cry
     mod ring;
 }
 else if #[cfg(all(feature = "openssl", not(feature = "ring"), not(feature = "rust-crypto")))] {
+    mod common;
     mod openssl;
 }
 else if #[cfg(all(feature = "rust-crypto", not(feature = "ring"), not(feature = "openssl")))] {
+    mod common;
     mod rust_crypto;
 } else {
     compile_error!("Cannot configure multiple crypto backends at the same time.");

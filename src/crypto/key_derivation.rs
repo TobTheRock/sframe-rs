@@ -64,9 +64,9 @@ mod test {
 
     #[test_case(CipherSuiteVariant::AesGcm128Sha256; "AesGcm128Sha256")]
     #[test_case(CipherSuiteVariant::AesGcm256Sha512; "AesGcm256Sha512")]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
     fn extracts_correct_labels(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
         let cipher_suite: CipherSuite = CipherSuite::from(variant);
@@ -93,7 +93,7 @@ mod test {
         assert_bytes_eq(&secret.salt, &test_vec.sframe_salt);
     }
 
-    #[cfg(feature = "openssl")]
+    #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
     mod aes_ctr {
 
         use super::*;
@@ -123,9 +123,9 @@ mod test {
 
     #[test_case(CipherSuiteVariant::AesGcm128Sha256; "AesGcm128Sha256")]
     #[test_case(CipherSuiteVariant::AesGcm256Sha512; "AesGcm256Sha512")]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
     fn ratchets_key(variant: CipherSuiteVariant) {
         let original_material = Vec::from(b"SOMETHING");
         let new_material = original_material.ratchet(&variant.into()).unwrap();

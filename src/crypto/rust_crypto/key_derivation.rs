@@ -1,6 +1,7 @@
 use crate::{
     crypto::{
         cipher_suite::{CipherSuite, CipherSuiteVariant},
+        common::key_derivation::expand_subsecret,
         key_derivation::{
             get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label, get_hkdf_salt_expand_label,
             KeyDerivation, Ratcheting,
@@ -10,8 +11,7 @@ use crate::{
     error::{Result, SframeError},
     header::KeyId,
 };
-use hkdf::HmacImpl;
-use hkdf::{hmac::SimpleHmac, Hkdf};
+use hkdf::SimpleHkdf;
 use sha2::{Digest, Sha256, Sha512};
 
 impl KeyDerivation for Secret {
@@ -22,43 +22,52 @@ impl KeyDerivation for Secret {
     {
         let key_id = key_id.into();
 
-        match cipher_suite.variant {
-            CipherSuiteVariant::AesCtr128HmacSha256_80 => todo!(),
-            CipherSuiteVariant::AesCtr128HmacSha256_64 => todo!(),
-            CipherSuiteVariant::AesCtr128HmacSha256_32 => todo!(),
+        let (key, salt, auth) = match cipher_suite.variant {
+            CipherSuiteVariant::AesCtr128HmacSha256_80
+            | CipherSuiteVariant::AesCtr128HmacSha256_64
+            | CipherSuiteVariant::AesCtr128HmacSha256_32 => {
+                let (base_key, salt) =
+                    expand::<Sha256>(cipher_suite, key_material.as_ref(), key_id)?;
+                let (key, auth) = expand_subsecret(cipher_suite, &base_key);
+                (key, salt, Some(auth))
+            }
             CipherSuiteVariant::AesGcm128Sha256 => {
-                expand::<Sha256>(cipher_suite, key_material.as_ref(), key_id)
+                let (key, salt) = expand::<Sha256>(cipher_suite, key_material.as_ref(), key_id)?;
+                (key, salt, None)
             }
             CipherSuiteVariant::AesGcm256Sha512 => {
-                expand::<Sha512>(cipher_suite, key_material.as_ref(), key_id)
+                let (key, salt) = expand::<Sha512>(cipher_suite, key_material.as_ref(), key_id)?;
+                (key, salt, None)
             }
-        }
+        };
+
+        Ok(Secret { key, salt, auth })
     }
 }
 
-fn expand<D>(cipher_suite: &CipherSuite, key_material: &[u8], key_id: KeyId) -> Result<Secret>
+fn expand<D>(
+    cipher_suite: &CipherSuite,
+    key_material: &[u8],
+    key_id: KeyId,
+) -> Result<(Vec<u8>, Vec<u8>)>
 where
-    D: Digest + sha2::digest::core_api::CoreProxy + aes_gcm::aes::cipher::BlockSizeUser + Clone,
+    D: Digest + cipher::BlockSizeUser + Clone,
 {
-    let algorithm = Hkdf::<D, SimpleHmac<D>>::new(None, key_material);
+    let algorithm = SimpleHkdf::<D>::new(None, key_material);
 
-    let mut key = vec![0_u8; cipher_suite.key_len];
-    algorithm.expand(
+    let key = expand_key(
+        cipher_suite.key_len,
+        &algorithm,
         &get_hkdf_key_expand_label(key_id, cipher_suite.variant),
-        &mut key,
-    );
+    )?;
 
-    let mut salt = vec![0_u8; cipher_suite.nonce_len];
-    algorithm.expand(
+    let salt = expand_key(
+        cipher_suite.nonce_len,
+        &algorithm,
         &get_hkdf_salt_expand_label(key_id, cipher_suite.variant),
-        &mut salt,
-    );
+    )?;
 
-    Ok(Secret {
-        key,
-        salt,
-        auth: None,
-    })
+    Ok((key, salt))
 }
 
 impl Ratcheting for Vec<u8> {
@@ -66,12 +75,42 @@ impl Ratcheting for Vec<u8> {
     where
         Self: AsRef<[u8]>,
     {
-        todo!();
-        let pseudo_random_key = Hkdf::<Sha256>::new(Some(b""), self);
-
-        let mut key = vec![0_u8; cipher_suite.key_len];
-        // pseudo_random_key.expand(&get_hkdf_ratchet_expand_label(), &mut key)?;
-
-        Ok(key)
+        match cipher_suite.variant {
+            CipherSuiteVariant::AesCtr128HmacSha256_80
+            | CipherSuiteVariant::AesCtr128HmacSha256_64
+            | CipherSuiteVariant::AesCtr128HmacSha256_32
+            | CipherSuiteVariant::AesGcm128Sha256 => {
+                let algorithm = SimpleHkdf::<Sha256>::new(Some(b""), self);
+                expand_key(
+                    cipher_suite.key_len,
+                    &algorithm,
+                    &get_hkdf_ratchet_expand_label(),
+                )
+            }
+            CipherSuiteVariant::AesGcm256Sha512 => {
+                let algorithm = SimpleHkdf::<Sha512>::new(Some(b""), self);
+                expand_key(
+                    cipher_suite.key_len,
+                    &algorithm,
+                    &get_hkdf_ratchet_expand_label(),
+                )
+            }
+        }
     }
+}
+
+impl From<hkdf::InvalidLength> for SframeError {
+    fn from(error: hkdf::InvalidLength) -> Self {
+        log::error!("Cannot derive key: {}", error);
+        SframeError::KeyDerivationFailure
+    }
+}
+
+fn expand_key<D>(len: usize, algorithm: &SimpleHkdf<D>, label: &[u8]) -> Result<Vec<u8>>
+where
+    D: Digest + cipher::BlockSizeUser + Clone,
+{
+    let mut key = vec![0_u8; len];
+    algorithm.expand(label, &mut key)?;
+    Ok(key)
 }

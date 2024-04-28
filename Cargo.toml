@@ -39,11 +39,19 @@ features = ["vendored"]
 optional = true
 
 [dependencies.aes-gcm]
-aes-gcm = "0.10.3"
+version = "0.10.3"
 optional = true
 
 [dependencies.hkdf]
 version = "0.12"
+optional = true
+
+[dependencies.sha2]
+version = "0.10.8"
+optional = true
+
+[dependencies.cipher]
+version = "0.4"
 optional = true
 
 
@@ -63,8 +71,9 @@ simple_logger = "4.2"
 test-case = "3.1"
 
 [features]
-default = ["ring"]
-rust-crypto = ["aead", "hkdf"]
+# TODO reset to ring
+default = ["rust-crypto"]
+rust-crypto = ["aes-gcm", "hkdf", "sha2", "cipher"]
 
 [[bench]]
 name = "bench_main"

@@ -1,14 +1,12 @@
 use crate::{
-    crypto::{
-        aead::{AeadDecrypt, AeadEncrypt},
-        secret::Secret,
-    },
+    crypto::aead::{AeadDecrypt, AeadEncrypt},
     error::Result,
     header::FrameCount,
     key::{DecryptionKey, EncryptionKey},
 };
 use aes_gcm::aead::{generic_array::GenericArray, Aead};
-use aes_gcm::Aes256Gcm; // Or Aes128Gcm
+use aes_gcm::Aes256Gcm;
+use cipher::KeyInit; // Or Aes128Gcm
 
 use crate::{crypto::cipher_suite::CipherSuiteVariant, error::SframeError};
 
@@ -24,6 +22,12 @@ impl AeadEncrypt for EncryptionKey {
         IoBuffer: AsMut<[u8]> + ?Sized,
         Aad: AsRef<[u8]> + ?Sized,
     {
+        let secret = self.secret();
+        let aead = Aes256Gcm::new_from_slice(&secret.key).map_err(|err| {
+            log::error!("Failed to create AES-GCM instance: {}", err);
+            SframeError::EncryptionFailure
+        })?;
+
         todo!()
     }
 }
