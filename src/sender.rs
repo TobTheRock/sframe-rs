@@ -17,11 +17,11 @@ pub struct SenderOptions {
     pub key_id: KeyId,
     /// encryption/ key expansion algorithm used, see [sframe draft 09 4.4](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-cipher-suites)
     ///
-    /// default: [CipherSuiteVariant::AesGcm256Sha512]
+    /// default: [`CipherSuiteVariant::AesGcm256Sha512`]
     pub cipher_suite_variant: CipherSuiteVariant,
-    /// maximum frame count, to limit the header ([crate::header::SframeHeader]) size
+    /// maximum frame count, to limit the header ([`crate::header::SframeHeader`]) size
     ///
-    /// default: [u64::MAX]
+    /// default: [`u64::MAX`]
     pub max_frame_count: FrameCount,
 }
 
