@@ -14,11 +14,11 @@ use crate::{
 pub struct ReceiverOptions {
     /// decryption/ key expansion algorithm used, see [sframe draft 09 4.4](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-cipher-suites)
     ///
-    /// default: [CipherSuiteVariant::AesGcm256Sha512]
+    /// default: [`CipherSuiteVariant::AesGcm256Sha512`]
     pub cipher_suite_variant: CipherSuiteVariant,
     /// optional frame validation before decryption, e.g to protect agains replay attacks
     ///
-    /// default: [ReplayAttackProtection] with tolerance `128`
+    /// default: [`ReplayAttackProtection`] with tolerance `128`
     pub frame_validation: Option<FrameValidationBox>,
     /// optional ratcheting support as of [sframe draft 09 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-5.1),
     /// using `n_ratchet_bits` to depict the Ratchet Step
