@@ -58,8 +58,8 @@ macro_rules! sframe_key {
             }
 
             /// Returns the cipher suite of this key.
-            pub(crate) fn cipher_suite(&self) -> CipherSuite {
-                self.cipher_suite
+            pub(crate) fn cipher_suite(&self) -> &CipherSuite {
+                &self.cipher_suite
             }
 
             #[cfg(test)]
