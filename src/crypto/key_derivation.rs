@@ -1,14 +1,14 @@
-use super::{cipher_suite::CipherSuite, secret::Secret};
+use super::cipher_suite::CipherSuite;
 use crate::{error::Result, header::KeyId, CipherSuiteVariant};
 
-pub trait KeyDerivation {
-    fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Secret>
+pub trait KeyDerivation: Sized {
+    fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Self>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>;
 }
 
-pub trait Ratcheting {
+pub trait Ratcheting: Sized {
     fn ratchet(&self, cipher_suite: &CipherSuite) -> Result<Vec<u8>>
     where
         Self: AsRef<[u8]>;
