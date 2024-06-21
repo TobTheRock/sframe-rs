@@ -79,7 +79,7 @@ fn main() {
         .take_while(Result::is_ok)
         .map(Result::unwrap);
 
-    lines.enumerate().for_each(|(_i, line)| {
+    lines.for_each(|line| {
         if n_ratchet_bits.is_some() {
             let base_key = base_key.as_mut().unwrap();
             let (new_key_id, key_material) = base_key.next_base_key().unwrap();

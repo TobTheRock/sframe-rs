@@ -1,5 +1,3 @@
-use std::usize;
-
 use crate::{
     crypto::aead::AeadEncrypt,
     error::Result,
