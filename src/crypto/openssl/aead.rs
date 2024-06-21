@@ -1,6 +1,7 @@
 use crate::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
+        buffer::EncryptionBufferView,
         cipher_suite::CipherSuite,
     },
     error::Result,
@@ -10,38 +11,22 @@ use crate::{
 
 use crate::{crypto::cipher_suite::CipherSuiteVariant, error::SframeError};
 
-use super::tag::Tag;
-
 const AES_GCM_IV_LEN: usize = 12;
 const AES_CTR_IVS_LEN: usize = 16;
 
 impl AeadEncrypt for EncryptionKey {
-    type AuthTag = Tag;
-    fn encrypt<IoBuffer, Aad>(
-        &self,
-        io_buffer: &mut IoBuffer,
-        aad_buffer: &Aad,
-        frame_count: FrameCount,
-    ) -> Result<Tag>
+    fn encrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
     where
-        IoBuffer: AsMut<[u8]> + ?Sized,
-        Aad: AsRef<[u8]> + ?Sized,
+        B: Into<EncryptionBufferView<'a>>,
     {
-        let io_buffer = io_buffer.as_mut();
-
-        let (out, tag) = if self.cipher_suite().is_ctr_mode() {
-            self.encrypt_aes_ctr(io_buffer, aad_buffer.as_ref(), frame_count)
+        let buffer_view = buffer.into();
+        if self.cipher_suite().is_ctr_mode() {
+            self.encrypt_aes_ctr(buffer_view, frame_count)
         } else {
-            self.encrypt_aead(io_buffer, aad_buffer.as_ref(), frame_count)
+            self.encrypt_aead(buffer_view, frame_count)
         }?;
 
-        debug_assert!(
-            out.len() == io_buffer.len(),
-            "For a symmetric encryption it is given that the output has the same length as the input"
-        );
-        io_buffer.copy_from_slice(&out[..io_buffer.len()]);
-
-        Ok(tag)
+        Ok(())
     }
 }
 
@@ -102,45 +87,68 @@ impl AeadDecrypt for DecryptionKey {
 impl EncryptionKey {
     fn encrypt_aead(
         &self,
-        plain_text: &[u8],
-        aad: &[u8],
+        buffer_view: EncryptionBufferView,
         frame_count: FrameCount,
-    ) -> Result<(Vec<u8>, Tag)> {
+    ) -> Result<()> {
         let secret = self.secret();
         let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(frame_count);
 
-        let mut tag = Tag::new(self.cipher_suite().auth_tag_len);
+        // TODO this allocates a new vec, maybe use the openssl cipher API direct instead of allocating
         let out = openssl::symm::encrypt_aead(
             self.cipher_suite().variant.into(),
             &secret.key,
             Some(&nonce),
-            aad,
-            plain_text,
-            tag.as_mut(),
+            buffer_view.aad,
+            buffer_view.cipher_text,
+            buffer_view.tag,
         )?;
-        Ok((out, tag))
+        EncryptionKey::copy_encrypted_to_buffer(buffer_view, out);
+
+        Ok(())
     }
 
     fn encrypt_aes_ctr(
         &self,
-        plain_text: &[u8],
-        aad: &[u8],
+        buffer_view: EncryptionBufferView,
         frame_count: FrameCount,
-    ) -> Result<(Vec<u8>, Tag)> {
+    ) -> Result<()> {
         let secret = self.secret();
         let auth_key = secret.auth.as_ref().ok_or(SframeError::EncryptionFailure)?;
         // openssl expects a fixed iv length of 16 byte, thus we needed to pad the sframe nonce
         let initial_counter = secret.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
         let nonce = &initial_counter[..self.cipher_suite().nonce_len];
 
+        // TODO this allocates a new vec, maybe use the openssl cipher API direct instead of allocating
         let encrypted = openssl::symm::encrypt(
             self.cipher_suite().variant.into(),
             &secret.key,
             Some(&initial_counter),
-            plain_text,
+            buffer_view.cipher_text,
         )?;
-        let tag = compute_tag(&self.cipher_suite(), auth_key, aad, nonce, &encrypted)?;
-        Ok((encrypted, tag))
+
+        let tag = compute_tag(
+            self.cipher_suite(),
+            auth_key,
+            buffer_view.aad,
+            nonce,
+            &encrypted,
+        )?;
+        buffer_view.tag.copy_from_slice(&tag);
+
+        EncryptionKey::copy_encrypted_to_buffer(buffer_view, encrypted);
+
+        Ok(())
+    }
+
+    fn copy_encrypted_to_buffer(buffer_view: EncryptionBufferView, encrypted: Vec<u8>) {
+        let cipher_text_len = buffer_view.cipher_text.len();
+        debug_assert!(
+            encrypted.len() == cipher_text_len,
+            "For a symmetric encryption it is given that the output has the same length as the input"
+        );
+        buffer_view
+            .cipher_text
+            .copy_from_slice(&encrypted[..cipher_text_len]);
     }
 }
 
@@ -158,7 +166,7 @@ impl DecryptionKey {
         let nonce = &initial_counter[..self.cipher_suite().nonce_len];
         let auth_key = secret.auth.as_ref().ok_or(SframeError::DecryptionFailure)?;
 
-        let candidate_tag = compute_tag(&self.cipher_suite(), auth_key, aad, nonce, encrypted)
+        let candidate_tag = compute_tag(self.cipher_suite(), auth_key, aad, nonce, encrypted)
             .map_err(|err| {
                 log::debug!("Decryption failed, OpenSSL error stack: {}", err);
                 SframeError::DecryptionFailure
@@ -182,7 +190,7 @@ fn compute_tag(
     aad: &[u8],
     nonce: &[u8],
     encrypted: &[u8],
-) -> std::result::Result<Tag, openssl::error::ErrorStack> {
+) -> std::result::Result<Vec<u8>, openssl::error::ErrorStack> {
     let key = openssl::pkey::PKey::hmac(auth_key)?;
     let mut signer = openssl::sign::Signer::new(openssl::hash::MessageDigest::sha256(), &key)?;
 
@@ -197,7 +205,7 @@ fn compute_tag(
     let mut tag = signer.sign_to_vec()?;
     tag.resize(cipher_suite.auth_tag_len, 0);
 
-    Ok(tag.into())
+    Ok(tag)
 }
 
 impl From<openssl::error::ErrorStack> for SframeError {

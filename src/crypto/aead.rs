@@ -1,16 +1,11 @@
 use crate::{error::Result, header::FrameCount};
 
+use super::buffer::EncryptionBufferView;
+
 pub trait AeadEncrypt {
-    type AuthTag: AsRef<[u8]>;
-    fn encrypt<IoBuffer, Aad>(
-        &self,
-        io_buffer: &mut IoBuffer,
-        aad_buffer: &Aad,
-        frame_count: FrameCount,
-    ) -> Result<Self::AuthTag>
+    fn encrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
     where
-        IoBuffer: AsMut<[u8]> + ?Sized,
-        Aad: AsRef<[u8]> + ?Sized;
+        B: Into<EncryptionBufferView<'a>>;
 }
 
 pub trait AeadDecrypt {
@@ -30,7 +25,10 @@ mod test {
 
     use super::{AeadDecrypt, AeadEncrypt};
     use crate::{
-        crypto::cipher_suite::CipherSuiteVariant,
+        crypto::{
+            buffer::{EncryptionBuffer, EncryptionBufferView},
+            cipher_suite::CipherSuiteVariant,
+        },
         header::{KeyId, SframeHeader},
         key::{DecryptionKey, EncryptionKey},
         test_vectors::get_sframe_test_vector,
@@ -54,8 +52,16 @@ mod test {
         )
         .unwrap();
 
-        let _tag = enc_key
-            .encrypt(&mut data, &Vec::from(&header), header.frame_count())
+        let mut frame_buffer = Vec::new();
+        let mut encryption_buffer = EncryptionBuffer::try_allocate(
+            &mut frame_buffer,
+            enc_key.cipher_suite(),
+            &Vec::from(&header),
+            &data,
+        )
+        .unwrap();
+        enc_key
+            .encrypt(&mut encryption_buffer, header.frame_count())
             .unwrap();
     }
 
@@ -69,24 +75,25 @@ mod test {
 
         let enc_key = EncryptionKey::from_test_vector(variant, test_vec);
 
-        let mut data_buffer = test_vec.plain_text.clone();
-
         let header = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
         let header_buffer = Vec::from(&header);
 
-        let aad_buffer = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
+        let mut aad = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
+        assert_bytes_eq(&aad, &test_vec.aad);
 
-        let tag = enc_key
-            .encrypt(&mut data_buffer, &aad_buffer, header.frame_count())
+        let mut cipher_text = test_vec.plain_text.clone();
+        let mut tag = vec![0u8; enc_key.cipher_suite().auth_tag_len];
+        let encryption_buffer = EncryptionBufferView {
+            aad: &mut aad,
+            cipher_text: &mut cipher_text,
+            tag: &mut tag,
+        };
+
+        enc_key
+            .encrypt(encryption_buffer, header.frame_count())
             .unwrap();
 
-        let full_frame: Vec<u8> = header_buffer
-            .into_iter()
-            .chain(data_buffer)
-            .chain(tag.as_ref().iter().cloned())
-            .collect();
-
-        assert_bytes_eq(&aad_buffer, &test_vec.aad);
+        let full_frame = [header_buffer, cipher_text, tag].concat().to_vec();
         assert_bytes_eq(&full_frame, &test_vec.cipher_text);
     }
 
@@ -99,7 +106,7 @@ mod test {
         let test_vec = get_sframe_test_vector(&variant.to_string());
 
         let dec_key = DecryptionKey::from_test_vector(variant, test_vec);
-        let header = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
+        let header: SframeHeader = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
         let header_buffer = Vec::from(&header);
 
         let aad_buffer = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
