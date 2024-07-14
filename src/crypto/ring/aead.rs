@@ -1,7 +1,7 @@
 use crate::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
-        buffer::EncryptionBufferView,
+        buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
         secret::Secret,
     },
     error::Result,
@@ -74,24 +74,20 @@ impl AeadEncrypt for EncryptionKey {
 }
 
 impl AeadDecrypt for DecryptionKey {
-    fn decrypt<'a, IoBuffer, Aad>(
-        &self,
-        io_buffer: &'a mut IoBuffer,
-        aad_buffer: &Aad,
-        frame_count: FrameCount,
-    ) -> Result<&'a mut [u8]>
+    fn decrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
     where
-        IoBuffer: AsMut<[u8]> + ?Sized,
-        Aad: AsRef<[u8]> + ?Sized,
+        B: Into<DecryptionBufferView<'a>>,
     {
-        let aad = ring::aead::Aad::from(&aad_buffer);
+        let buffer_view: DecryptionBufferView = buffer.into();
+        let aad = ring::aead::Aad::from(buffer_view.aad);
 
         let mut opening_key = ring::aead::OpeningKey::<FrameNonceSequence>::new(
             unbound_encryption_key(self.cipher_suite_variant(), self.secret())?,
             self.secret().create_nonce(frame_count).into(),
         );
         opening_key
-            .open_in_place(aad, io_buffer.as_mut())
-            .map_err(|_| SframeError::DecryptionFailure)
+            .open_in_place(aad, buffer_view.cipher_text)
+            .map_err(|_| SframeError::DecryptionFailure)?;
+        Ok(())
     }
 }

@@ -1,6 +1,8 @@
-use crate::{error::Result, header::FrameCount};
-
-use super::buffer::EncryptionBufferView;
+use crate::{
+    crypto::buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
+    error::Result,
+    header::FrameCount,
+};
 
 pub trait AeadEncrypt {
     fn encrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
@@ -9,15 +11,9 @@ pub trait AeadEncrypt {
 }
 
 pub trait AeadDecrypt {
-    fn decrypt<'a, IoBuffer, Aad>(
-        &self,
-        io_buffer: &'a mut IoBuffer,
-        aad_buffer: &Aad,
-        frame_count: FrameCount,
-    ) -> Result<&'a mut [u8]>
+    fn decrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
     where
-        IoBuffer: AsMut<[u8]> + ?Sized,
-        Aad: AsRef<[u8]> + ?Sized;
+        B: Into<DecryptionBufferView<'a>>;
 }
 
 #[cfg(test)]
@@ -26,7 +22,10 @@ mod test {
     use super::{AeadDecrypt, AeadEncrypt};
     use crate::{
         crypto::{
-            buffer::{EncryptionBuffer, EncryptionBufferView},
+            buffer::{
+                decryption::DecryptionBufferView,
+                encryption::{EncryptionBuffer, EncryptionBufferView},
+            },
             cipher_suite::CipherSuiteVariant,
         },
         header::{KeyId, SframeHeader},
@@ -109,15 +108,21 @@ mod test {
         let header: SframeHeader = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
         let header_buffer = Vec::from(&header);
 
-        let aad_buffer = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
-        assert_bytes_eq(&aad_buffer, &test_vec.aad);
+        let mut aad = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
+        assert_bytes_eq(&aad, &test_vec.aad);
 
         let mut data = Vec::from(&test_vec.cipher_text[header.len()..]);
 
-        let decrypted = dec_key
-            .decrypt(&mut data, &aad_buffer, header.frame_count())
-            .unwrap();
+        let decryption_buffer = DecryptionBufferView {
+            aad: &mut aad,
+            cipher_text: &mut data,
+        };
 
-        assert_bytes_eq(decrypted, &test_vec.plain_text);
+        dec_key
+            .decrypt(decryption_buffer, header.frame_count())
+            .unwrap();
+        data.truncate(data.len() - dec_key.cipher_suite().auth_tag_len);
+
+        assert_bytes_eq(&data, &test_vec.plain_text);
     }
 }

@@ -1,20 +1,6 @@
 use crate::{crypto::cipher_suite::CipherSuite, error::Result, frame::FrameBuffer};
 
-pub trait AadData {
-    fn len(&self) -> usize;
-    fn serialize(&self, buffer: &mut [u8]) -> Result<()>;
-}
-
-impl AadData for Vec<u8> {
-    fn len(&self) -> usize {
-        self.len()
-    }
-
-    fn serialize(&self, buffer: &mut [u8]) -> Result<()> {
-        buffer.copy_from_slice(self);
-        Ok(())
-    }
-}
+use super::AadData;
 
 pub struct EncryptionBufferView<'a> {
     pub aad: &'a mut [u8],
@@ -29,20 +15,21 @@ pub struct EncryptionBuffer<'a> {
 }
 
 impl<'a> EncryptionBuffer<'a> {
-    pub fn try_allocate<U: AsRef<[u8]>>(
+    pub fn try_allocate(
         buffer: &'a mut impl FrameBuffer,
         cipher_suite: &CipherSuite,
         aad_data: &impl AadData,
-        unencrypted_data: U,
+        unencrypted_data: &[u8],
     ) -> Result<Self> {
-        let unencrypted_data = unencrypted_data.as_ref();
-
         let aad_len = aad_data.len();
         let cipher_text_len = unencrypted_data.len();
 
         let buffer_len_needed = cipher_text_len + aad_len + cipher_suite.auth_tag_len;
 
-        log::trace!("Trying to allocate buffer of size {}", buffer_len_needed);
+        log::trace!(
+            "Trying to allocate encryption buffer of size {}",
+            buffer_len_needed
+        );
         let io_buffer = buffer.allocate(buffer_len_needed)?.as_mut();
         let mut encryption_buffer = Self {
             io_buffer,
@@ -88,35 +75,24 @@ impl<'a, 'buf> From<&'a mut EncryptionBuffer<'buf>> for EncryptionBufferView<'a>
 
 #[cfg(test)]
 mod test {
-    use crate::CipherSuiteVariant;
+    use crate::{crypto::buffer::test::TestAadData, CipherSuiteVariant};
 
     use super::*;
 
-    struct TestAadData {
-        data: [u8; 4],
-    }
-
-    impl AadData for TestAadData {
-        fn len(&self) -> usize {
-            self.data.len()
-        }
-
-        fn serialize(&self, buffer: &mut [u8]) -> Result<()> {
-            buffer.copy_from_slice(&self.data);
-            Ok(())
-        }
-    }
-
     #[test]
-    fn test_encryption_buffer() {
+    fn allocate_encryption_buffer() {
         let mut buffer = Vec::new();
         let aad_data = TestAadData { data: [1, 2, 3, 4] };
         let unencrypted_data = [5, 6, 7, 8, 9];
         let cipher_suite = CipherSuiteVariant::AesGcm128Sha256.into();
 
-        let mut encryption_buffer =
-            EncryptionBuffer::try_allocate(&mut buffer, &cipher_suite, &aad_data, unencrypted_data)
-                .unwrap();
+        let mut encryption_buffer = EncryptionBuffer::try_allocate(
+            &mut buffer,
+            &cipher_suite,
+            &aad_data,
+            &unencrypted_data,
+        )
+        .unwrap();
 
         let view = EncryptionBufferView::from(&mut encryption_buffer);
         assert_eq!(view.aad, [1, 2, 3, 4]);

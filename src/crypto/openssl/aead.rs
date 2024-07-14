@@ -1,7 +1,7 @@
 use crate::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
-        buffer::EncryptionBufferView,
+        buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
         cipher_suite::CipherSuite,
     },
     error::Result,
@@ -31,40 +31,35 @@ impl AeadEncrypt for EncryptionKey {
 }
 
 impl AeadDecrypt for DecryptionKey {
-    fn decrypt<'a, IoBuffer, Aad>(
-        &self,
-        io_buffer: &'a mut IoBuffer,
-        aad_buffer: &Aad,
-        frame_count: FrameCount,
-    ) -> Result<&'a mut [u8]>
+    fn decrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
     where
-        IoBuffer: AsMut<[u8]> + ?Sized,
-        Aad: AsRef<[u8]> + ?Sized,
+        B: Into<DecryptionBufferView<'a>>,
     {
+        let buffer_view = buffer.into();
+        let cipher_text = buffer_view.cipher_text;
         let cipher_suite = self.cipher_suite();
         let secret = self.secret();
 
-        let io_buffer = io_buffer.as_mut();
-        if io_buffer.len() < cipher_suite.auth_tag_len {
+        if cipher_text.len() < cipher_suite.auth_tag_len {
             return Err(SframeError::DecryptionFailure);
         }
 
         // TODO maybe we could store the cipher permanently, small performance gain (similar for ring)
         let cipher = cipher_suite.variant.into();
 
-        let encrypted_len = io_buffer.len() - cipher_suite.auth_tag_len;
-        let encrypted = &io_buffer[..encrypted_len];
-        let tag = &io_buffer[encrypted_len..];
+        let encrypted_len = cipher_text.len() - cipher_suite.auth_tag_len;
+        let encrypted = &cipher_text[..encrypted_len];
+        let tag = &cipher_text[encrypted_len..];
 
         let out = if cipher_suite.is_ctr_mode() {
-            self.decrypt_aes_ctr(cipher, frame_count, aad_buffer.as_ref(), encrypted, tag)
+            self.decrypt_aes_ctr(cipher, frame_count, buffer_view.aad, encrypted, tag)
         } else {
             let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(frame_count);
             openssl::symm::decrypt_aead(
                 cipher,
                 &secret.key,
                 Some(&nonce),
-                aad_buffer.as_ref(),
+                buffer_view.aad,
                 encrypted,
                 tag,
             )
@@ -78,9 +73,9 @@ impl AeadDecrypt for DecryptionKey {
             out.len() == encrypted_len,
             "For a symmetric encryption it is given that the output has the same length as the input"
         );
-        io_buffer[..encrypted_len].copy_from_slice(&out);
+        cipher_text[..encrypted_len].copy_from_slice(&out);
 
-        Ok(&mut io_buffer[..encrypted_len])
+        Ok(())
     }
 }
 

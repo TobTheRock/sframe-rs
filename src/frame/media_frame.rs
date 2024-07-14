@@ -1,7 +1,7 @@
 use crate::{
     crypto::{
         aead::AeadEncrypt,
-        buffer::{AadData, EncryptionBuffer},
+        buffer::{encryption::EncryptionBuffer, AadData},
     },
     error::Result,
     header::{FrameCount, SframeHeader},
