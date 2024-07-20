@@ -1,12 +1,14 @@
 use crate::{
-    crypto::aead::AeadDecrypt,
+    crypto::{
+        aead::AeadDecrypt,
+        buffer::{decryption::DecryptionBuffer, AadData},
+    },
     error::{Result, SframeError},
     header::SframeHeader,
-    key::{DecryptionKey, KeyStore},
+    key::KeyStore,
 };
 
 use super::{
-    frame_buffer::Truncate,
     media_frame::{MediaFrame, MediaFrameView},
     FrameBuffer, FrameValidation,
 };
@@ -20,7 +22,8 @@ use super::{
 pub struct EncryptedFrameView<'buf> {
     header: SframeHeader,
     meta_data: &'buf [u8],
-    data: &'buf [u8],
+    header_buf: &'buf [u8],
+    cipher_text: &'buf [u8],
 }
 
 impl<'ibuf> EncryptedFrameView<'ibuf> {
@@ -48,10 +51,12 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
             header
         );
 
+        let (header_buf, cipher_text) = data.as_ref().split_at(header.len());
         Ok(Self {
             header,
             meta_data: meta_data.as_ref(),
-            data: data.as_ref(),
+            header_buf,
+            cipher_text,
         })
     }
 
@@ -64,10 +69,12 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         D: AsRef<[u8]> + ?Sized,
         M: AsRef<[u8]> + ?Sized,
     {
+        let (header_buf, cipher_text) = data.as_ref().split_at(header.len());
         Self {
             header,
             meta_data: meta_data.as_ref(),
-            data: data.as_ref(),
+            header_buf,
+            cipher_text,
         }
     }
 
@@ -83,7 +90,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
 
     /// the cipher text (Sframe Header + Encrypted Data + Authentication Tag) of the encrypted frame
     pub fn cipher_text(&self) -> &[u8] {
-        &self.data[self.header.len()..]
+        self.cipher_text
     }
 
     /// Validates the header of the encrypted frame
@@ -138,80 +145,32 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
             .get_key(key_id)
             .ok_or(SframeError::MissingDecryptionKey(key_id))?;
 
-        let buffer_len = self.buffer_len(key);
-        let allocate_len = buffer_len.meta + self.data.len();
-        log::trace!(
-            "EncryptedFrame # {} trying to allocate buffer of size {}",
-            self.header.frame_count(),
-            allocate_len
-        );
-        let frame_buffer = buffer.allocate(allocate_len)?;
-        let (aad_buffer, io_buffer) = self.fill_buffers(frame_buffer.as_mut(), &buffer_len)?;
+        let mut decryption_buffer = DecryptionBuffer::try_allocate(buffer, self, self.cipher_text)?;
 
-        key.decrypt(io_buffer, aad_buffer, frame_count)?;
-        let (payload, meta_data) = self.truncate_buffer(frame_buffer, &buffer_len);
+        key.decrypt(&mut decryption_buffer, frame_count)?;
+
+        let meta_len = self.meta_data.len();
+        decryption_buffer.truncate(key.cipher_suite(), meta_len);
+
+        let buffer_slice: &mut [u8] = decryption_buffer.into();
+        let (meta_data, payload) = buffer_slice.split_at(meta_len);
 
         let media_frame = MediaFrameView::with_meta_data(frame_count, payload, meta_data);
         Ok(media_frame)
     }
-
-    fn fill_buffers<'obuf>(
-        &self,
-        frame_buffer: &'obuf mut [u8],
-        buffer_len: &BufferLengths,
-    ) -> Result<(&'obuf mut [u8], &'obuf mut [u8])> {
-        let (aad_buffer, io_buffer) = frame_buffer.split_at_mut(buffer_len.aad_buffer);
-
-        aad_buffer[..buffer_len.meta].copy_from_slice(self.meta_data);
-        aad_buffer[buffer_len.meta..].copy_from_slice(&self.data[..buffer_len.header]);
-
-        io_buffer.copy_from_slice(&self.data[buffer_len.header..]);
-
-        Ok((aad_buffer, io_buffer))
-    }
-
-    fn truncate_buffer<'obuf, F>(
-        &self,
-        frame_buffer: &'obuf mut F,
-        buffer_len: &BufferLengths,
-    ) -> (&'obuf [u8], &'obuf [u8])
-    where
-        F: AsMut<[u8]> + AsRef<[u8]> + Truncate,
-    {
-        let decrypted_begin = buffer_len.aad_buffer;
-        let decrypted_end = decrypted_begin + buffer_len.decrypted;
-
-        frame_buffer
-            .as_mut()
-            .copy_within(decrypted_begin..decrypted_end, buffer_len.meta);
-
-        frame_buffer.truncate(buffer_len.meta + buffer_len.decrypted);
-
-        let (meta_data, payload) = frame_buffer.as_mut().split_at(buffer_len.meta);
-
-        (payload, meta_data)
-    }
-
-    fn buffer_len(&self, key: &DecryptionKey) -> BufferLengths {
-        let header = self.header.len();
-        let meta = self.meta_data.len();
-        let aad_buffer = header + meta;
-        let decrypted = self.data.len() - key.cipher_suite().auth_tag_len - header;
-
-        BufferLengths {
-            aad_buffer,
-            decrypted,
-            header,
-            meta,
-        }
-    }
 }
 
-struct BufferLengths {
-    aad_buffer: usize,
-    decrypted: usize,
-    header: usize,
-    meta: usize,
+impl AadData for EncryptedFrameView<'_> {
+    fn len(&self) -> usize {
+        self.header.len() + self.meta_data.len()
+    }
+
+    fn serialize(&self, buffer: &mut [u8]) -> Result<()> {
+        let (meta_data, header) = buffer.split_at_mut(self.meta_data.len());
+        meta_data.copy_from_slice(self.meta_data);
+        header.copy_from_slice(self.header_buf);
+        Ok(())
+    }
 }
 
 impl<'buf> TryFrom<&'buf [u8]> for EncryptedFrameView<'buf> {

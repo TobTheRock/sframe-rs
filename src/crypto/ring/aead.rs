@@ -1,6 +1,7 @@
 use crate::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
+        buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
         secret::Secret,
     },
     error::Result,
@@ -8,7 +9,7 @@ use crate::{
     key::{DecryptionKey, EncryptionKey},
 };
 
-use ring::aead::{BoundKey, SealingKey, Tag};
+use ring::aead::{BoundKey, SealingKey};
 
 use crate::{crypto::cipher_suite::CipherSuiteVariant, error::SframeError};
 
@@ -49,52 +50,44 @@ fn unbound_encryption_key(
 }
 
 impl AeadEncrypt for EncryptionKey {
-    type AuthTag = Tag;
-    fn encrypt<IoBuffer, Aad>(
-        &self,
-        io_buffer: &mut IoBuffer,
-        aad_buffer: &Aad,
-        frame_count: FrameCount,
-    ) -> Result<Tag>
+    fn encrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
     where
-        IoBuffer: AsMut<[u8]> + ?Sized,
-        Aad: AsRef<[u8]> + ?Sized,
+        B: Into<EncryptionBufferView<'a>>,
     {
+        let buffer_view: EncryptionBufferView = buffer.into();
         let mut sealing_key = SealingKey::<FrameNonceSequence>::new(
             unbound_encryption_key(self.cipher_suite_variant(), self.secret())?,
             self.secret().create_nonce(frame_count).into(),
         );
 
-        let aad = ring::aead::Aad::from(aad_buffer);
+        let aad = ring::aead::Aad::from(buffer_view.aad);
         let auth_tag = sealing_key
-            .seal_in_place_separate_tag(aad, io_buffer.as_mut())
+            .seal_in_place_separate_tag(aad, buffer_view.cipher_text)
             .map_err(|_| SframeError::EncryptionFailure)?;
+
+        buffer_view.tag.copy_from_slice(auth_tag.as_ref());
 
         // TODO implement auth tag shortening, see 4.4.1
 
-        Ok(auth_tag)
+        Ok(())
     }
 }
 
 impl AeadDecrypt for DecryptionKey {
-    fn decrypt<'a, IoBuffer, Aad>(
-        &self,
-        io_buffer: &'a mut IoBuffer,
-        aad_buffer: &Aad,
-        frame_count: FrameCount,
-    ) -> Result<&'a mut [u8]>
+    fn decrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
     where
-        IoBuffer: AsMut<[u8]> + ?Sized,
-        Aad: AsRef<[u8]> + ?Sized,
+        B: Into<DecryptionBufferView<'a>>,
     {
-        let aad = ring::aead::Aad::from(&aad_buffer);
+        let buffer_view: DecryptionBufferView = buffer.into();
+        let aad = ring::aead::Aad::from(buffer_view.aad);
 
         let mut opening_key = ring::aead::OpeningKey::<FrameNonceSequence>::new(
             unbound_encryption_key(self.cipher_suite_variant(), self.secret())?,
             self.secret().create_nonce(frame_count).into(),
         );
         opening_key
-            .open_in_place(aad, io_buffer.as_mut())
-            .map_err(|_| SframeError::DecryptionFailure)
+            .open_in_place(aad, buffer_view.cipher_text)
+            .map_err(|_| SframeError::DecryptionFailure)?;
+        Ok(())
     }
 }

@@ -1,4 +1,5 @@
 pub mod aead;
+pub mod buffer;
 pub mod cipher_suite;
 pub mod key_derivation;
 pub mod secret;
