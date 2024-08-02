@@ -9,7 +9,9 @@ use crate::{
 };
 use aes_gcm::{AeadCore, AeadInPlace};
 use aes_gcm::{Aes128Gcm, Aes256Gcm};
-use cipher::{generic_array::GenericArray, KeyInit, Unsigned};
+use cipher::{
+    consts::U12, generic_array::GenericArray, ArrayLength, KeyInit, KeySizeUser, Unsigned,
+};
 
 use crate::{crypto::cipher_suite::CipherSuiteVariant, error::SframeError};
 
@@ -36,7 +38,6 @@ impl AeadEncrypt for EncryptionKey {
             log::debug!("Encryption failed: {}", err);
             SframeError::EncryptionFailure
         })
-        // const NONCE_LEN = Aes256Gcm::;
     }
 }
 
@@ -64,12 +65,11 @@ impl EncryptionKey {
         let nonce: [u8; NONCE_LEN] = secret.create_nonce(frame_count);
         let algo = A::new_from_slice(&secret.key).map_err(|_err| aes_gcm::Error)?;
 
-        let tag = algo
-            .encrypt_in_place_detached(
-                GenericArray::from_slice(&nonce),
-                buffer_view.aad,
-                buffer_view.cipher_text,
-            )?;
+        let tag = algo.encrypt_in_place_detached(
+            GenericArray::from_slice(&nonce),
+            buffer_view.aad,
+            buffer_view.cipher_text,
+        )?;
         buffer_view.tag.copy_from_slice(tag.as_slice());
 
         Ok(())
@@ -121,6 +121,7 @@ impl DecryptionKey {
 
         let secret = self.secret();
         let nonce: [u8; NONCE_LEN] = secret.create_nonce(frame_count);
+        // TODO custom initializer here
         let algo = A::new_from_slice(&secret.key).map_err(|_err| aes_gcm::Error)?;
 
         algo.decrypt_in_place_detached(
@@ -131,5 +132,29 @@ impl DecryptionKey {
         )?;
 
         Ok(())
+    }
+}
+
+struct AesCtr128Hmac<T>
+where
+    T: ArrayLength<u8>,
+{
+    _phantom: core::marker::PhantomData<T>,
+}
+
+impl<T> AeadCore for AesCtr128Hmac<T>
+where
+    T: ArrayLength<u8>,
+{
+    type NonceSize = U12;
+    type TagSize = T;
+    type CiphertextOverhead = T;
+}
+
+impl<T: ArrayLength<u8>> KeySizeUser for AesCtr128Hmac<T> {}
+
+impl<T> KeyInit for AesCtr128Hmac<T> {
+    fn new(key: &cipher::Key<Self>) -> Self {
+        todo!()
     }
 }
