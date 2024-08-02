@@ -18,6 +18,7 @@ impl MlsKeyIdBitRange {
     /// It is ensured that
     /// - E < 63
     /// - S < 64 - E
+    ///
     /// so that the number of bits used for encoding the MLS Key ID does not exceed the maximum allowed limit and that for each field at least 1 bit is available
     pub fn new<E, I>(n_epoch_bits: E, n_index_bits: I) -> Self
     where

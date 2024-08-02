@@ -28,6 +28,7 @@ impl RatchetingKeyId {
     /// creates a new [`RatchetingKeyId`] with
     /// - generation: the key generation
     /// - `n_ratchet_bits`: the No. bits used for ratcheting (R)
+    ///
     /// where the initial Ratchet Step is 0
     pub fn new<G>(generation: G, n_ratchet_bits: u8) -> Self
     where

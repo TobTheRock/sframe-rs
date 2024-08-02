@@ -7,11 +7,11 @@
 //! Be aware that those features are mutually exlusive, if multiple are configured `sframe` issues a compiler error.
 //!
 //! - **`ring`** *(enabled by default)* — Uses the [ring](https://crates.io/crates/ring) library which allows compilation to Wasm32.
-//! AES-CTR mode ciphers are not supported.
+//!   AES-CTR mode ciphers are not supported.
 //! - **`openssl`** — Uses the [rust-openssl](https://crates.io/crates/openssl) crate, which provides bindings to OpenSSL.
-//! Per default the OpenSSL library is locally compiled and then statically linked. The build process requires a C compiler,
-//! `perl` (and `perl-core`), and `make`. For further options see the [openssl crate documentation](https://docs.rs/openssl/0.10.55/openssl/).
-//! Compilation to Wasm32 is not yet supported.
+//!   Per default the OpenSSL library is locally compiled and then statically linked. The build process requires a C compiler,
+//!   `perl` (and `perl-core`), and `make`. For further options see the [openssl crate documentation](https://docs.rs/openssl/0.10.55/openssl/).
+//!   Compilation to Wasm32 is not yet supported.
 
 #![deny(clippy::missing_panics_doc)]
 #![deny(

@@ -1,4 +1,4 @@
-pub const U64_LEN: usize = std::mem::size_of::<u64>();
+pub const U64_LEN: usize = size_of::<u64>();
 
 pub fn min_len_in_bytes(value: u64) -> u8 {
     if value == 0 {
