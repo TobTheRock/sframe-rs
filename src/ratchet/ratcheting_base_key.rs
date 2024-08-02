@@ -12,6 +12,7 @@ use super::ratcheting_key_id::RatchetingKeyId;
 /// It allows to create a new key id and key material (base key) for each ratchet step, where
 /// - the base key is derived using HKDF
 /// - the part of the key id is used to indicate the current ratchet step (see [`RatchetingKeyId`])
+///
 /// The original key material is not stored for security reasons.
 pub struct RatchetingBaseKey {
     cipher_suite: CipherSuite,
