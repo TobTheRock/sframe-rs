@@ -139,11 +139,11 @@ struct Args {
 // We need to redeclare here, as we need to derive ValueEnum to use it with clap...
 #[derive(ValueEnum, Clone, Copy, Debug)]
 pub enum ArgCipherSuiteVariant {
-    #[cfg(feature = "openssl")]
+    #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
     AesCtr128HmacSha256_80,
-    #[cfg(feature = "openssl")]
+    #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
     AesCtr128HmacSha256_64,
-    #[cfg(feature = "openssl")]
+    #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
     AesCtr128HmacSha256_32,
     AesGcm128Sha256,
     AesGcm256Sha512,
@@ -152,15 +152,15 @@ pub enum ArgCipherSuiteVariant {
 impl From<ArgCipherSuiteVariant> for CipherSuiteVariant {
     fn from(val: ArgCipherSuiteVariant) -> Self {
         match val {
-            #[cfg(feature = "openssl")]
+            #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
             ArgCipherSuiteVariant::AesCtr128HmacSha256_80 => {
                 CipherSuiteVariant::AesCtr128HmacSha256_80
             }
-            #[cfg(feature = "openssl")]
+            #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
             ArgCipherSuiteVariant::AesCtr128HmacSha256_64 => {
                 CipherSuiteVariant::AesCtr128HmacSha256_64
             }
-            #[cfg(feature = "openssl")]
+            #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
             ArgCipherSuiteVariant::AesCtr128HmacSha256_32 => {
                 CipherSuiteVariant::AesCtr128HmacSha256_32
             }

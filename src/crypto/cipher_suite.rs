@@ -36,6 +36,7 @@ impl std::fmt::Display for CipherSuiteVariant {
     }
 }
 
+// TODO convert this into a trait
 /// cipher suite as of [RFC 9605 4.5](https://www.rfc-editor.org/rfc/rfc9605.html#cipher-suites)
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct CipherSuite {
@@ -96,7 +97,7 @@ impl From<CipherSuiteVariant> for CipherSuite {
 }
 
 impl CipherSuite {
-    #[cfg(any(feature = "openssl", feature = "rust-crypto", test))]
+    #[cfg(any(feature = "openssl", test))]
     pub(crate) fn is_ctr_mode(&self) -> bool {
         match self.variant {
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
