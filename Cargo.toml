@@ -19,7 +19,7 @@ keywords = ["encryption", "sframe", "secure-frame", "webrtc", "wasm"]
 categories = ["cryptography", "wasm", "web-programming", "network-programming"]
 
 [dependencies]
-bitfield = "0.16"
+bitfield = "0.17"
 cfg-if = "1.0"
 log = "0.4"
 thiserror = "1.0"
