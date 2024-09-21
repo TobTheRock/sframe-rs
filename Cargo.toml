@@ -54,6 +54,9 @@ optional = true
 version = "0.4"
 optional = true
 
+[dependencies.ctr]
+version = "0.9.2"
+optional = true
 
 [dev-dependencies]
 bbqueue = "0.5"
@@ -73,7 +76,7 @@ test-case = "3.1"
 [features]
 # TODO reset to ring
 default = ["rust-crypto"]
-rust-crypto = ["aes-gcm", "hkdf", "sha2", "cipher"]
+rust-crypto = ["aes-gcm", "hkdf", "sha2", "cipher", "ctr"]
 
 [[bench]]
 name = "bench_main"
