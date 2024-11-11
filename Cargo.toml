@@ -22,7 +22,7 @@ categories = ["cryptography", "wasm", "web-programming", "network-programming"]
 bitfield = "0.17"
 cfg-if = "1.0"
 log = "0.4"
-thiserror = "1.0"
+thiserror = "2.0"
 
 [dependencies.ring]
 version = "0.17"
