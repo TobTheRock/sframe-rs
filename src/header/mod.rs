@@ -14,7 +14,7 @@ pub type KeyId = u64;
 pub type FrameCount = u64;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-/// Modeled after [sframe draft 09 4.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-sframe-header).
+/// Modeled after [RFC 9605 4.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-sframe-header).
 /// The `SFrame` header specifies a Key ID (KID) and a counter (CTR) from which encryption parameters are derived.
 ///
 /// Both are encoded as compact usigned integers in big-endian order. If the value of one of these fields is in the range 0-7,

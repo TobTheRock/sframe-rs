@@ -19,7 +19,7 @@ impl KeyDerivation for Secret {
     {
         let key_id = key_id.into();
         let algorithm = cipher_suite.variant.into();
-        // No salt used for the extraction: https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-key-derivation
+        // No salt used for the extraction: https://www.rfc-editor.org/rfc/rfc9605.html#name-key-derivation
         let pseudo_random_key =
             ring::hkdf::Salt::new(algorithm, b"").extract(key_material.as_ref());
 

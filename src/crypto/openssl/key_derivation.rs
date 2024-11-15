@@ -58,7 +58,7 @@ fn expand_secret(
     key_material: &[u8],
     key_id: u64,
 ) -> std::result::Result<(Vec<u8>, Vec<u8>), openssl::error::ErrorStack> {
-    // No salt used for the extraction: https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-key-derivation
+    // No salt used for the extraction: https://www.rfc-editor.org/rfc/rfc9605.html#name-key-derivation
     let prk = extract_pseudo_random_key(cipher_suite, key_material, b"")?;
     let key = expand_key(
         cipher_suite,

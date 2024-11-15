@@ -20,7 +20,7 @@ impl FrameValidation for FrameValidationBox {
 }
 
 /// This implementation allows to detect replay attacks by omitting frames with
-/// to old frame counters, see [sframe draft 09 9.3](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-anti-replay).
+/// to old frame counters, see [RFC 9605 9.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-anti-replay).
 /// The window of allowed frame counts is given with a certain tolerance.
 pub struct ReplayAttackProtection {
     tolerance: u64,

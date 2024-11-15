@@ -7,7 +7,7 @@
 [![documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/sframe/)
 ![maintenance](https://img.shields.io/maintenance/yes/2024)
 
-This library is an implementation of [draft-ietf-sframe-enc-09](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html) and provides and end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
+This library is an implementation of [Sframe  (RFC 9605)](https://www.rfc-editor.org/rfc/rfc9605.html) and provides and end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
 It was forked from the original [goto-opensource/secure-frame-rs](https://github.com/goto-opensource/secure-frame-rs) and is continued here.
 
 ## Supported crypto libraries
@@ -35,15 +35,14 @@ Depending on your use case, this library offers two distinct APIs.
 
 This API provides an easy to use interface to the `Sframe` implementation. The `Sender` / `Receiver`:
 
-- model the sframe encryption/decryption block in the data path, see [sframe draft 09 4.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#name-application-context)
+- model the sframe encryption/decryption block in the data path, see [RFC 9605 4.1](https://www.rfc-editor.org/rfc/rfc9605.html#name-application-context)
 - derive and store the necessary `Sframe` key(s)
 - keep an internal, dynamic buffer to encrypt/ decrypt a single frame at one time
-- provide ratchet support as of [sframe draft 09 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-5.1)
+- provide ratchet support as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
 - optional frame validation before decryption
 - For example you can use them like this:
 
 ```rust
-...
 
 let key_id = 123;
 let key_material = "pw123";
@@ -79,7 +78,6 @@ For encryption and decryption, a buffer must be provided implementing the `Frame
 For example:
 
 ```rust
-...
 
 let key_id = 42u64;
 let enc_key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "pw123").unwrap();
@@ -124,7 +122,7 @@ They are tracked continously with a [Bencher Perf Page](https://bencher.dev/perf
 
 Any help in form of descriptive and friendly issues or comprehensive pull requests are welcome!
 
-The Changelog of this library is generated from its commit log, there any commit message must conform with https://www.conventionalcommits.org/en/v1.0.0/. For simplicity you could make your commits with convco.
+The Changelog of this library is generated from its commit log, there any commit message must conform with <https://www.conventionalcommits.org/en/v1.0.0/>. For simplicity you could make your commits with convco.
 
 #### License
 

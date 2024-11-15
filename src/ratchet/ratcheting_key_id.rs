@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 use crate::{header::KeyId, util::limit_bit_len};
 
-/// Special key id format as of [sframe draft 09 5.1](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-5.1)
+/// Special key id format as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
 /// It has the following format:
 /// ```txt
 ///       64-R bits         R bits
