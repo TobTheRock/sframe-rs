@@ -2,15 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.2] - 2024-11-15
+
+- update dependencies
+- update references to RFC 9605
+
 ## [0.7.0] - 2024-04-14
 
 ### Refactor
 
 - [**breaking**] Make get_key a const method returning an option
+
 > make get_key a const method returning an option
+
 - [**breaking**] Separate ratcheting and get key for Ratcheting key store
+
 > separate ratcheting and get key for Ratcheting key store
+
 - [**breaking**] Key derivation error defintions
+
 > Renamed `SframeError::KeyDerivation` to `SframeError::KeyDerivationFailure`. Also ratcheting failures now no longer produce `SframeError::KeyDerivationFailure` but `SframeError::RatchetingFailure`.
 
 ## [0.6.0] - 2024-03-10
@@ -18,15 +28,20 @@ All notable changes to this project will be documented in this file.
 ### Features
 
 - [**breaking**] Update to draft-07
+
 > Draft 07 states *Implementations MUST mark each base_key as usable for encryption or decryption, never both*. There for `SframeKey` was
 replaced with a dedicated `EncryptionKey` (used for e.g. `MediaFrameView::encrypt_into`), `DecryptionKey` (used for e.g. `EncryptedFrameView::decrypt_into`). Both implementations offer the same interface as the `SframeKey`.
 
 ### Refactor
 
 - [**breaking**] Make frame submodule internal
+
 > You can use the rexports directly, e.g. instead of `frame::frame_buffer::FrameBuffer` use `frame:FrameBuffer`
+
 - [**breaking**] Move frame validation to frame module
+
 > The module was moved, so e.g instead of `frame_validation::FrameValidation` use `frame::FrameValidation`
+
 - Rename sframe_key variables
 
 ## [0.5.2] - 2024-03-03
