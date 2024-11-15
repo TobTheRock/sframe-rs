@@ -4,10 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [0.7.2] - 2024-11-15
 
-### Refactor
-
-- Pass aad buffer to AEAD encrypt
-- Decryption buffer abstraction
+- update dependencies
+- update references for RFC 9605
 
 ## [0.7.0] - 2024-04-14
 
