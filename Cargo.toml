@@ -15,7 +15,7 @@ repository = "https://github.com/TobTheRock/sframe-rs"
 documentation = "https://docs.rs/sframe/"
 readme = "README.md"
 
-keywords = ["rfc 9605", "encryption", "sframe", "secure-frame", "wasm"]
+keywords = ["rfc9605", "encryption", "sframe", "secure-frame", "wasm"]
 categories = ["cryptography", "wasm", "web-programming", "network-programming"]
 
 [dependencies]
