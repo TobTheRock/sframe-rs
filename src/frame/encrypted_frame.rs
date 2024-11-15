@@ -12,7 +12,7 @@ use super::{
     media_frame::{MediaFrame, MediaFrameView},
     FrameBuffer, FrameValidation,
 };
-/// A view on a buffer which contains an encrypted frame in the format as of [sframe draft 09 4.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-4.2).
+/// A view on a buffer which contains an encrypted frame in the format as of [RFC 9605 4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.2).
 /// The frame is assumed to be stored in the buffer as follows:
 /// ```txt
 /// | Meta Data | Sframe Header | Encrypted Data | Auth Tag |
@@ -188,7 +188,7 @@ impl<'buf> TryFrom<&'buf Vec<u8>> for EncryptedFrameView<'buf> {
         EncryptedFrameView::try_new(data)
     }
 }
-/// An abstraction of an encrypted frame in the format as of [sframe draft 09 4.2](https://www.ietf.org/archive/id/draft-ietf-sframe-enc-09.html#section-4.2),
+/// An abstraction of an encrypted frame in the format as of [RFC 9605 4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.2),
 /// owing an internal buffer containing the cipher text and optionally associated meta data (e.g. be a media header).
 pub struct EncryptedFrame {
     buffer: Vec<u8>,
