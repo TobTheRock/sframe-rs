@@ -6,7 +6,15 @@ use sframe::{receiver::Receiver, sender::Sender, CipherSuiteVariant};
 const KEY_MATERIAL: &str = "THIS_IS_SOME_MATERIAL";
 const PARTICIPANT_ID: u64 = 42;
 const SKIP: usize = 0;
-const PAYLOAD_SIZES: [usize; 4] = [512, 5120, 51200, 512000];
+
+fn payload_sizes() -> &'static [usize] {
+    let ci = std::env::var("CI").ok();
+    if ci.is_some_and(|ci| ci == "true") {
+        return &[5120];
+    }
+    
+    &[512, 5120, 51200, 512000]
+}
 
 fn create_random_payload(size: usize) -> Vec<u8> {
     let mut unencrypted_payload = vec![0; size];
@@ -91,7 +99,7 @@ where
     F: FnMut(&mut Bencher, &usize),
 {
     let mut group = c.benchmark_group(name);
-    for payload_size in PAYLOAD_SIZES.iter() {
+    for payload_size in payload_sizes().iter() {
         group.throughput(criterion::Throughput::Bytes(*payload_size as u64));
         group.bench_with_input(
             BenchmarkId::from_parameter(payload_size),
