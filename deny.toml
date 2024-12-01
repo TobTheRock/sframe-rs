@@ -1,6 +1,5 @@
 [licenses]
 allow = ["MIT", "Apache-2.0", "OpenSSL", "ISC"]
-unlicensed = "deny"
 private = { ignore = true }
 
 [[licenses.exceptions]]
