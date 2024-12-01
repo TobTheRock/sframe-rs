@@ -5,7 +5,7 @@ private = { ignore = true }
 
 [[licenses.exceptions]]
 name = "unicode-ident"
-allow = ["Unicode-DFS-2016"]
+allow = ["Unicode-3.0"]
 
 [[licenses.clarify]]
 name = "ring"
