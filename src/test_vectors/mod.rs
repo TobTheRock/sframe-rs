@@ -1,4 +1,5 @@
 #![allow(clippy::missing_panics_doc)]
+#![allow(missing_docs)]
 
 extern crate serde;
 use phf::phf_map;

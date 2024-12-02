@@ -55,4 +55,5 @@ pub mod sender;
 pub use crypto::cipher_suite::CipherSuiteVariant;
 
 #[cfg(test)]
+#[allow(clippy::all)]
 pub mod test_vectors;

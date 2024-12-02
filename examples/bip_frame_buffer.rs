@@ -24,7 +24,7 @@ struct ProducerBuffer<'a, const N: usize> {
     grant: Option<FrameGrantW<'a, N>>,
 }
 
-impl<'a, const N: usize> FrameBuffer for ProducerBuffer<'a, N> {
+impl<const N: usize> FrameBuffer for ProducerBuffer<'_, N> {
     type BufferSlice = Self;
 
     fn allocate(&mut self, size: usize) -> sframe::error::Result<&mut Self::BufferSlice> {
@@ -39,7 +39,7 @@ impl<'a, const N: usize> FrameBuffer for ProducerBuffer<'a, N> {
     }
 }
 
-impl<'a, const N: usize> AsRef<[u8]> for ProducerBuffer<'a, N> {
+impl<const N: usize> AsRef<[u8]> for ProducerBuffer<'_, N> {
     fn as_ref(&self) -> &[u8] {
         if let Some(grant) = &self.grant {
             grant
@@ -49,7 +49,7 @@ impl<'a, const N: usize> AsRef<[u8]> for ProducerBuffer<'a, N> {
     }
 }
 
-impl<'a, const N: usize> AsMut<[u8]> for ProducerBuffer<'a, N> {
+impl<const N: usize> AsMut<[u8]> for ProducerBuffer<'_, N> {
     fn as_mut(&mut self) -> &mut [u8] {
         if let Some(grant) = &mut self.grant {
             grant
@@ -59,13 +59,13 @@ impl<'a, const N: usize> AsMut<[u8]> for ProducerBuffer<'a, N> {
     }
 }
 
-impl<'a, const N: usize> Truncate for ProducerBuffer<'a, N> {
+impl<const N: usize> Truncate for ProducerBuffer<'_, N> {
     fn truncate(&mut self, size: usize) {
         // note: not strictly necessary, truncate is only used for decryption
         self.samples_to_commit -= size;
     }
 }
-impl<'a, const N: usize> ProducerBuffer<'a, N> {
+impl<const N: usize> ProducerBuffer<'_, N> {
     fn commit(&mut self) {
         if let Some(grant) = self.grant.take() {
             grant.commit(self.samples_to_commit);
