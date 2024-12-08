@@ -20,6 +20,7 @@ jobs:
         feature:
           - ring
           - openssl
+          - rust-crypto
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -43,7 +44,7 @@ jobs:
       - name: clippy
         run: cargo clippy --all-targets --no-default-features --features ${{ matrix.feature }} -- -Dwarnings
 
-      # test packaging to avoid surprisis at release time
+      # test packaging to avoid surprises at release time
       - name: package
         run: cargo package
 
@@ -51,6 +52,11 @@ jobs:
   build-wasm:
     name: build wasm32
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature:
+          - ring
+          - rust-crypto
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -59,4 +65,4 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown 
       - name: build
-        run: cargo build --target wasm32-unknown-unknown --features ring
+        run: cargo build --target wasm32-unknown-unknown --no-default-features --features  ${{ matrix.feature }}

@@ -74,8 +74,7 @@ simple_logger = "5.0"
 test-case = "3.1"
 
 [features]
-# TODO reset to ring
-default = ["rust-crypto"]
+default = ["ring"]
 rust-crypto = ["aes-gcm", "hkdf", "sha2", "cipher", "ctr"]
 
 [[bench]]
