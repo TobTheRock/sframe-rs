@@ -12,7 +12,7 @@ fn payload_sizes() -> &'static [usize] {
     if ci.is_some_and(|ci| ci == "true") {
         return &[5120];
     }
-    
+
     &[512, 5120, 51200, 512000]
 }
 

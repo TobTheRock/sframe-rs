@@ -54,10 +54,6 @@ impl AeadEncrypt for EncryptionKey {
                     buffer_view,
                 ),
         }
-        .map_err(|err| {
-            log::debug!("Encryption failed: {}", err);
-            SframeError::EncryptionFailure
-        })
     }
 }
 
@@ -66,20 +62,23 @@ impl EncryptionKey {
         &'a self,
         frame_count: FrameCount,
         buffer_view: EncryptionBufferView,
-        // TODO use sframe error
-    ) -> std::result::Result<(), aes_gcm::Error>
+    ) -> Result<()>
     where
         A: InitFromSecret<'a> + AeadInPlace + AeadCore + IvLen,
     {
         let secret = self.secret();
         let nonce: [u8; NONCE_LEN] = secret.create_nonce(frame_count);
-        let algo = A::from_secret(secret).map_err(|_err| aes_gcm::Error)?;
-
-        let tag = algo.encrypt_in_place_detached(
-            GenericArray::from_slice(&nonce),
-            buffer_view.aad,
-            buffer_view.cipher_text,
-        )?;
+        let algo = A::from_secret(secret)?;
+        let tag = algo
+            .encrypt_in_place_detached(
+                GenericArray::from_slice(&nonce),
+                buffer_view.aad,
+                buffer_view.cipher_text,
+            )
+            .map_err(|err| {
+                log::debug!("Encryption failed: {}", err);
+                SframeError::EncryptionFailure
+            })?;
         buffer_view.tag.copy_from_slice(tag.as_slice());
 
         Ok(())
@@ -119,10 +118,6 @@ impl AeadDecrypt for DecryptionKey {
                     buffer_view,
                 ),
         }
-        .map_err(|err| {
-            log::debug!("Decryption failed: {}", err);
-            SframeError::DecryptionFailure
-        })
     }
 }
 
@@ -131,28 +126,32 @@ impl DecryptionKey {
         &'a self,
         frame_count: FrameCount,
         buffer_view: DecryptionBufferView,
-    ) -> std::result::Result<(), aes_gcm::Error>
+    ) -> Result<()>
     where
         A: AeadInPlace + AeadCore + InitFromSecret<'a>,
     {
         let cipher_suite = self.cipher_suite();
         let cipher_text = buffer_view.cipher_text;
         if cipher_text.len() < cipher_suite.auth_tag_len {
-            return Err(aes_gcm::Error);
+            return Err(SframeError::DecryptionFailure);
         }
         let encrypted_len = cipher_text.len() - cipher_suite.auth_tag_len;
         let (encrypted, tag) = cipher_text.split_at_mut(encrypted_len);
 
         let secret = self.secret();
         let nonce: [u8; IV_LEN] = secret.create_nonce(frame_count);
-        let algo = A::from_secret(secret).map_err(|_err| aes_gcm::Error)?;
+        let algo = A::from_secret(secret)?;
 
         algo.decrypt_in_place_detached(
             GenericArray::from_slice(&nonce),
             buffer_view.aad,
             encrypted,
             GenericArray::from_slice(tag),
-        )?;
+        )
+        .map_err(|err| {
+            log::debug!("Decryption failed: {}", err);
+            SframeError::DecryptionFailure
+        })?;
 
         Ok(())
     }
@@ -257,20 +256,6 @@ where
         cipher.try_apply_keystream(buffer)
     }
 }
-
-// impl<T: ArrayLength<u8>> KeySizeUser for AesCtr128Hmac<T> {
-//     type KeySize = Sum<<Aes128 as KeySizeUser>::KeySize, <Sha256 as OutputSizeUser>::OutputSize>;
-// }
-
-// impl<T> KeyInit for AesCtr128Hmac<T>
-// where
-//     T: ArrayLength<u8>,
-//     AesCtr128Hmac<T>: KeySizeUser,
-// {
-//     fn new(key: &cipher::Key<Self>) -> Self {
-//         todo!()
-//     }
-// }
 
 impl<T> AeadInPlace for AesCtr128Hmac<'_, T>
 where
