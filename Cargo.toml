@@ -32,10 +32,15 @@ optional = true
 ring = { version = "0.17", features = [
   "wasm32_unknown_unknown_js",
 ], optional = true }
+getrandom = { version = "0.2", features = ["js"],  optional = true }
 
 [dependencies.openssl]
 version = "0.10"
 features = ["vendored"]
+optional = true
+
+[dependencies.getrandom]
+version = "0.2"
 optional = true
 
 [dependencies.aes-gcm]
@@ -75,7 +80,7 @@ test-case = "3.1"
 
 [features]
 default = ["ring"]
-rust-crypto = ["aes-gcm", "hkdf", "sha2", "cipher", "ctr"]
+rust-crypto = ["aes-gcm", "hkdf", "sha2", "cipher", "ctr", "getrandom"]
 
 [[bench]]
 name = "bench_main"
