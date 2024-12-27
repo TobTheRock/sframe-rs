@@ -66,9 +66,9 @@ mod test {
 
     #[test_case(CipherSuiteVariant::AesGcm128Sha256; "AesGcm128Sha256")]
     #[test_case(CipherSuiteVariant::AesGcm256Sha512; "AesGcm256Sha512")]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
     fn encrypt_test_vector(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
 
@@ -98,9 +98,9 @@ mod test {
 
     #[test_case(CipherSuiteVariant::AesGcm128Sha256; "AesGcm128Sha256")]
     #[test_case(CipherSuiteVariant::AesGcm256Sha512; "AesGcm256Sha512")]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
-    #[cfg_attr(feature = "openssl", test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
     fn decrypt_test_vector(variant: CipherSuiteVariant) {
         let test_vec = get_sframe_test_vector(&variant.to_string());
 

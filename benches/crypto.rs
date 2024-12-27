@@ -12,7 +12,7 @@ fn payload_sizes() -> &'static [usize] {
     if ci.is_some_and(|ci| ci == "true") {
         return &[5120];
     }
-    
+
     &[512, 5120, 51200, 512000]
 }
 
@@ -113,11 +113,11 @@ fn crypto_benches(c: &mut Criterion) {
     for variant in [
         CipherSuiteVariant::AesGcm128Sha256,
         CipherSuiteVariant::AesGcm256Sha512,
-        #[cfg(feature = "openssl")]
+        #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
         CipherSuiteVariant::AesCtr128HmacSha256_80,
-        #[cfg(feature = "openssl")]
+        #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
         CipherSuiteVariant::AesCtr128HmacSha256_64,
-        #[cfg(feature = "openssl")]
+        #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
         CipherSuiteVariant::AesCtr128HmacSha256_32,
     ] {
         let mut ctx = CryptoBenches::from(variant);

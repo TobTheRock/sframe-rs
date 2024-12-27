@@ -179,6 +179,7 @@ impl DecryptionKey {
         )
     }
 }
+
 fn compute_tag(
     &cipher_suite: &CipherSuite,
     auth_key: &[u8],

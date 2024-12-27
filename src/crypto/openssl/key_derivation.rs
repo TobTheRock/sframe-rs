@@ -1,6 +1,7 @@
 use crate::{
     crypto::{
         cipher_suite::{CipherSuite, CipherSuiteVariant},
+        common::key_derivation::expand_subsecret,
         key_derivation::{
             get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label, get_hkdf_salt_expand_label,
             KeyDerivation, Ratcheting,
@@ -74,14 +75,6 @@ fn expand_secret(
     )?;
 
     Ok((key, salt))
-}
-
-fn expand_subsecret(cipher_suite: &CipherSuite, key: &[u8]) -> (Vec<u8>, Vec<u8>) {
-    let aes_keysize = key.len() - cipher_suite.hash_len;
-    let enc_key = key[..aes_keysize].to_vec();
-    let auth_key = key[aes_keysize..].to_vec();
-
-    (enc_key, auth_key)
 }
 
 fn extract_pseudo_random_key(

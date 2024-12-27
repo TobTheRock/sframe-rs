@@ -6,6 +6,10 @@ private = { ignore = true }
 name = "unicode-ident"
 allow = ["Unicode-3.0"]
 
+[[licenses.exceptions]]
+name = "subtle"
+allow = ["BSD-3-Clause"]
+
 [[licenses.clarify]]
 name = "ring"
 expression = "MIT AND ISC AND OpenSSL"
