@@ -19,6 +19,7 @@ jobs:
         feature:
           - ring
           - openssl
+          - rust-crypto
     steps:
       - uses: actions/checkout@v4
       - uses: bencherdev/bencher@main
