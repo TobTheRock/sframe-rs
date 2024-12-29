@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.3] - 2024-12-29
+
+### Bug Fixes
+
+- Add getrandom wasm support
+
+### Features
+
+- Rustcrypto AesGcm implementation
+- Rust crypto AES CTR modes
+
 ## [0.7.2] - 2024-11-15
 
 - update dependencies
