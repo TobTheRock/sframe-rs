@@ -96,7 +96,7 @@ assert_eq!(decrypted_media_frame, media_frame);
   - Shows how to use the ratchet mechanism and the frame validation (Reply Protection).
 - [bip_frame_buffer](https://github.com/TobTheRock/sframe-rs/blob/main/examples/bip_frame_buffer.rs)
   - Demonstrates how to use the API with an arbitrary buffer implemetation with the `FrameBuffer` trait.
-- [generate_header](https://github.com/TobTheRock/sframe-rs/blob/main/examples/generate_header.rs)
+- [generate_headers](https://github.com/TobTheRock/sframe-rs/blob/main/examples/generate_headers.rs)
   - Serialize/Deserialize the plain SFrame headers.
 
 ## Benchmarks
