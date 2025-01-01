@@ -26,12 +26,12 @@
 //!
 //! let key_id = 42u64;
 //! let enc_key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "pw123").unwrap();
-//! let frame_count = 1u8;
+//! let counter = 1u8;
 //! let payload = "Something secret";
 //!
 //! let mut encrypt_buffer = Vec::new();
 //! let mut decrypt_buffer = Vec::new();
-//! let media_frame = MediaFrameView::new(frame_count, payload);
+//! let media_frame = MediaFrameView::new(counter, payload);
 //!
 //! let encrypted_frame = media_frame.encrypt_into(&enc_key, &mut encrypt_buffer).unwrap();
 //!
@@ -68,7 +68,7 @@ mod test {
     };
     use pretty_assertions::assert_eq;
 
-    const FRAME_COUNT: u64 = 42;
+    const COUNTER: u64 = 42;
     const PAYLOAD: &[u8] = b"TIME TO PAY";
     const META_DATA: &[u8] = b"META";
     const KEY_ID: u64 = 666u64;
@@ -88,7 +88,7 @@ mod test {
         let mut encrypt_buffer = Vec::new();
         let mut decrypt_buffer = Vec::new();
 
-        let media_frame = MediaFrameView::new(FRAME_COUNT, PAYLOAD);
+        let media_frame = MediaFrameView::new(COUNTER, PAYLOAD);
         media_frame
             .encrypt_into(&enc_key, &mut encrypt_buffer)
             .unwrap();
@@ -107,7 +107,7 @@ mod test {
         let mut encrypt_buffer = Vec::new();
         let mut decrypt_buffer = Vec::new();
 
-        let media_frame = MediaFrameView::with_meta_data(FRAME_COUNT, PAYLOAD, META_DATA);
+        let media_frame = MediaFrameView::with_meta_data(COUNTER, PAYLOAD, META_DATA);
         media_frame
             .encrypt_into(&enc_key, &mut encrypt_buffer)
             .unwrap();
@@ -127,7 +127,7 @@ mod test {
     fn encrypt_decrypt_frame_with_meta_data() {
         let (enc_key, dec_key) = expand_keys();
 
-        let media_frame = MediaFrame::with_meta_data(FRAME_COUNT, PAYLOAD, META_DATA);
+        let media_frame = MediaFrame::with_meta_data(COUNTER, PAYLOAD, META_DATA);
         let encrypted = media_frame.encrypt(&enc_key).unwrap();
 
         assert_bytes_eq(encrypted.meta_data(), META_DATA);

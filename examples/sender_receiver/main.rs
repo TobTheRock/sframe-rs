@@ -5,7 +5,7 @@ use std::{
     io::{self, BufRead, Write as _},
 };
 
-mod frame_count_generator;
+mod counter_generator;
 mod receiver;
 mod sender;
 
@@ -23,7 +23,7 @@ fn main() {
         cipher_suite,
         key_id,
         log_level,
-        max_frame_count,
+        max_counter,
         secret,
         n_ratchet_bits,
     } = Args::parse();
@@ -56,7 +56,7 @@ fn main() {
     let sender_options = SenderOptions {
         key_id,
         cipher_suite_variant,
-        max_frame_count,
+        max_counter,
     };
     let mut sender = Sender::from(sender_options);
     sender.set_encryption_key(&secret).unwrap();
@@ -135,7 +135,7 @@ struct Args {
     #[arg(short, long)]
     log_level: Option<log::Level>,
     #[arg(short, long, default_value_t = u64::MAX)]
-    max_frame_count: u64,
+    max_counter: u64,
     #[arg(short, long, default_value = "SUPER_SECRET")]
     secret: String,
     #[arg(short, long)]

@@ -8,10 +8,10 @@ use header_field::{HeaderField, VariableLengthField};
 
 use std::fmt::Write;
 
-/// key id type used in the [`SframeHeader`]
+/// type of the key id (KID) field used in the [`SframeHeader`]
 pub type KeyId = u64;
-/// frame count type used in the [`SframeHeader`]
-pub type FrameCount = u64;
+/// type of the frame counter (CTR) field used in the [`SframeHeader`]
+pub type Counter = u64;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// Modeled after [RFC 9605 4.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-sframe-header).
@@ -37,7 +37,7 @@ pub type FrameCount = u64;
 /// C: Counter Value (CTR) or Length (CLEN)
 pub struct SframeHeader {
     key_id: HeaderField,
-    frame_count: HeaderField,
+    counter: HeaderField,
 }
 
 impl SframeHeader {
@@ -45,10 +45,10 @@ impl SframeHeader {
     const STATIC_HEADER_LENGTH: usize = 1;
 
     /// creates a new [`SframeHeader`] with respective key id and frame count fields
-    pub fn new(key_id: KeyId, frame_count: FrameCount) -> Self {
+    pub fn new(key_id: KeyId, counter: Counter) -> Self {
         Self {
             key_id: key_id.into(),
-            frame_count: frame_count.into(),
+            counter: counter.into(),
         }
     }
 
@@ -74,7 +74,7 @@ impl SframeHeader {
             HeaderField::FixedLen(config_byte.key_or_klen())
         };
 
-        let frame_count = if config_byte.extended_ctr_flag() {
+        let counter = if config_byte.extended_ctr_flag() {
             let ctr_len = (config_byte.ctr_or_clen() + Self::LEN_OFFSET) as usize;
             VariableLengthField::from_sized_iter(buffer_it.take(ctr_len)).into()
         } else {
@@ -83,7 +83,7 @@ impl SframeHeader {
 
         Ok(Self {
             key_id,
-            frame_count,
+            counter,
         })
     }
 
@@ -118,7 +118,7 @@ impl SframeHeader {
             }
         }
 
-        match self.frame_count {
+        match self.counter {
             HeaderField::FixedLen(ctr) => {
                 config_byte.set_extended_ctr_flag(false);
                 config_byte.set_ctr_or_clen(ctr);
@@ -141,8 +141,8 @@ impl SframeHeader {
     }
 
     /// returns the frame count header field
-    pub fn frame_count(&self) -> FrameCount {
-        self.frame_count.into()
+    pub fn counter(&self) -> Counter {
+        self.counter.into()
     }
 
     #[allow(clippy::len_without_is_empty)]
@@ -154,7 +154,7 @@ impl SframeHeader {
             len += field.len() as usize;
         }
 
-        if let HeaderField::VariableLen(field) = self.frame_count {
+        if let HeaderField::VariableLen(field) = self.counter {
             len += field.len() as usize;
         }
 
@@ -181,7 +181,7 @@ impl std::fmt::Display for SframeHeader {
             HeaderField::FixedLen(_) => "KID",
             HeaderField::VariableLen(_) => "KLEN",
         };
-        let ctr_field_label = match self.frame_count {
+        let ctr_field_label = match self.counter {
             HeaderField::FixedLen(_) => "CTR",
             HeaderField::VariableLen(_) => "CLEN",
         };
@@ -209,7 +209,7 @@ impl std::fmt::Display for SframeHeader {
             }
         };
 
-        match self.frame_count {
+        match self.counter {
             HeaderField::FixedLen(_) => {}
             HeaderField::VariableLen(field) => {
                 let length = field.len() as usize;
@@ -240,7 +240,7 @@ mod test {
         crate::test_vectors::get_header_test_vectors()
             .iter()
             .for_each(|test_vector| {
-                let header = SframeHeader::new(test_vector.key_id, test_vector.frame_count);
+                let header = SframeHeader::new(test_vector.key_id, test_vector.counter);
                 let serialized = Vec::from(&header);
                 assert_bytes_eq(&serialized, &test_vector.encoded);
             });
@@ -272,7 +272,7 @@ mod test {
                 let header = SframeHeader::deserialize(&test_vector.encoded).unwrap();
                 assert_eq!(header.len(), test_vector.encoded.len());
                 assert_eq!(header.key_id(), test_vector.key_id);
-                assert_eq!(header.frame_count(), test_vector.frame_count);
+                assert_eq!(header.counter(), test_vector.counter);
             });
     }
 

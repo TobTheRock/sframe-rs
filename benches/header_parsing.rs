@@ -11,12 +11,12 @@ fn create_random_values(size: usize) -> Vec<u64> {
 
 fn create_random_headers(size: usize) -> impl Iterator<Item = SframeHeader> {
     let random_key_ids = create_random_values(size);
-    let random_frame_counts = create_random_values(size);
+    let random_counters = create_random_values(size);
 
     random_key_ids
         .into_iter()
-        .zip(random_frame_counts)
-        .map(|(key_id, frame_count)| SframeHeader::new(key_id, frame_count))
+        .zip(random_counters)
+        .map(|(key_id, counter)| SframeHeader::new(key_id, counter))
 }
 
 fn header_serialization(c: &mut Criterion) {

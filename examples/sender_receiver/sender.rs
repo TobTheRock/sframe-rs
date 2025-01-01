@@ -1,8 +1,8 @@
-use crate::frame_count_generator::FrameCountGenerator;
+use crate::counter_generator::CounterGenerator;
 use sframe::{
     error::{Result, SframeError},
     frame::MediaFrameView,
-    header::{FrameCount, KeyId},
+    header::{Counter, KeyId},
     key::EncryptionKey,
     CipherSuiteVariant,
 };
@@ -22,7 +22,7 @@ pub struct SenderOptions {
     /// maximum frame count, to limit the header ([`crate::header::SframeHeader`]) size
     ///
     /// default: [`u64::MAX`]
-    pub max_frame_count: FrameCount,
+    pub max_counter: Counter,
 }
 
 impl Default for SenderOptions {
@@ -30,7 +30,7 @@ impl Default for SenderOptions {
         Self {
             key_id: 0,
             cipher_suite_variant: CipherSuiteVariant::AesGcm256Sha512,
-            max_frame_count: u64::MAX,
+            max_counter: u64::MAX,
         }
     }
 }
@@ -40,7 +40,7 @@ impl Default for SenderOptions {
 /// single key id ([`KeyId`]). It needs to be initialised with a base key (aka key material) first.
 /// For encryption/ key expansion the used algorithms are configurable (see [`CipherSuiteVariant`]).
 pub struct Sender {
-    frame_count: FrameCountGenerator,
+    counter: CounterGenerator,
     key_id: KeyId,
     cipher_suite: CipherSuiteVariant,
     enc_key: Option<EncryptionKey>,
@@ -65,7 +65,7 @@ impl Sender {
         log::debug!("Setting up sframe Sender");
         log::trace!("KeyID {:?} (ciphersuite {:?})", key_id, variant);
         Sender {
-            frame_count: Default::default(),
+            counter: Default::default(),
             key_id,
             cipher_suite: variant,
             enc_key: None,
@@ -84,10 +84,10 @@ impl Sender {
         if let Some(enc_key) = &self.enc_key {
             let unencrypted_frame = unencrypted_frame.as_ref();
 
-            let frame_count = self.frame_count.increment();
+            let counter = self.counter.increment();
             let payload = &unencrypted_frame[skip..];
             let meta_data = &unencrypted_frame[..skip];
-            let media_frame = MediaFrameView::with_meta_data(frame_count, payload, meta_data);
+            let media_frame = MediaFrameView::with_meta_data(counter, payload, meta_data);
 
             media_frame.encrypt_into(enc_key, &mut self.buffer)?;
 
@@ -136,7 +136,7 @@ impl From<SenderOptions> for Sender {
             key_id: options.key_id,
             cipher_suite: options.cipher_suite_variant,
             enc_key: None,
-            frame_count: FrameCountGenerator::new(options.max_frame_count),
+            counter: CounterGenerator::new(options.max_counter),
             buffer: Default::default(),
         }
     }

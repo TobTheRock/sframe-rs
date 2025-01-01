@@ -75,12 +75,12 @@ let key_material = "pw123";
 let enc_key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, key_material).unwrap();
 let dec_key = DecryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, key_material).unwrap();
 
-let frame_count = 1u8;
+let counter = 1u8;
 let payload = "Something secret";
 
 let mut encrypt_buffer = Vec::new();
 let mut decrypt_buffer = Vec::new();
-let media_frame = MediaFrameView::new(frame_count, payload);
+let media_frame = MediaFrameView::new(counter, payload);
 
 let encrypted_frame = media_frame.encrypt_into(&enc_key, &mut encrypt_buffer).unwrap();
 

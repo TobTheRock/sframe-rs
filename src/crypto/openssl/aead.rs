@@ -5,7 +5,7 @@ use crate::{
         cipher_suite::CipherSuite,
     },
     error::Result,
-    header::FrameCount,
+    header::Counter,
     key::{DecryptionKey, EncryptionKey},
 };
 
@@ -15,15 +15,15 @@ const AES_GCM_IV_LEN: usize = 12;
 const AES_CTR_IVS_LEN: usize = 16;
 
 impl AeadEncrypt for EncryptionKey {
-    fn encrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
+    fn encrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>,
     {
         let buffer_view = buffer.into();
         if self.cipher_suite().is_ctr_mode() {
-            self.encrypt_aes_ctr(buffer_view, frame_count)
+            self.encrypt_aes_ctr(buffer_view, counter)
         } else {
-            self.encrypt_aead(buffer_view, frame_count)
+            self.encrypt_aead(buffer_view, counter)
         }?;
 
         Ok(())
@@ -31,7 +31,7 @@ impl AeadEncrypt for EncryptionKey {
 }
 
 impl AeadDecrypt for DecryptionKey {
-    fn decrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
+    fn decrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>,
     {
@@ -52,9 +52,9 @@ impl AeadDecrypt for DecryptionKey {
         let tag = &cipher_text[encrypted_len..];
 
         let out = if cipher_suite.is_ctr_mode() {
-            self.decrypt_aes_ctr(cipher, frame_count, buffer_view.aad, encrypted, tag)
+            self.decrypt_aes_ctr(cipher, counter, buffer_view.aad, encrypted, tag)
         } else {
-            let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(frame_count);
+            let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(counter);
             openssl::symm::decrypt_aead(
                 cipher,
                 &secret.key,
@@ -83,10 +83,10 @@ impl EncryptionKey {
     fn encrypt_aead(
         &self,
         buffer_view: EncryptionBufferView,
-        frame_count: FrameCount,
+        counter: Counter,
     ) -> Result<()> {
         let secret = self.secret();
-        let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(frame_count);
+        let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(counter);
 
         // TODO this allocates a new vec, maybe use the openssl cipher API direct instead of allocating
         let out = openssl::symm::encrypt_aead(
@@ -105,12 +105,12 @@ impl EncryptionKey {
     fn encrypt_aes_ctr(
         &self,
         buffer_view: EncryptionBufferView,
-        frame_count: FrameCount,
+        counter: Counter,
     ) -> Result<()> {
         let secret = self.secret();
         let auth_key = secret.auth.as_ref().ok_or(SframeError::EncryptionFailure)?;
         // openssl expects a fixed iv length of 16 byte, thus we needed to pad the sframe nonce
-        let initial_counter = secret.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
+        let initial_counter = secret.create_nonce::<AES_CTR_IVS_LEN>(counter);
         let nonce = &initial_counter[..self.cipher_suite().nonce_len];
 
         // TODO this allocates a new vec, maybe use the openssl cipher API direct instead of allocating
@@ -151,13 +151,13 @@ impl DecryptionKey {
     fn decrypt_aes_ctr(
         &self,
         cipher: openssl::symm::Cipher,
-        frame_count: FrameCount,
+        counter: Counter,
         aad: &[u8],
         encrypted: &[u8],
         tag: &[u8],
     ) -> Result<Vec<u8>> {
         let secret = self.secret();
-        let initial_counter: [u8; 16] = secret.create_nonce::<AES_CTR_IVS_LEN>(frame_count);
+        let initial_counter: [u8; 16] = secret.create_nonce::<AES_CTR_IVS_LEN>(counter);
         let nonce = &initial_counter[..self.cipher_suite().nonce_len];
         let auth_key = secret.auth.as_ref().ok_or(SframeError::DecryptionFailure)?;
 

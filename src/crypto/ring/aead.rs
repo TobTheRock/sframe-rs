@@ -5,7 +5,7 @@ use crate::{
         secret::Secret,
     },
     error::Result,
-    header::FrameCount,
+    header::Counter,
     key::{DecryptionKey, EncryptionKey},
 };
 
@@ -50,14 +50,14 @@ fn unbound_encryption_key(
 }
 
 impl AeadEncrypt for EncryptionKey {
-    fn encrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
+    fn encrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>,
     {
         let buffer_view: EncryptionBufferView = buffer.into();
         let mut sealing_key = SealingKey::<FrameNonceSequence>::new(
             unbound_encryption_key(self.cipher_suite_variant(), self.secret())?,
-            self.secret().create_nonce(frame_count).into(),
+            self.secret().create_nonce(counter).into(),
         );
 
         let aad = ring::aead::Aad::from(buffer_view.aad);
@@ -74,7 +74,7 @@ impl AeadEncrypt for EncryptionKey {
 }
 
 impl AeadDecrypt for DecryptionKey {
-    fn decrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
+    fn decrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>,
     {
@@ -83,7 +83,7 @@ impl AeadDecrypt for DecryptionKey {
 
         let mut opening_key = ring::aead::OpeningKey::<FrameNonceSequence>::new(
             unbound_encryption_key(self.cipher_suite_variant(), self.secret())?,
-            self.secret().create_nonce(frame_count).into(),
+            self.secret().create_nonce(counter).into(),
         );
         opening_key
             .open_in_place(aad, buffer_view.cipher_text)

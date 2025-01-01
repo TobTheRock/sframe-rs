@@ -5,7 +5,7 @@ use crate::{
         secret::Secret,
     },
     error::Result,
-    header::FrameCount,
+    header::Counter,
     key::{DecryptionKey, EncryptionKey},
 };
 use aes_gcm::{aes::Aes128, AeadCore, AeadInPlace, Aes128Gcm, Aes256Gcm};
@@ -22,7 +22,7 @@ use sha2::Sha256;
 use crate::{crypto::cipher_suite::CipherSuiteVariant, error::SframeError};
 
 impl AeadEncrypt for EncryptionKey {
-    fn encrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
+    fn encrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>,
     {
@@ -30,27 +30,27 @@ impl AeadEncrypt for EncryptionKey {
         match self.cipher_suite().variant {
             CipherSuiteVariant::AesGcm256Sha512 => self
                 .encrypt_in_place_detached::<Aes256Gcm, { Aes256Gcm::IV_LEN }>(
-                    frame_count,
+                    counter,
                     buffer_view,
                 ),
             CipherSuiteVariant::AesGcm128Sha256 => self
                 .encrypt_in_place_detached::<Aes128Gcm, { Aes128Gcm::IV_LEN }>(
-                    frame_count,
+                    counter,
                     buffer_view,
                 ),
             CipherSuiteVariant::AesCtr128HmacSha256_32 => self
                 .encrypt_in_place_detached::<AesCtr128Hmac<U4>, { AesCtr128Hmac::<U4>::IV_LEN }>(
-                    frame_count,
+                    counter,
                     buffer_view,
                 ),
             CipherSuiteVariant::AesCtr128HmacSha256_64 => self
                 .encrypt_in_place_detached::<AesCtr128Hmac<U8>, { AesCtr128Hmac::<U8>::IV_LEN }>(
-                    frame_count,
+                    counter,
                     buffer_view,
                 ),
             CipherSuiteVariant::AesCtr128HmacSha256_80 => self
                 .encrypt_in_place_detached::<AesCtr128Hmac<U10>, { AesCtr128Hmac::<U10>::IV_LEN }>(
-                    frame_count,
+                    counter,
                     buffer_view,
                 ),
         }
@@ -60,14 +60,14 @@ impl AeadEncrypt for EncryptionKey {
 impl EncryptionKey {
     fn encrypt_in_place_detached<'a, A, const NONCE_LEN: usize>(
         &'a self,
-        frame_count: FrameCount,
+        counter: Counter,
         buffer_view: EncryptionBufferView,
     ) -> Result<()>
     where
         A: InitFromSecret<'a> + AeadInPlace + AeadCore + IvLen,
     {
         let secret = self.secret();
-        let nonce: [u8; NONCE_LEN] = secret.create_nonce(frame_count);
+        let nonce: [u8; NONCE_LEN] = secret.create_nonce(counter);
         let algo = A::from_secret(secret)?;
         let tag = algo
             .encrypt_in_place_detached(
@@ -86,7 +86,7 @@ impl EncryptionKey {
 }
 
 impl AeadDecrypt for DecryptionKey {
-    fn decrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
+    fn decrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>,
     {
@@ -94,27 +94,27 @@ impl AeadDecrypt for DecryptionKey {
         match self.cipher_suite().variant {
             CipherSuiteVariant::AesGcm256Sha512 => self
                 .decrypt_in_place_detached::<Aes256Gcm, { Aes256Gcm::IV_LEN }>(
-                    frame_count,
+                    counter,
                     buffer_view,
                 ),
             CipherSuiteVariant::AesGcm128Sha256 => self
                 .decrypt_in_place_detached::<Aes128Gcm, { Aes128Gcm::IV_LEN }>(
-                    frame_count,
+                    counter,
                     buffer_view,
                 ),
             CipherSuiteVariant::AesCtr128HmacSha256_80 => self
                 .decrypt_in_place_detached::<AesCtr128Hmac<U10>, { AesCtr128Hmac::<U10>::IV_LEN }>(
-                    frame_count,
+                    counter,
                     buffer_view,
                 ),
             CipherSuiteVariant::AesCtr128HmacSha256_64 => self
                 .decrypt_in_place_detached::<AesCtr128Hmac<U8>, { AesCtr128Hmac::<U8>::IV_LEN }>(
-                    frame_count,
+                    counter,
                     buffer_view,
                 ),
             CipherSuiteVariant::AesCtr128HmacSha256_32 => self
                 .decrypt_in_place_detached::<AesCtr128Hmac<U4>, { AesCtr128Hmac::<U4>::IV_LEN }>(
-                    frame_count,
+                    counter,
                     buffer_view,
                 ),
         }
@@ -124,7 +124,7 @@ impl AeadDecrypt for DecryptionKey {
 impl DecryptionKey {
     fn decrypt_in_place_detached<'a, A, const IV_LEN: usize>(
         &'a self,
-        frame_count: FrameCount,
+        counter: Counter,
         buffer_view: DecryptionBufferView,
     ) -> Result<()>
     where
@@ -139,7 +139,7 @@ impl DecryptionKey {
         let (encrypted, tag) = cipher_text.split_at_mut(encrypted_len);
 
         let secret = self.secret();
-        let nonce: [u8; IV_LEN] = secret.create_nonce(frame_count);
+        let nonce: [u8; IV_LEN] = secret.create_nonce(counter);
         let algo = A::from_secret(secret)?;
 
         algo.decrypt_in_place_detached(

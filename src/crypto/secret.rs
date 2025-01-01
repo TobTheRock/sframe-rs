@@ -1,4 +1,4 @@
-use crate::header::FrameCount;
+use crate::header::Counter;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Secret {
@@ -8,9 +8,9 @@ pub struct Secret {
 }
 
 impl Secret {
-    pub(crate) fn create_nonce<const LEN: usize>(&self, frame_count: FrameCount) -> [u8; LEN] {
-        let be_frame_count = frame_count.to_be_bytes();
-        let mut counter = be_frame_count.iter().rev();
+    pub(crate) fn create_nonce<const LEN: usize>(&self, counter: Counter) -> [u8; LEN] {
+        let be_counter = counter.to_be_bytes();
+        let mut counter = be_counter.iter().rev();
         let mut iv = [0u8; LEN];
         let n = self.salt.len().min(LEN);
         for i in (0..n).rev() {
@@ -56,7 +56,7 @@ mod test {
             auth: None,
         };
 
-        let nonce: [u8; NONCE_LEN] = secret.create_nonce(test_vec.frame_count);
+        let nonce: [u8; NONCE_LEN] = secret.create_nonce(test_vec.counter);
         assert_bytes_eq(&nonce, &test_vec.nonce);
     }
 }
