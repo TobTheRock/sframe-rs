@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{
-    crypto::cipher_suite::{CipherSuite, CipherSuiteVariant},
+use sframe::{
     error::Result,
     frame::{EncryptedFrameView, FrameValidationBox, ReplayAttackProtection},
     header::KeyId,
     key::DecryptionKey,
     ratchet::RatchetingKeyStore,
+    CipherSuiteVariant,
 };
 
 /// options for the decryption block,
@@ -43,24 +43,12 @@ impl Default for ReceiverOptions {
 /// - performing optional frame validation and ratcheting
 pub struct Receiver {
     keys: KeyStore,
-    cipher_suite: CipherSuite,
+    variant: CipherSuiteVariant,
     frame_validation: Option<FrameValidationBox>,
     buffer: Vec<u8>,
 }
 
 impl Receiver {
-    /// creates a [Receiver] with the given cipher suite variant and the default parameters
-    pub fn with_cipher_suite(variant: CipherSuiteVariant) -> Receiver {
-        log::debug!("Setting up sframe Receiver using ciphersuite {:?}", variant,);
-
-        let options = ReceiverOptions {
-            cipher_suite_variant: variant,
-            ..Default::default()
-        };
-
-        options.into()
-    }
-
     /// Tries to decrypt an incoming encrypted frame, returning a slice to the decrypted data on success.
     /// The first `skip` bytes are assumed to be not encrypted (e.g. another header) and are only used as AAD for authentification
     /// May fail with
@@ -86,7 +74,7 @@ impl Receiver {
             keys.try_ratchet(encrypted_frame.header().key_id())?;
         }
 
-        encrypted_frame.decrypt_into(&mut self.keys, &mut self.buffer)?;
+        encrypted_frame.decrypt_into(&self.keys, &mut self.buffer)?;
 
         Ok(&self.buffer)
     }
@@ -105,15 +93,27 @@ impl Receiver {
             KeyStore::Standard(key_store) => {
                 key_store.insert(
                     key_id,
-                    DecryptionKey::derive_from(self.cipher_suite.variant, key_id, key_material)?,
+                    DecryptionKey::derive_from(self.variant, key_id, key_material)?,
                 );
             }
             KeyStore::Ratcheting(key_store) => {
-                key_store.insert(self.cipher_suite.variant, key_id, key_material)?;
+                key_store.insert(self.variant, key_id, key_material)?;
             }
         };
 
         Ok(())
+    }
+
+    /// creates a [Receiver] with the given cipher suite variant and the default parameters
+    pub fn with_cipher_suite(variant: CipherSuiteVariant) -> Receiver {
+        log::debug!("Setting up sframe Receiver using ciphersuite {:?}", variant,);
+
+        let options = ReceiverOptions {
+            cipher_suite_variant: variant,
+            ..Default::default()
+        };
+
+        options.into()
     }
 
     /// removes an encryption key associated with the key id, which was stored internally,
@@ -137,8 +137,8 @@ impl From<ReceiverOptions> for Receiver {
             None => KeyStore::default(),
         };
         Self {
-            cipher_suite: options.cipher_suite_variant.into(),
             frame_validation: options.frame_validation,
+            variant: options.cipher_suite_variant,
             keys,
             buffer: Default::default(),
         }
@@ -163,7 +163,7 @@ impl Default for KeyStore {
     }
 }
 
-impl crate::key::KeyStore for KeyStore {
+impl sframe::key::KeyStore for KeyStore {
     fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
     where
         K: Into<KeyId>,

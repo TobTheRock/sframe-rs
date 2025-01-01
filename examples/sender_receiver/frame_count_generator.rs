@@ -1,4 +1,4 @@
-use crate::header::FrameCount;
+use sframe::header::FrameCount;
 
 #[derive(Copy, Clone, Debug)]
 pub struct FrameCountGenerator {

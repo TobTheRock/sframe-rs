@@ -84,7 +84,7 @@ mod test {
 
     #[test]
     fn encrypt_decrypt_frame_view() {
-        let (enc_key, mut dec_key) = expand_keys();
+        let (enc_key, dec_key) = expand_keys();
         let mut encrypt_buffer = Vec::new();
         let mut decrypt_buffer = Vec::new();
 
@@ -95,7 +95,7 @@ mod test {
 
         let encrypted_frame = EncryptedFrameView::try_new(&encrypt_buffer).unwrap();
         let decrypted_media_frame = encrypted_frame
-            .decrypt_into(&mut dec_key, &mut decrypt_buffer)
+            .decrypt_into(&dec_key, &mut decrypt_buffer)
             .unwrap();
 
         assert_eq!(decrypted_media_frame, media_frame);
@@ -103,7 +103,7 @@ mod test {
 
     #[test]
     fn encrypt_decrypt_frame_view_with_meta_data() {
-        let (enc_key, mut dec_key) = expand_keys();
+        let (enc_key, dec_key) = expand_keys();
         let mut encrypt_buffer = Vec::new();
         let mut decrypt_buffer = Vec::new();
 
@@ -117,7 +117,7 @@ mod test {
 
         let encrypted_frame = EncryptedFrameView::try_with_meta_data(encrypted, META_DATA).unwrap();
         let decrypted_media_frame = encrypted_frame
-            .decrypt_into(&mut dec_key, &mut decrypt_buffer)
+            .decrypt_into(&dec_key, &mut decrypt_buffer)
             .unwrap();
 
         assert_eq!(decrypted_media_frame, media_frame);
@@ -125,14 +125,14 @@ mod test {
 
     #[test]
     fn encrypt_decrypt_frame_with_meta_data() {
-        let (enc_key, mut dec_key) = expand_keys();
+        let (enc_key, dec_key) = expand_keys();
 
         let media_frame = MediaFrame::with_meta_data(FRAME_COUNT, PAYLOAD, META_DATA);
         let encrypted = media_frame.encrypt(&enc_key).unwrap();
 
         assert_bytes_eq(encrypted.meta_data(), META_DATA);
 
-        let decrypted_media_frame = encrypted.decrypt(&mut dec_key).unwrap();
+        let decrypted_media_frame = encrypted.decrypt(&dec_key).unwrap();
 
         assert_eq!(decrypted_media_frame, media_frame);
     }
