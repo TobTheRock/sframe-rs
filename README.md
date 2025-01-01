@@ -51,7 +51,7 @@ There is also a variant which allocates the necessary memory and owns the buffer
 
 To convert between `MediaFrame(View)` and `EncryptedFrame(View)` , an `EncryptionKey` or `DecryptionKey` is needed,
 which needs to be derived from a shared and secret key material.
-
+```
 +------------------+                                  +---------------------+
 |                  |                                  |                     |
 |                  |       decrypt/decrypt_into       |                     |
@@ -63,7 +63,7 @@ which needs to be derived from a shared and secret key material.
 |                  |  ----------------------------->  |                     |
 |                  |                                  |                     |
 +------------------+                                  +---------------------+
-
+```
 For example:
 
 ```rust
