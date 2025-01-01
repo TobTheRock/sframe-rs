@@ -34,7 +34,6 @@
 )]
 
 mod crypto;
-mod frame_count_generator;
 mod util;
 
 /// error definitions
@@ -48,10 +47,6 @@ pub mod key;
 pub mod mls;
 /// Ratchet support as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
 pub mod ratchet;
-/// Receiver API: models the sframe decryption block in the receiver path, see [RFC 9605 4.1](https://www.rfc-editor.org/rfc/rfc9605.html#name-application-context)
-pub mod receiver;
-/// Sender API: models the sframe encryption block in the sender path, [RFC 9605 4.1](https://www.rfc-editor.org/rfc/rfc9605.html#name-application-context)
-pub mod sender;
 
 pub use crypto::cipher_suite::CipherSuiteVariant;
 

@@ -34,46 +34,8 @@ Both cannot be enabled at the same time, thus on conflict `sframe` issues a comp
 
 ## Usage
 
-Depending on your use case, this library offers two distinct APIs.
+The API provides low-level access to encryption and decryption at the frame level.
 
-### Sender / Receiver API
-
-This API provides an easy to use interface to the `Sframe` implementation. The `Sender` / `Receiver`:
-
-- model the sframe encryption/decryption block in the data path, see [RFC 9605 4.1](https://www.rfc-editor.org/rfc/rfc9605.html#name-application-context)
-- derive and store the necessary `Sframe` key(s)
-- keep an internal, dynamic buffer to encrypt/ decrypt a single frame at one time
-- provide ratchet support as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
-- optional frame validation before decryption
-- For example you can use them like this:
-
-```rust
-
-let key_id = 123;
-let key_material = "pw123";
-let skipped_payload = 1; // payload bytes which are skipped for encryption
-let media_frame = b"SOME DATA";
-
-let mut sender = Sender::new(key_id);
-sender.set_encryption_key(key_material).unwrap();
-let encrypted_frame = sender
-  .encrypt(media_frame, skipped_payload)
-  .unwrap();
-
-let mut receiver = Receiver::default();
-receiver
-    .set_encryption_key(key_id, key_material)
-    .unwrap();
-let decrypted_frame = receiver.decrypt(encrypted_frame, skipped_payload).unwrap();
-
-assert_eq!(media_frame, decrypted_frame);
-```
-
-For more options see the [encrypt_decrypt example](https://github.com/TobTheRock/sframe-rs/blob/feat/low-level-api/examples/encrypt_decrypt.rs).
-
-### Frame-based API
-
-This API provides low-level access to encryption and decryption at the frame level, offering granular control.
 It allows the use of arbitrary buffers, enabling the creation of views to avoid unnecessary copies:
 
 - `MediaFrameView` for unencrypted data
@@ -81,6 +43,27 @@ It allows the use of arbitrary buffers, enabling the creation of views to avoid 
 
 For encryption and decryption, a buffer must be provided implementing the `FrameBuffer` trait to allocate the necessary memory.
 For convenience, this trait has already been implemented for `Vec<u8>`.
+
+There is also a variant which allocates the necessary memory and owns the buffers:
+
+- `MediaFrame` for unencrypted data
+- `EncryptedFrame` for encrypted data
+
+To convert between `MediaFrame(View)` and `EncryptedFrame(View)` , an `EncryptionKey` or `DecryptionKey` is needed,
+which needs to be derived from a shared and secret key material.
+
++------------------+                                  +---------------------+
+|                  |                                  |                     |
+|                  |       decrypt/decrypt_into       |                     |
+|                  |        (DecryptionKey)           |                     |
+|  MediaFrame(View)|  <-----------------------------  | EncryptedFrame(View)|
+|                  |                                  |                     |
+|                  |       encrypt/encrypt_into       |                     |
+|                  |        (EncryptionKey)           |                     |
+|                  |  ----------------------------->  |                     |
+|                  |                                  |                     |
++------------------+                                  +---------------------+
+
 For example:
 
 ```rust
@@ -103,15 +86,18 @@ let decrypted_media_frame = encrypted_frame
   .unwrap();
 
 assert_eq!(decrypted_media_frame, media_frame);
-
 ```
 
-There is also a variant which allocates the necessary memory and owns the buffers:
+## Examples
 
-- `MediaFrame` for unencrypted data
-- `EncryptedFrame` for encrypted data
-
-To see how the API is used with another buffer type, you can check out the [bip_frame_buffer example](https://github.com/TobTheRock/sframe-rs/blob/main/examples/bip_frame_buffer.rs).
+- [sender_receiver](https://github.com/TobTheRock/sframe-rs/blob/main/examples/sender_receiver)
+  - Demonstrates how the API can be used in an application to encrypt and decrypt frames between two parties.
+  - Implements a `Sender` which encrypts frames  `Receiver` which decrypts them.
+  - Shows how to use the ratchet mechanism and the frame validation (Reply Protection).
+- [bip_frame_buffer](https://github.com/TobTheRock/sframe-rs/blob/main/examples/bip_frame_buffer.rs)
+  - Demonstrates how to use the API with an arbitrary buffer implemetation with the `FrameBuffer` trait.
+- [generate_header](https://github.com/TobTheRock/sframe-rs/blob/main/examples/generate_header.rs)
+  - Serialize/Deserialize the plain SFrame headers.
 
 ## Benchmarks
 

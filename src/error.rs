@@ -6,10 +6,6 @@ pub type Result<T> = std::result::Result<T, SframeError>;
 /// Represents an error which has occured in the sframe-rs library
 #[derive(PartialEq, Eq, Debug, thiserror::Error)]
 pub enum SframeError {
-    /// no valid encryption key has been found
-    #[error("No EncryptionKey has been found")]
-    MissingEncryptionKey,
-
     /// no valid decryption key has been found
     #[error("No DecryptionKey has been found")]
     MissingDecryptionKey(KeyId),

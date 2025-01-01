@@ -1,14 +1,20 @@
+#![allow(dead_code)]
+
 use std::{
     fmt::Write,
     io::{self, BufRead, Write as _},
 };
 
+mod frame_count_generator;
+mod receiver;
+mod sender;
+
 use clap::{Parser, ValueEnum};
+use receiver::{Receiver, ReceiverOptions};
+use sender::{Sender, SenderOptions};
 use sframe::{
     header::SframeHeader,
     ratchet::{RatchetingBaseKey, RatchetingKeyId},
-    receiver::{Receiver, ReceiverOptions},
-    sender::{Sender, SenderOptions},
     CipherSuiteVariant,
 };
 

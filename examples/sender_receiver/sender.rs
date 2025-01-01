@@ -1,10 +1,10 @@
-use crate::{
-    crypto::cipher_suite::{CipherSuite, CipherSuiteVariant},
+use crate::frame_count_generator::FrameCountGenerator;
+use sframe::{
     error::{Result, SframeError},
     frame::MediaFrameView,
-    frame_count_generator::FrameCountGenerator,
     header::{FrameCount, KeyId},
     key::EncryptionKey,
+    CipherSuiteVariant,
 };
 
 /// options for the encryption block,
@@ -42,7 +42,7 @@ impl Default for SenderOptions {
 pub struct Sender {
     frame_count: FrameCountGenerator,
     key_id: KeyId,
-    cipher_suite: CipherSuite,
+    cipher_suite: CipherSuiteVariant,
     enc_key: Option<EncryptionKey>,
     buffer: Vec<u8>,
 }
@@ -61,18 +61,13 @@ impl Sender {
     where
         K: Into<KeyId>,
     {
-        let cipher_suite: CipherSuite = variant.into();
         let key_id = key_id.into();
         log::debug!("Setting up sframe Sender");
-        log::trace!(
-            "KeyID {:?} (ciphersuite {:?})",
-            key_id,
-            cipher_suite.variant
-        );
+        log::trace!("KeyID {:?} (ciphersuite {:?})", key_id, variant);
         Sender {
             frame_count: Default::default(),
             key_id,
-            cipher_suite,
+            cipher_suite: variant,
             enc_key: None,
             buffer: Default::default(),
         }
@@ -98,7 +93,7 @@ impl Sender {
 
             Ok(&self.buffer)
         } else {
-            Err(SframeError::MissingEncryptionKey)
+            Err(SframeError::EncryptionFailure)
         }
     }
 
@@ -111,7 +106,7 @@ impl Sender {
         M: AsRef<[u8]>,
     {
         self.enc_key = Some(EncryptionKey::derive_from(
-            self.cipher_suite.variant,
+            self.cipher_suite,
             self.key_id,
             key_material,
         )?);
@@ -139,7 +134,7 @@ impl From<SenderOptions> for Sender {
         );
         Self {
             key_id: options.key_id,
-            cipher_suite: options.cipher_suite_variant.into(),
+            cipher_suite: options.cipher_suite_variant,
             enc_key: None,
             frame_count: FrameCountGenerator::new(options.max_frame_count),
             buffer: Default::default(),
