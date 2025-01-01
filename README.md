@@ -51,6 +51,7 @@ There is also a variant which allocates the necessary memory and owns the buffer
 
 To convert between `MediaFrame(View)` and `EncryptedFrame(View)` , an `EncryptionKey` or `DecryptionKey` is needed,
 which needs to be derived from a shared and secret key material.
+
 ```
 +------------------+                                  +---------------------+
 |                  |                                  |                     |
@@ -64,13 +65,15 @@ which needs to be derived from a shared and secret key material.
 |                  |                                  |                     |
 +------------------+                                  +---------------------+
 ```
+
 For example:
 
 ```rust
 
 let key_id = 42u64;
-let enc_key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "pw123").unwrap();
-let dec_key = DecryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "pw123").unwrap();
+let key_material = "pw123";
+let enc_key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, key_material).unwrap();
+let dec_key = DecryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, key_material).unwrap();
 
 let frame_count = 1u8;
 let payload = "Something secret";
@@ -87,6 +90,11 @@ let decrypted_media_frame = encrypted_frame
 
 assert_eq!(decrypted_media_frame, media_frame);
 ```
+
+Additionally the library provides:
+
+- Ratchet support as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
+- Sframe MLS definitions as of [RFC 9605 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#name-mls)
 
 ## Examples
 
