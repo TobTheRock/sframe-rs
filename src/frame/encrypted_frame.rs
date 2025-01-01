@@ -111,7 +111,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     /// Dynamically allocates memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
-    pub fn decrypt(&self, key_store: &mut impl KeyStore) -> Result<MediaFrame> {
+    pub fn decrypt(&self, key_store: &impl KeyStore) -> Result<MediaFrame> {
         let mut buffer = Vec::new();
         let view = self.decrypt_into(key_store, &mut buffer)?;
 
@@ -129,7 +129,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf>(
         &self,
-        key_store: &mut impl KeyStore,
+        key_store: &impl KeyStore,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<MediaFrameView<'obuf>> {
         let frame_count = self.header().frame_count();
@@ -275,7 +275,7 @@ impl EncryptedFrame {
     /// Dynamically allocats memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
-    pub fn decrypt(&self, key_store: &mut impl KeyStore) -> Result<MediaFrame> {
+    pub fn decrypt(&self, key_store: &impl KeyStore) -> Result<MediaFrame> {
         let view = EncryptedFrameView::with_header(
             self.header,
             &self.buffer[self.meta_len..],
@@ -292,7 +292,7 @@ impl EncryptedFrame {
     /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf>(
         &self,
-        key_store: &mut impl KeyStore,
+        key_store: &impl KeyStore,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<MediaFrameView<'obuf>> {
         let view = EncryptedFrameView::with_header(

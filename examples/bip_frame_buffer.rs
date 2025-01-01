@@ -112,12 +112,12 @@ fn producer_task(producer: FrameProducer<BUF_SIZE>) {
 }
 
 fn consumer_task(mut consumer: FrameConsumer<BUF_SIZE>) {
-    let mut key = DecryptionKey::derive_from(VARIANT, KEY_ID, SECRET).unwrap();
+    let key = DecryptionKey::derive_from(VARIANT, KEY_ID, SECRET).unwrap();
     loop {
         // Read data from the buffer
         if let Some(grant) = consumer.read() {
             if let Ok(encrypted_frame) = EncryptedFrameView::try_new(grant.as_ref()) {
-                let decrypted = encrypted_frame.decrypt(&mut key);
+                let decrypted = encrypted_frame.decrypt(&key);
                 if let Err(err) = decrypted {
                     println!(
                         "[Consumer] Failed to encrypt frame # {} due to {}",

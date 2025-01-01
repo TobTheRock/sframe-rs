@@ -86,7 +86,7 @@ impl Receiver {
             keys.try_ratchet(encrypted_frame.header().key_id())?;
         }
 
-        encrypted_frame.decrypt_into(&mut self.keys, &mut self.buffer)?;
+        encrypted_frame.decrypt_into(&self.keys, &mut self.buffer)?;
 
         Ok(&self.buffer)
     }
