@@ -6,7 +6,7 @@ use cgisf_lib::{gen_sentence, SentenceConfigBuilder};
 use rand::{thread_rng, Rng};
 use sframe::{
     error::SframeError,
-    frame::{EncryptedFrameView, FrameBuffer, MediaFrameView, Truncate},
+    frame::{EncryptedFrameView, FrameBuffer, MediaFrameView, MonotonicCounter, Truncate},
     key::{DecryptionKey, EncryptionKey},
     CipherSuiteVariant,
 };
@@ -82,7 +82,7 @@ fn sleep(name: &str) {
 
 fn producer_task(producer: FrameProducer<BUF_SIZE>) {
     let key = EncryptionKey::derive_from(VARIANT, KEY_ID, SECRET).unwrap();
-    let mut counter: u64 = 0;
+    let mut counter = MonotonicCounter::default();
     let mut buffer = ProducerBuffer {
         producer,
         samples_to_commit: 0,
@@ -92,20 +92,21 @@ fn producer_task(producer: FrameProducer<BUF_SIZE>) {
         let payload = gen_sentence(SentenceConfigBuilder::random().build());
         println!(
             "[Producer] Commiting frame # {} with payload '{}'",
-            counter, payload
+            counter.current(),
+            payload
         );
 
-        let media_frame = MediaFrameView::new(counter, &payload);
+        let media_frame = MediaFrameView::new(&mut counter, &payload);
 
         if let Err(err) = media_frame.encrypt_into(&key, &mut buffer) {
             println!(
                 "[Producer] Failed to encrypt frame # {} due to {}",
-                counter, err
+                counter.current(),
+                err
             );
         }
 
         buffer.commit();
-        counter += 1;
 
         sleep("Producer");
     }

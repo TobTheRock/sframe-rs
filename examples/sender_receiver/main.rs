@@ -5,7 +5,6 @@ use std::{
     io::{self, BufRead, Write as _},
 };
 
-mod counter_generator;
 mod receiver;
 mod sender;
 

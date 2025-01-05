@@ -1,4 +1,4 @@
-use crate::counter_generator::CounterGenerator;
+use sframe::frame::MonotonicCounter;
 use sframe::{
     error::{Result, SframeError},
     frame::MediaFrameView,
@@ -40,7 +40,7 @@ impl Default for SenderOptions {
 /// single key id ([`KeyId`]). It needs to be initialised with a base key (aka key material) first.
 /// For encryption/ key expansion the used algorithms are configurable (see [`CipherSuiteVariant`]).
 pub struct Sender {
-    counter: CounterGenerator,
+    counter: MonotonicCounter,
     key_id: KeyId,
     cipher_suite: CipherSuiteVariant,
     enc_key: Option<EncryptionKey>,
@@ -84,10 +84,9 @@ impl Sender {
         if let Some(enc_key) = &self.enc_key {
             let unencrypted_frame = unencrypted_frame.as_ref();
 
-            let counter = self.counter.increment();
             let payload = &unencrypted_frame[skip..];
             let meta_data = &unencrypted_frame[..skip];
-            let media_frame = MediaFrameView::with_meta_data(counter, payload, meta_data);
+            let media_frame = MediaFrameView::with_meta_data(&mut self.counter, payload, meta_data);
 
             media_frame.encrypt_into(enc_key, &mut self.buffer)?;
 
@@ -136,7 +135,7 @@ impl From<SenderOptions> for Sender {
             key_id: options.key_id,
             cipher_suite: options.cipher_suite_variant,
             enc_key: None,
-            counter: CounterGenerator::new(options.max_counter),
+            counter: MonotonicCounter::new(options.max_counter),
             buffer: Default::default(),
         }
     }

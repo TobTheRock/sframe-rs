@@ -155,7 +155,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let buffer_slice: &mut [u8] = decryption_buffer.into();
         let (meta_data, payload) = buffer_slice.split_at(meta_len);
 
-        let media_frame = MediaFrameView::with_meta_data(counter, payload, meta_data);
+        let media_frame = MediaFrameView::with_meta_data_and_ctr(counter, payload, meta_data);
         Ok(media_frame)
     }
 }

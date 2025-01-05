@@ -10,7 +10,7 @@ use crate::{
 
 use super::{
     encrypted_frame::{EncryptedFrame, EncryptedFrameView},
-    FrameBuffer,
+    FrameBuffer, FrameCounter,
 };
 
 /// A view on a buffer (as a continuous slice of memory), representing a media frame.
@@ -23,26 +23,40 @@ pub struct MediaFrameView<'buf> {
 }
 
 impl<'ibuf> MediaFrameView<'ibuf> {
-    /// Creates a new view on a payload buffer and assigns it the given frame count
-    pub fn new<C, P>(counter: C, payload: &'ibuf P) -> Self
+    /// Creates a new view on a payload buffer and assigns it the next counter (CTR)  value.
+    pub fn new<P>(frame_counter: &mut impl FrameCounter, payload: &'ibuf P) -> Self
     where
-        C: Into<Counter>,
         P: AsRef<[u8]> + ?Sized,
     {
-        Self::with_meta_data(counter, payload, &[])
+        Self::with_meta_data(frame_counter, payload, &[])
     }
 
     /// Creates a new view on a payload buffer, assigns it the given frame count and associates it with the meta data
-    pub fn with_meta_data<C, P, M>(counter: C, payload: &'ibuf P, meta_data: &'ibuf M) -> Self
+    pub fn with_meta_data<P, M>(
+        frame_counter: &mut impl FrameCounter,
+        payload: &'ibuf P,
+        meta_data: &'ibuf M,
+    ) -> Self
     where
-        C: Into<Counter>,
         P: AsRef<[u8]> + ?Sized,
         M: AsRef<[u8]> + ?Sized,
     {
-        let counter = counter.into();
+        let counter = frame_counter.next();
+        Self::with_meta_data_and_ctr(counter, payload, meta_data)
+    }
+
+    pub(super) fn with_meta_data_and_ctr<P, M>(
+        counter: Counter,
+        payload: &'ibuf P,
+        meta_data: &'ibuf M,
+    ) -> Self
+    where
+        P: AsRef<[u8]> + ?Sized,
+        M: AsRef<[u8]> + ?Sized,
+    {
         let payload = payload.as_ref();
         let meta_data = meta_data.as_ref();
-        log::debug!(
+        log::trace!(
             "Creating MediaFrame # {} with payload size {} using meta data of size {}",
             counter,
             payload.len(),
@@ -152,29 +166,38 @@ pub struct MediaFrame {
 
 impl MediaFrame {
     /// Creates a new media frame by copying the data of a payload buffer and assigning it the given frame count.
-    pub fn new<C, P>(counter: C, payload: P) -> Self
+    pub fn new<P>(frame_counter: &mut impl FrameCounter, payload: P) -> Self
     where
-        C: Into<Counter>,
         P: AsRef<[u8]>,
     {
-        Self::with_meta_data(counter, payload, [])
+        Self::with_meta_data(frame_counter, payload, [])
     }
 
     /// Creates a new media frame and assigns it the given frame count.
     /// Payload and meta data are copied into an internal buffer.
-    pub fn with_meta_data<C, P, M>(counter: C, payload: P, meta_data: M) -> Self
+    pub fn with_meta_data<P, M>(
+        frame_counter: &mut impl FrameCounter,
+        payload: P,
+        meta_data: M,
+    ) -> Self
     where
-        C: Into<Counter>,
         P: AsRef<[u8]>,
         M: AsRef<[u8]>,
     {
-        let counter = counter.into();
+        let counter = frame_counter.next();
+        Self::with_meta_data_and_ctr(counter, payload, meta_data)
+    }
+
+    pub(super) fn with_meta_data_and_ctr<P, M>(counter: Counter, payload: P, meta_data: M) -> Self
+    where
+        P: AsRef<[u8]>,
+        M: AsRef<[u8]>,
+    {
         let payload = payload.as_ref();
         let meta_data = meta_data.as_ref();
         let meta_len = meta_data.len();
         let payload_len = payload.len();
-
-        log::debug!(
+        log::trace!(
             "Creating MediaFrame # {} with payload size {} using meta data of size {}",
             counter,
             payload_len,
@@ -220,7 +243,8 @@ impl MediaFrame {
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails
     pub fn encrypt(&self, key: &EncryptionKey) -> Result<EncryptedFrame> {
-        let view = MediaFrameView::with_meta_data(self.counter, self.payload(), self.meta_data());
+        let view =
+            MediaFrameView::with_meta_data_and_ctr(self.counter, self.payload(), self.meta_data());
         view.encrypt(key)
     }
 
@@ -233,7 +257,8 @@ impl MediaFrame {
         key: &EncryptionKey,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<EncryptedFrameView<'obuf>> {
-        let view = MediaFrameView::with_meta_data(self.counter, self.payload(), self.meta_data());
+        let view =
+            MediaFrameView::with_meta_data_and_ctr(self.counter, self.payload(), self.meta_data());
         view.encrypt_into(key, buffer)
     }
 }
@@ -261,7 +286,7 @@ mod test {
 
     #[test]
     fn create_media_frame_with_meta_data() {
-        let frame_view = MediaFrameView::with_meta_data(COUNTER, &PAYLOAD, &META_DATA);
+        let frame_view = MediaFrameView::with_meta_data_and_ctr(COUNTER, &PAYLOAD, &META_DATA);
 
         assert_eq!(frame_view.payload(), PAYLOAD);
         assert_eq!(frame_view.counter(), COUNTER);
@@ -274,7 +299,7 @@ mod test {
             .unwrap();
         let mut encrypt_buffer = Vec::new();
 
-        let media_frame = MediaFrameView::with_meta_data(COUNTER, &PAYLOAD, META_DATA);
+        let media_frame = MediaFrameView::with_meta_data_and_ctr(COUNTER, &PAYLOAD, META_DATA);
         let encrypted_frame = media_frame.encrypt_into(&key, &mut encrypt_buffer).unwrap();
 
         assert_eq!(encrypted_frame.header().key_id(), KEY_ID);
@@ -288,7 +313,7 @@ mod test {
         let key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET")
             .unwrap();
 
-        let media_frame = MediaFrame::with_meta_data(COUNTER, PAYLOAD, META_DATA);
+        let media_frame = MediaFrame::with_meta_data_and_ctr(COUNTER, PAYLOAD, META_DATA);
         let encrypted_frame = media_frame.encrypt(&key).unwrap();
 
         assert_eq!(encrypted_frame.header().key_id(), KEY_ID);

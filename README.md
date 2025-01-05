@@ -70,23 +70,27 @@ For example:
 
 ```rust
 
-let key_id = 42u64;
-let key_material = "pw123";
-let enc_key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, key_material).unwrap();
-let dec_key = DecryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, key_material).unwrap();
+use sframe::{
+    frame::{EncryptedFrameView, MediaFrameView, MonotonicCounter},
+    key::{DecryptionKey, EncryptionKey},
+    CipherSuiteVariant,
+};
 
-let counter = 1u8;
+let key_id = 42u64;
+let enc_key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "pw123").unwrap();
+let mut counter = MonotonicCounter::default();
 let payload = "Something secret";
 
 let mut encrypt_buffer = Vec::new();
 let mut decrypt_buffer = Vec::new();
-let media_frame = MediaFrameView::new(counter, payload);
+let media_frame = MediaFrameView::new(&mut counter, payload);
 
 let encrypted_frame = media_frame.encrypt_into(&enc_key, &mut encrypt_buffer).unwrap();
 
+let mut dec_key = DecryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "pw123").unwrap();
 let decrypted_media_frame = encrypted_frame
-  .decrypt_into(&mut dec_key, &mut decrypt_buffer)
-  .unwrap();
+    .decrypt_into(&mut dec_key, &mut decrypt_buffer)
+    .unwrap();
 
 assert_eq!(decrypted_media_frame, media_frame);
 ```
