@@ -81,10 +81,7 @@ impl SframeHeader {
             HeaderField::FixedLen(config_byte.ctr_or_clen())
         };
 
-        Ok(Self {
-            key_id,
-            counter,
-        })
+        Ok(Self { key_id, counter })
     }
 
     /// tries to serialize an [`SframeHeader`] into a byte buffer

@@ -80,11 +80,7 @@ impl AeadDecrypt for DecryptionKey {
 }
 
 impl EncryptionKey {
-    fn encrypt_aead(
-        &self,
-        buffer_view: EncryptionBufferView,
-        counter: Counter,
-    ) -> Result<()> {
+    fn encrypt_aead(&self, buffer_view: EncryptionBufferView, counter: Counter) -> Result<()> {
         let secret = self.secret();
         let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(counter);
 
@@ -102,11 +98,7 @@ impl EncryptionKey {
         Ok(())
     }
 
-    fn encrypt_aes_ctr(
-        &self,
-        buffer_view: EncryptionBufferView,
-        counter: Counter,
-    ) -> Result<()> {
+    fn encrypt_aes_ctr(&self, buffer_view: EncryptionBufferView, counter: Counter) -> Result<()> {
         let secret = self.secret();
         let auth_key = secret.auth.as_ref().ok_or(SframeError::EncryptionFailure)?;
         // openssl expects a fixed iv length of 16 byte, thus we needed to pad the sframe nonce
