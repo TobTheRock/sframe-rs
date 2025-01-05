@@ -3,8 +3,8 @@
 use criterion::{black_box, criterion_group, BatchSize, Bencher, BenchmarkId, Criterion};
 use rand::{thread_rng, Rng};
 use sframe::{
-    frame::{EncryptedFrame, MediaFrame, MediaFrameView},
-    header::FrameCount,
+    frame::{EncryptedFrame, FrameCounter, MediaFrame, MediaFrameView, MonotonicCounter},
+    header::Counter,
     key::{DecryptionKey, EncryptionKey},
     CipherSuiteVariant,
 };
@@ -24,7 +24,7 @@ fn payload_sizes() -> &'static [usize] {
 }
 
 struct CryptoBenches {
-    frame_count: FrameCount,
+    counter: MonotonicCounter,
 
     crypt_buffer: Vec<u8>,
     enc_key: EncryptionKey,
@@ -35,7 +35,7 @@ struct CryptoBenches {
 
 impl From<CipherSuiteVariant> for CryptoBenches {
     fn from(variant: CipherSuiteVariant) -> Self {
-        let frame_count = rand::random();
+        let counter = MonotonicCounter::with_start_value(rand::random(), u64::MAX);
 
         let enc_key = EncryptionKey::derive_from(variant, KEY_ID, KEY_MATERIAL).unwrap();
         let dec_key = DecryptionKey::derive_from(variant, KEY_ID, KEY_MATERIAL).unwrap();
@@ -46,7 +46,7 @@ impl From<CipherSuiteVariant> for CryptoBenches {
         Self {
             enc_key,
             dec_key,
-            frame_count,
+            counter,
             crypt_buffer,
             variant,
         }
@@ -63,7 +63,7 @@ impl CryptoBenches {
                     || create_random_media_frame(payload_size),
                     |unencrypted_payload| {
                         let media_frame =
-                            MediaFrameView::new(self.frame_count, &unencrypted_payload);
+                            MediaFrameView::new(&mut self.counter, &unencrypted_payload);
                         let encrypted_frame = media_frame
                             .encrypt_into(&self.enc_key, &mut self.crypt_buffer)
                             .unwrap();
@@ -79,7 +79,7 @@ impl CryptoBenches {
             &format!("decrypt with {:?}", self.variant),
             |b, &payload_size| {
                 b.iter_batched(
-                    || encrypt_random_frame(payload_size, self.frame_count, &self.enc_key),
+                    || encrypt_random_frame(payload_size, &mut self.counter, &self.enc_key),
                     |encrypted_frame| {
                         let decrypted_frame = encrypted_frame
                             .decrypt_into(&self.dec_key, &mut self.crypt_buffer)
@@ -118,16 +118,17 @@ where
 fn create_random_media_frame(size: usize) -> MediaFrame {
     let mut unencrypted_payload = vec![0; size];
     thread_rng().fill(unencrypted_payload.as_mut_slice());
-    MediaFrame::new(thread_rng().gen::<FrameCount>(), unencrypted_payload)
+    let mut counter = MonotonicCounter::new(thread_rng().gen::<Counter>());
+    MediaFrame::new(&mut counter, unencrypted_payload)
 }
 
 fn encrypt_random_frame(
     size: usize,
-    frame_count: FrameCount,
+    counter: &mut impl FrameCounter,
     enc_key: &EncryptionKey,
 ) -> EncryptedFrame {
     let unencrypted_payload = create_random_media_frame(size);
-    let media_frame = MediaFrameView::new(frame_count, &unencrypted_payload);
+    let media_frame = MediaFrameView::new(counter, &unencrypted_payload);
     media_frame.encrypt(enc_key).unwrap()
 }
 

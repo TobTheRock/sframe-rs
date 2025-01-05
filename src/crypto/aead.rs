@@ -1,17 +1,17 @@
 use crate::{
     crypto::buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
     error::Result,
-    header::FrameCount,
+    header::Counter,
 };
 
 pub trait AeadEncrypt {
-    fn encrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
+    fn encrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>;
 }
 
 pub trait AeadDecrypt {
-    fn decrypt<'a, B>(&self, buffer: B, frame_count: FrameCount) -> Result<()>
+    fn decrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>;
 }
@@ -60,7 +60,7 @@ mod test {
         )
         .unwrap();
         enc_key
-            .encrypt(&mut encryption_buffer, header.frame_count())
+            .encrypt(&mut encryption_buffer, header.counter())
             .unwrap();
     }
 
@@ -74,7 +74,7 @@ mod test {
 
         let enc_key = EncryptionKey::from_test_vector(variant, test_vec);
 
-        let header = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
+        let header = SframeHeader::new(test_vec.key_id, test_vec.counter);
         let header_buffer = Vec::from(&header);
 
         let mut aad = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
@@ -89,7 +89,7 @@ mod test {
         };
 
         enc_key
-            .encrypt(encryption_buffer, header.frame_count())
+            .encrypt(encryption_buffer, header.counter())
             .unwrap();
 
         let full_frame = [header_buffer, cipher_text, tag].concat().to_vec();
@@ -105,7 +105,7 @@ mod test {
         let test_vec = get_sframe_test_vector(&variant.to_string());
 
         let dec_key = DecryptionKey::from_test_vector(variant, test_vec);
-        let header: SframeHeader = SframeHeader::new(test_vec.key_id, test_vec.frame_count);
+        let header: SframeHeader = SframeHeader::new(test_vec.key_id, test_vec.counter);
         let header_buffer = Vec::from(&header);
 
         let mut aad = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
@@ -119,7 +119,7 @@ mod test {
         };
 
         dec_key
-            .decrypt(decryption_buffer, header.frame_count())
+            .decrypt(decryption_buffer, header.counter())
             .unwrap();
         data.truncate(data.len() - dec_key.cipher_suite().auth_tag_len);
 

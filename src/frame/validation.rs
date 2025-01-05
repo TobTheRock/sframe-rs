@@ -1,6 +1,6 @@
 use crate::{
     error::{Result, SframeError},
-    header::{FrameCount, SframeHeader},
+    header::{Counter, SframeHeader},
 };
 use std::{cell::Cell, ops::Deref};
 
@@ -24,7 +24,7 @@ impl FrameValidation for FrameValidationBox {
 /// The window of allowed frame counts is given with a certain tolerance.
 pub struct ReplayAttackProtection {
     tolerance: u64,
-    last_frame_count: Cell<FrameCount>,
+    last_counter: Cell<Counter>,
 }
 
 impl ReplayAttackProtection {
@@ -32,35 +32,35 @@ impl ReplayAttackProtection {
     pub fn with_tolerance(tolerance: u64) -> Self {
         ReplayAttackProtection {
             tolerance,
-            last_frame_count: Cell::new(0u64),
+            last_counter: Cell::new(0u64),
         }
     }
 }
 
 impl FrameValidation for ReplayAttackProtection {
     fn validate(&self, header: &SframeHeader) -> Result<()> {
-        let last_frame_count = self.last_frame_count.get();
-        let current_frame_count = header.frame_count();
+        let last_counter = self.last_counter.get();
+        let current_counter = header.counter();
 
-        if current_frame_count > last_frame_count {
+        if current_counter > last_counter {
             // frame is fine and fresh
-            self.last_frame_count.set(current_frame_count);
+            self.last_counter.set(current_counter);
             Ok(())
         } else {
             // frame old
-            let age = last_frame_count - current_frame_count;
+            let age = last_counter - current_counter;
 
             if age <= self.tolerance {
-                self.last_frame_count.set(current_frame_count);
+                self.last_counter.set(current_counter);
                 Ok(())
             } else {
                 // maybe there was an overflow
-                let dist_to_overflow = u64::MAX - last_frame_count;
-                let overflow_age = current_frame_count + dist_to_overflow;
+                let dist_to_overflow = u64::MAX - last_counter;
+                let overflow_age = current_counter + dist_to_overflow;
 
                 // no it's just too old
                 if overflow_age <= self.tolerance {
-                    self.last_frame_count.set(current_frame_count);
+                    self.last_counter.set(current_counter);
                     Ok(())
                 } else {
                     Err(SframeError::FrameValidationFailed(

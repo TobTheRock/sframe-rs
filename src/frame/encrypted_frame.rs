@@ -47,7 +47,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let header = SframeHeader::deserialize(data)?;
         log::trace!(
             "EncryptedFrame # {} with header {}",
-            header.frame_count(),
+            header.counter(),
             header
         );
 
@@ -100,7 +100,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     where
         V: FrameValidation + ?Sized,
     {
-        log::trace!("Validating EncryptedFrame # {}", self.header.frame_count());
+        log::trace!("Validating EncryptedFrame # {}", self.header.counter());
         validator.validate(&self.header)?;
 
         Ok(self)
@@ -116,7 +116,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let view = self.decrypt_into(key_store, &mut buffer)?;
 
         Ok(MediaFrame::with_buffer(
-            view.frame_count(),
+            view.counter(),
             buffer,
             self.meta_data.len(),
         ))
@@ -132,12 +132,12 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         key_store: &impl KeyStore,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<MediaFrameView<'obuf>> {
-        let frame_count = self.header().frame_count();
+        let counter = self.header().counter();
         let key_id = self.header.key_id();
 
         log::trace!(
             "Trying to decrypt EncryptedFrame # {} with KeyId {}",
-            frame_count,
+            counter,
             key_id
         );
 
@@ -147,7 +147,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
 
         let mut decryption_buffer = DecryptionBuffer::try_allocate(buffer, self, self.cipher_text)?;
 
-        key.decrypt(&mut decryption_buffer, frame_count)?;
+        key.decrypt(&mut decryption_buffer, counter)?;
 
         let meta_len = self.meta_data.len();
         decryption_buffer.truncate(key.cipher_suite(), meta_len);
@@ -155,7 +155,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let buffer_slice: &mut [u8] = decryption_buffer.into();
         let (meta_data, payload) = buffer_slice.split_at(meta_len);
 
-        let media_frame = MediaFrameView::with_meta_data(frame_count, payload, meta_data);
+        let media_frame = MediaFrameView::with_meta_data_and_ctr(counter, payload, meta_data);
         Ok(media_frame)
     }
 }
@@ -219,7 +219,7 @@ impl EncryptedFrame {
         let header = SframeHeader::deserialize(data)?;
         log::trace!(
             "EncryptedFrame # {} with header {}",
-            header.frame_count(),
+            header.counter(),
             header
         );
 
@@ -264,7 +264,7 @@ impl EncryptedFrame {
     where
         V: FrameValidation + ?Sized,
     {
-        log::trace!("Validating EncryptedFrame # {}", self.header.frame_count());
+        log::trace!("Validating EncryptedFrame # {}", self.header.counter());
         validator.validate(&self.header)?;
 
         Ok(self)

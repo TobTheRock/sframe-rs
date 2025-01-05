@@ -51,7 +51,7 @@ pub struct HeaderTest {
     #[serde(rename = "kid")]
     pub key_id: u64,
     #[serde(rename = "ctr")]
-    pub frame_count: u64,
+    pub counter: u64,
     #[serde(deserialize_with = "vec_from_hex_str")]
     pub encoded: Vec<u8>,
 }
@@ -98,7 +98,7 @@ pub struct SframeTest {
     pub key_id: u64,
 
     #[serde(rename = "ctr")]
-    pub frame_count: u64,
+    pub counter: u64,
 
     #[serde(rename = "base_key", deserialize_with = "vec_from_hex_str")]
     pub key_material: Vec<u8>,

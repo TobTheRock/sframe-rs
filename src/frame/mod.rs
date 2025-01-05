@@ -19,19 +19,19 @@
 //!
 //! ```rust
 //! use sframe::{
-//!     frame::{EncryptedFrameView, MediaFrameView},
+//!     frame::{EncryptedFrameView, MediaFrameView, MonotonicCounter},
 //!     key::{DecryptionKey, EncryptionKey},
 //!     CipherSuiteVariant,
 //! };
 //!
 //! let key_id = 42u64;
 //! let enc_key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "pw123").unwrap();
-//! let frame_count = 1u8;
+//! let mut counter = MonotonicCounter::default();
 //! let payload = "Something secret";
 //!
 //! let mut encrypt_buffer = Vec::new();
 //! let mut decrypt_buffer = Vec::new();
-//! let media_frame = MediaFrameView::new(frame_count, payload);
+//! let media_frame = MediaFrameView::new(&mut counter, payload);
 //!
 //! let encrypted_frame = media_frame.encrypt_into(&enc_key, &mut encrypt_buffer).unwrap();
 //!
@@ -49,11 +49,13 @@
 
 mod encrypted_frame;
 mod frame_buffer;
+mod frame_counter;
 mod media_frame;
 mod validation;
 
 pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView};
 pub use frame_buffer::{FrameBuffer, Truncate};
+pub use frame_counter::*;
 pub use media_frame::{MediaFrame, MediaFrameView};
 pub use validation::*;
 
@@ -61,14 +63,13 @@ pub use validation::*;
 mod test {
     use super::media_frame::MediaFrameView;
     use crate::{
-        frame::{encrypted_frame::EncryptedFrameView, media_frame::MediaFrame},
+        frame::{encrypted_frame::EncryptedFrameView, media_frame::MediaFrame, MonotonicCounter},
         key::{DecryptionKey, EncryptionKey},
         util::test::assert_bytes_eq,
         CipherSuiteVariant,
     };
     use pretty_assertions::assert_eq;
 
-    const FRAME_COUNT: u64 = 42;
     const PAYLOAD: &[u8] = b"TIME TO PAY";
     const META_DATA: &[u8] = b"META";
     const KEY_ID: u64 = 666u64;
@@ -87,8 +88,9 @@ mod test {
         let (enc_key, dec_key) = expand_keys();
         let mut encrypt_buffer = Vec::new();
         let mut decrypt_buffer = Vec::new();
+        let mut counter = MonotonicCounter::default();
 
-        let media_frame = MediaFrameView::new(FRAME_COUNT, PAYLOAD);
+        let media_frame = MediaFrameView::new(&mut counter, PAYLOAD);
         media_frame
             .encrypt_into(&enc_key, &mut encrypt_buffer)
             .unwrap();
@@ -106,8 +108,9 @@ mod test {
         let (enc_key, dec_key) = expand_keys();
         let mut encrypt_buffer = Vec::new();
         let mut decrypt_buffer = Vec::new();
+        let mut counter = MonotonicCounter::default();
 
-        let media_frame = MediaFrameView::with_meta_data(FRAME_COUNT, PAYLOAD, META_DATA);
+        let media_frame = MediaFrameView::with_meta_data(&mut counter, PAYLOAD, META_DATA);
         media_frame
             .encrypt_into(&enc_key, &mut encrypt_buffer)
             .unwrap();
@@ -126,8 +129,9 @@ mod test {
     #[test]
     fn encrypt_decrypt_frame_with_meta_data() {
         let (enc_key, dec_key) = expand_keys();
+        let mut counter = MonotonicCounter::default();
 
-        let media_frame = MediaFrame::with_meta_data(FRAME_COUNT, PAYLOAD, META_DATA);
+        let media_frame = MediaFrame::with_meta_data(&mut counter, PAYLOAD, META_DATA);
         let encrypted = media_frame.encrypt(&enc_key).unwrap();
 
         assert_bytes_eq(encrypted.meta_data(), META_DATA);
