@@ -3,7 +3,7 @@ use bbqueue::{
     BBBuffer,
 };
 use cgisf_lib::{gen_sentence, SentenceConfigBuilder};
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use sframe::{
     error::SframeError,
     frame::{EncryptedFrameView, FrameBuffer, MediaFrameView, MonotonicCounter, Truncate},
@@ -75,7 +75,7 @@ impl<const N: usize> ProducerBuffer<'_, N> {
 
 fn sleep(name: &str) {
     // Sleep for a random time to simulate load
-    let t = Duration::from_millis(thread_rng().gen_range(100..2000));
+    let t = Duration::from_millis(rng().random_range(100..2000));
     println!("[{}] : Sleeping for {} ms", name, t.as_millis());
     thread::sleep(t);
 }
