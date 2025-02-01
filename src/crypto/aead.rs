@@ -34,7 +34,7 @@ mod test {
         util::test::assert_bytes_eq,
     };
 
-    use rand::{thread_rng, Rng};
+    use rand::{rng, Rng};
     use test_case::test_case;
 
     const KEY_MATERIAL: &str = "THIS_IS_RANDOM";
@@ -42,7 +42,7 @@ mod test {
     #[test]
     fn encrypt_random_frame() {
         let mut data = vec![0u8; 1024];
-        thread_rng().fill(data.as_mut_slice());
+        rng().fill(data.as_mut_slice());
         let header = SframeHeader::new(0, 0);
         let enc_key = EncryptionKey::derive_from(
             CipherSuiteVariant::AesGcm256Sha512,

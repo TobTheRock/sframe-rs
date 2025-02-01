@@ -1,7 +1,7 @@
 #![allow(clippy::unit_arg)]
 
 use criterion::{black_box, criterion_group, BatchSize, Bencher, BenchmarkId, Criterion};
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use sframe::{
     frame::{EncryptedFrame, FrameCounter, MediaFrame, MediaFrameView, MonotonicCounter},
     header::Counter,
@@ -117,8 +117,8 @@ where
 
 fn create_random_media_frame(size: usize) -> MediaFrame {
     let mut unencrypted_payload = vec![0; size];
-    thread_rng().fill(unencrypted_payload.as_mut_slice());
-    let mut counter = MonotonicCounter::new(thread_rng().gen::<Counter>());
+    rng().fill(unencrypted_payload.as_mut_slice());
+    let mut counter = MonotonicCounter::new(rng().random::<Counter>());
     MediaFrame::new(&mut counter, unencrypted_payload)
 }
 

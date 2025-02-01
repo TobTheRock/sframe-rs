@@ -1,11 +1,11 @@
 use criterion::{black_box, criterion_group, Criterion};
 
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use sframe::header::SframeHeader;
 
 fn create_random_values(size: usize) -> Vec<u64> {
     let mut values = vec![0; size];
-    thread_rng().fill(values.as_mut_slice());
+    rng().fill(values.as_mut_slice());
     values
 }
 
