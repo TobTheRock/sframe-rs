@@ -19,7 +19,7 @@ keywords = ["rfc9605", "encryption", "sframe", "secure-frame", "wasm"]
 categories = ["cryptography", "wasm", "web-programming", "network-programming"]
 
 [dependencies]
-bitfield = "0.18"
+bitfield = "0.19"
 cfg-if = "1.0"
 log = "0.4"
 thiserror = "2.0"
