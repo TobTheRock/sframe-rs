@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2025-04-13
+
+### Refactor
+
+- [**breaking**] Rename FrameCount to Counter
+> rename FrameCount to Counter
+- [**breaking**] Introduce a frame counter trait
+> introduce a frame counter trait
+
 ## [0.8.0] - 2025-01-01
 
 ### Bug Fixes
