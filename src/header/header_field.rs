@@ -47,7 +47,7 @@ impl VariableLengthField {
         let iter = iter.take(U64_LEN);
         let length = iter.len();
 
-        let zero_padding = std::iter::repeat(&0u8).take(U64_LEN - length);
+        let zero_padding = std::iter::repeat_n(&0u8, U64_LEN - length);
         let be_bytes = zero_padding
             .chain(iter)
             .copied()

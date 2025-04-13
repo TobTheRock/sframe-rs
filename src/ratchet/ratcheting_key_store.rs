@@ -98,7 +98,7 @@ impl RatchetingKeyStore {
             .0)
             % max_ratchet_value;
 
-        let next_base_key = (0..step_diff).map(|_| keys.base_key.next_base_key()).last();
+        let next_base_key = (0..step_diff).map(|_| keys.base_key.next_base_key()).next_back();
         if let Some(next_base_key) = next_base_key {
             let (next_key_id, next_material) = next_base_key?;
             keys.dec_key = DecryptionKey::derive_from(
