@@ -67,7 +67,7 @@ optional = true
 bbqueue = "0.5"
 cgisf_lib = "0.2"
 clap = { version = "4.5", features = ["derive"] }
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.6", features = ["html_reports"] }
 hex = "0.4"
 lazy_static = "1.5"
 phf = { version = "0.11", features = ["macros"] }
