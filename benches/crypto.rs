@@ -2,7 +2,7 @@
 
 use std::hint::black_box;
 
-use criterion::{ criterion_group, BatchSize, Bencher, BenchmarkId, Criterion};
+use criterion::{criterion_group, BatchSize, Bencher, BenchmarkId, Criterion};
 use rand::{rng, Rng};
 use sframe::{
     frame::{EncryptedFrame, FrameCounter, MediaFrame, MediaFrameView, MonotonicCounter},
