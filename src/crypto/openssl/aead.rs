@@ -2,14 +2,14 @@ use crate::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
         buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
-        cipher_suite::CipherSuite,
+        cipher_suite::CipherSuiteParams,
     },
     error::Result,
     header::Counter,
     key::{DecryptionKey, EncryptionKey},
 };
 
-use crate::{crypto::cipher_suite::CipherSuiteVariant, error::SframeError};
+use crate::{crypto::cipher_suite::CipherSuite, error::SframeError};
 
 const AES_GCM_IV_LEN: usize = 12;
 const AES_CTR_IVS_LEN: usize = 16;
@@ -20,7 +20,7 @@ impl AeadEncrypt for EncryptionKey {
         B: Into<EncryptionBufferView<'a>>,
     {
         let buffer_view = buffer.into();
-        if self.cipher_suite().is_ctr_mode() {
+        if self.cipher_suite_params().is_ctr_mode() {
             self.encrypt_aes_ctr(buffer_view, counter)
         } else {
             self.encrypt_aead(buffer_view, counter)
@@ -37,7 +37,7 @@ impl AeadDecrypt for DecryptionKey {
     {
         let buffer_view = buffer.into();
         let cipher_text = buffer_view.cipher_text;
-        let cipher_suite = self.cipher_suite();
+        let cipher_suite = self.cipher_suite_params();
         let secret = self.secret();
 
         if cipher_text.len() < cipher_suite.auth_tag_len {
@@ -45,7 +45,7 @@ impl AeadDecrypt for DecryptionKey {
         }
 
         // TODO maybe we could store the cipher permanently, small performance gain (similar for ring)
-        let cipher = cipher_suite.variant.into();
+        let cipher = cipher_suite.cipher_suite.into();
 
         let encrypted_len = cipher_text.len() - cipher_suite.auth_tag_len;
         let encrypted = &cipher_text[..encrypted_len];
@@ -86,7 +86,7 @@ impl EncryptionKey {
 
         // TODO this allocates a new vec, maybe use the openssl cipher API direct instead of allocating
         let out = openssl::symm::encrypt_aead(
-            self.cipher_suite().variant.into(),
+            self.cipher_suite_params().cipher_suite.into(),
             &secret.key,
             Some(&nonce),
             buffer_view.aad,
@@ -103,18 +103,18 @@ impl EncryptionKey {
         let auth_key = secret.auth.as_ref().ok_or(SframeError::EncryptionFailure)?;
         // openssl expects a fixed iv length of 16 byte, thus we needed to pad the sframe nonce
         let initial_counter = secret.create_nonce::<AES_CTR_IVS_LEN>(counter);
-        let nonce = &initial_counter[..self.cipher_suite().nonce_len];
+        let nonce = &initial_counter[..self.cipher_suite_params().nonce_len];
 
         // TODO this allocates a new vec, maybe use the openssl cipher API direct instead of allocating
         let encrypted = openssl::symm::encrypt(
-            self.cipher_suite().variant.into(),
+            self.cipher_suite_params().cipher_suite.into(),
             &secret.key,
             Some(&initial_counter),
             buffer_view.cipher_text,
         )?;
 
         let tag = compute_tag(
-            self.cipher_suite(),
+            self.cipher_suite_params(),
             auth_key,
             buffer_view.aad,
             nonce,
@@ -150,14 +150,16 @@ impl DecryptionKey {
     ) -> Result<Vec<u8>> {
         let secret = self.secret();
         let initial_counter: [u8; 16] = secret.create_nonce::<AES_CTR_IVS_LEN>(counter);
-        let nonce = &initial_counter[..self.cipher_suite().nonce_len];
+        let nonce = &initial_counter[..self.cipher_suite_params().nonce_len];
         let auth_key = secret.auth.as_ref().ok_or(SframeError::DecryptionFailure)?;
 
-        let candidate_tag = compute_tag(self.cipher_suite(), auth_key, aad, nonce, encrypted)
-            .map_err(|err| {
-                log::debug!("Decryption failed, OpenSSL error stack: {err}");
-                SframeError::DecryptionFailure
-            })?;
+        let candidate_tag =
+            compute_tag(self.cipher_suite_params(), auth_key, aad, nonce, encrypted).map_err(
+                |err| {
+                    log::debug!("Decryption failed, OpenSSL error stack: {err}");
+                    SframeError::DecryptionFailure
+                },
+            )?;
 
         if !openssl::memcmp::eq(tag, candidate_tag.as_ref()) {
             log::debug!("Tags mismatching, discarding frame.");
@@ -173,7 +175,7 @@ impl DecryptionKey {
 }
 
 fn compute_tag(
-    &cipher_suite: &CipherSuite,
+    &cipher_suite: &CipherSuiteParams,
     auth_key: &[u8],
     aad: &[u8],
     nonce: &[u8],
@@ -203,14 +205,14 @@ impl From<openssl::error::ErrorStack> for SframeError {
     }
 }
 
-impl From<CipherSuiteVariant> for openssl::symm::Cipher {
-    fn from(variant: CipherSuiteVariant) -> Self {
-        match variant {
-            CipherSuiteVariant::AesCtr128HmacSha256_80
-            | CipherSuiteVariant::AesCtr128HmacSha256_64
-            | CipherSuiteVariant::AesCtr128HmacSha256_32 => openssl::symm::Cipher::aes_128_ctr(),
-            CipherSuiteVariant::AesGcm128Sha256 => openssl::symm::Cipher::aes_128_gcm(),
-            CipherSuiteVariant::AesGcm256Sha512 => openssl::symm::Cipher::aes_256_gcm(),
+impl From<CipherSuite> for openssl::symm::Cipher {
+    fn from(cipher_suite: CipherSuite) -> Self {
+        match cipher_suite {
+            CipherSuite::AesCtr128HmacSha256_80
+            | CipherSuite::AesCtr128HmacSha256_64
+            | CipherSuite::AesCtr128HmacSha256_32 => openssl::symm::Cipher::aes_128_ctr(),
+            CipherSuite::AesGcm128Sha256 => openssl::symm::Cipher::aes_128_gcm(),
+            CipherSuite::AesGcm256Sha512 => openssl::symm::Cipher::aes_256_gcm(),
         }
     }
 }

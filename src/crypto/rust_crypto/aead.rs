@@ -19,7 +19,7 @@ use hkdf::hmac::{Mac, SimpleHmac};
 use sha2::digest::Update;
 use sha2::Sha256;
 
-use crate::{crypto::cipher_suite::CipherSuiteVariant, error::SframeError};
+use crate::{crypto::cipher_suite::CipherSuite, error::SframeError};
 
 impl AeadEncrypt for EncryptionKey {
     fn encrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
@@ -27,28 +27,28 @@ impl AeadEncrypt for EncryptionKey {
         B: Into<EncryptionBufferView<'a>>,
     {
         let buffer_view = buffer.into();
-        match self.cipher_suite().variant {
-            CipherSuiteVariant::AesGcm256Sha512 => self
+        match self.cipher_suite_params().cipher_suite {
+            CipherSuite::AesGcm256Sha512 => self
                 .encrypt_in_place_detached::<Aes256Gcm, { Aes256Gcm::IV_LEN }>(
                     counter,
                     buffer_view,
                 ),
-            CipherSuiteVariant::AesGcm128Sha256 => self
+            CipherSuite::AesGcm128Sha256 => self
                 .encrypt_in_place_detached::<Aes128Gcm, { Aes128Gcm::IV_LEN }>(
                     counter,
                     buffer_view,
                 ),
-            CipherSuiteVariant::AesCtr128HmacSha256_32 => self
+            CipherSuite::AesCtr128HmacSha256_32 => self
                 .encrypt_in_place_detached::<AesCtr128Hmac<U4>, { AesCtr128Hmac::<U4>::IV_LEN }>(
                     counter,
                     buffer_view,
                 ),
-            CipherSuiteVariant::AesCtr128HmacSha256_64 => self
+            CipherSuite::AesCtr128HmacSha256_64 => self
                 .encrypt_in_place_detached::<AesCtr128Hmac<U8>, { AesCtr128Hmac::<U8>::IV_LEN }>(
                     counter,
                     buffer_view,
                 ),
-            CipherSuiteVariant::AesCtr128HmacSha256_80 => self
+            CipherSuite::AesCtr128HmacSha256_80 => self
                 .encrypt_in_place_detached::<AesCtr128Hmac<U10>, { AesCtr128Hmac::<U10>::IV_LEN }>(
                     counter,
                     buffer_view,
@@ -91,28 +91,28 @@ impl AeadDecrypt for DecryptionKey {
         B: Into<DecryptionBufferView<'a>>,
     {
         let buffer_view = buffer.into();
-        match self.cipher_suite().variant {
-            CipherSuiteVariant::AesGcm256Sha512 => self
+        match self.cipher_suite_params().cipher_suite {
+            CipherSuite::AesGcm256Sha512 => self
                 .decrypt_in_place_detached::<Aes256Gcm, { Aes256Gcm::IV_LEN }>(
                     counter,
                     buffer_view,
                 ),
-            CipherSuiteVariant::AesGcm128Sha256 => self
+            CipherSuite::AesGcm128Sha256 => self
                 .decrypt_in_place_detached::<Aes128Gcm, { Aes128Gcm::IV_LEN }>(
                     counter,
                     buffer_view,
                 ),
-            CipherSuiteVariant::AesCtr128HmacSha256_80 => self
+            CipherSuite::AesCtr128HmacSha256_80 => self
                 .decrypt_in_place_detached::<AesCtr128Hmac<U10>, { AesCtr128Hmac::<U10>::IV_LEN }>(
                     counter,
                     buffer_view,
                 ),
-            CipherSuiteVariant::AesCtr128HmacSha256_64 => self
+            CipherSuite::AesCtr128HmacSha256_64 => self
                 .decrypt_in_place_detached::<AesCtr128Hmac<U8>, { AesCtr128Hmac::<U8>::IV_LEN }>(
                     counter,
                     buffer_view,
                 ),
-            CipherSuiteVariant::AesCtr128HmacSha256_32 => self
+            CipherSuite::AesCtr128HmacSha256_32 => self
                 .decrypt_in_place_detached::<AesCtr128Hmac<U4>, { AesCtr128Hmac::<U4>::IV_LEN }>(
                     counter,
                     buffer_view,
@@ -130,7 +130,7 @@ impl DecryptionKey {
     where
         A: AeadInPlace + AeadCore + InitFromSecret<'a>,
     {
-        let cipher_suite = self.cipher_suite();
+        let cipher_suite = self.cipher_suite_params();
         let cipher_text = buffer_view.cipher_text;
         if cipher_text.len() < cipher_suite.auth_tag_len {
             return Err(SframeError::DecryptionFailure);
@@ -226,7 +226,7 @@ where
     T: ArrayLength<u8>,
 {
     fn compute_tag(&self, iv: &[u8], aad: &[u8], ct: &[u8]) -> SimpleHmac<Sha256> {
-        // TODO generalize this, is given by CipherSuite
+        // TODO generalize this, is given by CipherSuiteParams
         const NONCE_LEN: usize = 12;
         let nonce = &iv[0..NONCE_LEN];
 

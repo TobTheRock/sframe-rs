@@ -3,7 +3,7 @@
 /// see [RFC 9605 4.4](https://www.rfc-editor.org/rfc/rfc9605.html#name-cipher-suites)
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(u16)]
-pub enum CipherSuiteVariant {
+pub enum CipherSuite {
     // /// counter mode is [not implemented in ring](https://github.com/briansmith/ring/issues/656)
     #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
     /// encryption: AES CTR 128 with 80 bit HMAC authentication tag, key expansion: HKDF with SHA256,
@@ -20,17 +20,17 @@ pub enum CipherSuiteVariant {
     AesGcm256Sha512 = 0x0005,
 }
 
-impl std::fmt::Display for CipherSuiteVariant {
+impl std::fmt::Display for CipherSuite {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            CipherSuiteVariant::AesCtr128HmacSha256_80 => "AesCtr128HmacSha256_80",
+            CipherSuite::AesCtr128HmacSha256_80 => "AesCtr128HmacSha256_80",
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            CipherSuiteVariant::AesCtr128HmacSha256_64 => "AesCtr128HmacSha256_64",
+            CipherSuite::AesCtr128HmacSha256_64 => "AesCtr128HmacSha256_64",
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            CipherSuiteVariant::AesCtr128HmacSha256_32 => "AesCtr128HmacSha256_32",
-            CipherSuiteVariant::AesGcm128Sha256 => "AesGcm128Sha256",
-            CipherSuiteVariant::AesGcm256Sha512 => "AesGcm256Sha512",
+            CipherSuite::AesCtr128HmacSha256_32 => "AesCtr128HmacSha256_32",
+            CipherSuite::AesGcm128Sha256 => "AesGcm128Sha256",
+            CipherSuite::AesGcm256Sha512 => "AesGcm256Sha512",
         };
         f.write_str(str)
     }
@@ -39,8 +39,8 @@ impl std::fmt::Display for CipherSuiteVariant {
 // TODO convert this into a trait
 /// cipher suite as of [RFC 9605 4.5](https://www.rfc-editor.org/rfc/rfc9605.html#cipher-suites)
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct CipherSuite {
-    pub variant: CipherSuiteVariant,
+pub struct CipherSuiteParams {
+    pub cipher_suite: CipherSuite,
     /// Hash.Nh - The size in bytes of the output of the hash function
     pub hash_len: usize,
     /// AEAD.Nk - The size in bytes of a key for the encryption algorithm
@@ -51,42 +51,42 @@ pub struct CipherSuite {
     pub auth_tag_len: usize,
 }
 
-impl From<CipherSuiteVariant> for CipherSuite {
-    fn from(variant: CipherSuiteVariant) -> Self {
-        match variant {
+impl From<CipherSuite> for CipherSuiteParams {
+    fn from(cipher_suite: CipherSuite) -> Self {
+        match cipher_suite {
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            CipherSuiteVariant::AesCtr128HmacSha256_80 => CipherSuite {
-                variant,
+            CipherSuite::AesCtr128HmacSha256_80 => CipherSuiteParams {
+                cipher_suite,
                 hash_len: 32,
                 key_len: 48,
                 nonce_len: 12,
                 auth_tag_len: 10,
             },
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            CipherSuiteVariant::AesCtr128HmacSha256_64 => CipherSuite {
-                variant,
+            CipherSuite::AesCtr128HmacSha256_64 => CipherSuiteParams {
+                cipher_suite,
                 hash_len: 32,
                 key_len: 48,
                 nonce_len: 12,
                 auth_tag_len: 8,
             },
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            CipherSuiteVariant::AesCtr128HmacSha256_32 => CipherSuite {
-                variant,
+            CipherSuite::AesCtr128HmacSha256_32 => CipherSuiteParams {
+                cipher_suite,
                 hash_len: 32,
                 key_len: 48,
                 nonce_len: 12,
                 auth_tag_len: 4,
             },
-            CipherSuiteVariant::AesGcm128Sha256 => CipherSuite {
-                variant,
+            CipherSuite::AesGcm128Sha256 => CipherSuiteParams {
+                cipher_suite,
                 hash_len: 32,
                 key_len: 16,
                 nonce_len: 12,
                 auth_tag_len: 16,
             },
-            CipherSuiteVariant::AesGcm256Sha512 => CipherSuite {
-                variant,
+            CipherSuite::AesGcm256Sha512 => CipherSuiteParams {
+                cipher_suite,
                 hash_len: 64,
                 key_len: 32,
                 nonce_len: 12,
@@ -96,15 +96,15 @@ impl From<CipherSuiteVariant> for CipherSuite {
     }
 }
 
-impl CipherSuite {
+impl CipherSuiteParams {
     #[cfg(any(feature = "openssl", test))]
     pub(crate) fn is_ctr_mode(&self) -> bool {
-        match self.variant {
+        match self.cipher_suite {
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            CipherSuiteVariant::AesCtr128HmacSha256_80
-            | CipherSuiteVariant::AesCtr128HmacSha256_64
-            | CipherSuiteVariant::AesCtr128HmacSha256_32 => true,
-            CipherSuiteVariant::AesGcm128Sha256 | CipherSuiteVariant::AesGcm256Sha512 => false,
+            CipherSuite::AesCtr128HmacSha256_80
+            | CipherSuite::AesCtr128HmacSha256_64
+            | CipherSuite::AesCtr128HmacSha256_32 => true,
+            CipherSuite::AesGcm128Sha256 | CipherSuite::AesGcm256Sha512 => false,
         }
     }
 }

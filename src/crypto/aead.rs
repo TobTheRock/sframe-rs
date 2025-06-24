@@ -26,7 +26,7 @@ mod test {
                 decryption::DecryptionBufferView,
                 encryption::{EncryptionBuffer, EncryptionBufferView},
             },
-            cipher_suite::CipherSuiteVariant,
+            cipher_suite::CipherSuite,
         },
         header::{KeyId, SframeHeader},
         key::{DecryptionKey, EncryptionKey},
@@ -45,7 +45,7 @@ mod test {
         rng().fill(data.as_mut_slice());
         let header = SframeHeader::new(0, 0);
         let enc_key = EncryptionKey::derive_from(
-            CipherSuiteVariant::AesGcm256Sha512,
+            CipherSuite::AesGcm256Sha512,
             KeyId::default(),
             KEY_MATERIAL.as_bytes(),
         )
@@ -54,7 +54,7 @@ mod test {
         let mut frame_buffer = Vec::new();
         let mut encryption_buffer = EncryptionBuffer::try_allocate(
             &mut frame_buffer,
-            enc_key.cipher_suite(),
+            enc_key.cipher_suite_params(),
             &Vec::from(&header),
             &data,
         )
@@ -64,15 +64,15 @@ mod test {
             .unwrap();
     }
 
-    #[test_case(CipherSuiteVariant::AesGcm128Sha256; "AesGcm128Sha256")]
-    #[test_case(CipherSuiteVariant::AesGcm256Sha512; "AesGcm256Sha512")]
-    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
-    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
-    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
-    fn encrypt_test_vector(variant: CipherSuiteVariant) {
-        let test_vec = get_sframe_test_vector(&variant.to_string());
+    #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]
+    #[test_case(CipherSuite::AesGcm256Sha512; "AesGcm256Sha512")]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuite::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuite::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuite::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
+    fn encrypt_test_vector(cipher_suite: CipherSuite) {
+        let test_vec = get_sframe_test_vector(&cipher_suite.to_string());
 
-        let enc_key = EncryptionKey::from_test_vector(variant, test_vec);
+        let enc_key = EncryptionKey::from_test_vector(cipher_suite, test_vec);
 
         let header = SframeHeader::new(test_vec.key_id, test_vec.counter);
         let header_buffer = Vec::from(&header);
@@ -81,7 +81,7 @@ mod test {
         assert_bytes_eq(&aad, &test_vec.aad);
 
         let mut cipher_text = test_vec.plain_text.clone();
-        let mut tag = vec![0u8; enc_key.cipher_suite().auth_tag_len];
+        let mut tag = vec![0u8; enc_key.cipher_suite_params().auth_tag_len];
         let encryption_buffer = EncryptionBufferView {
             aad: &mut aad,
             cipher_text: &mut cipher_text,
@@ -96,15 +96,15 @@ mod test {
         assert_bytes_eq(&full_frame, &test_vec.cipher_text);
     }
 
-    #[test_case(CipherSuiteVariant::AesGcm128Sha256; "AesGcm128Sha256")]
-    #[test_case(CipherSuiteVariant::AesGcm256Sha512; "AesGcm256Sha512")]
-    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
-    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
-    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
-    fn decrypt_test_vector(variant: CipherSuiteVariant) {
-        let test_vec = get_sframe_test_vector(&variant.to_string());
+    #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]
+    #[test_case(CipherSuite::AesGcm256Sha512; "AesGcm256Sha512")]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuite::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuite::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
+    #[cfg_attr(any(feature = "openssl", feature = "rust-crypto"), test_case(CipherSuite::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
+    fn decrypt_test_vector(cipher_suite: CipherSuite) {
+        let test_vec = get_sframe_test_vector(&cipher_suite.to_string());
 
-        let dec_key = DecryptionKey::from_test_vector(variant, test_vec);
+        let dec_key = DecryptionKey::from_test_vector(cipher_suite, test_vec);
         let header: SframeHeader = SframeHeader::new(test_vec.key_id, test_vec.counter);
         let header_buffer = Vec::from(&header);
 
@@ -121,7 +121,7 @@ mod test {
         dec_key
             .decrypt(decryption_buffer, header.counter())
             .unwrap();
-        data.truncate(data.len() - dec_key.cipher_suite().auth_tag_len);
+        data.truncate(data.len() - dec_key.cipher_suite_params().auth_tag_len);
 
         assert_bytes_eq(&data, &test_vec.plain_text);
     }
