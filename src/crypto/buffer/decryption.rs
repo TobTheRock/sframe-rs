@@ -1,5 +1,5 @@
 use crate::{
-    crypto::cipher_suite::CipherSuite,
+    crypto::cipher_suite::CipherSuiteParams,
     error::Result,
     frame::{FrameBuffer, Truncate},
 };
@@ -45,7 +45,7 @@ where
 
         Ok(decryption_buffer)
     }
-    pub fn truncate(&mut self, cipher_suite: &CipherSuite, dest: usize) {
+    pub fn truncate(&mut self, cipher_suite: &CipherSuiteParams, dest: usize) {
         let decrypted_begin = self.aad_len;
         let decrypted_len = self.cipher_text_len - cipher_suite.auth_tag_len;
         let decrypted_end = decrypted_begin + decrypted_len;
@@ -93,7 +93,7 @@ where
 mod test {
 
     use crate::{
-        crypto::{buffer::test::TestAadData, cipher_suite::CipherSuite},
+        crypto::{buffer::test::TestAadData, cipher_suite::CipherSuiteParams},
         CipherSuiteVariant,
     };
 
@@ -116,7 +116,7 @@ mod test {
     #[test]
     fn truncate_decryption_buffer() {
         let mut buf = vec![];
-        let cipher_suite = CipherSuite::from(CipherSuiteVariant::AesGcm128Sha256);
+        let cipher_suite = CipherSuiteParams::from(CipherSuiteVariant::AesGcm128Sha256);
         let encrypted_data: Vec<u8> = (5..5 + cipher_suite.auth_tag_len)
             .map(|x| x as u8)
             .collect();

@@ -2,7 +2,7 @@ use crate::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
         buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
-        cipher_suite::CipherSuite,
+        cipher_suite::CipherSuiteParams,
     },
     error::Result,
     header::Counter,
@@ -173,7 +173,7 @@ impl DecryptionKey {
 }
 
 fn compute_tag(
-    &cipher_suite: &CipherSuite,
+    &cipher_suite: &CipherSuiteParams,
     auth_key: &[u8],
     aad: &[u8],
     nonce: &[u8],

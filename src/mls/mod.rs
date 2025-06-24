@@ -1,5 +1,5 @@
 use crate::{
-    crypto::cipher_suite::CipherSuite,
+    crypto::cipher_suite::CipherSuiteParams,
     error::SframeError,
     key::{DecryptionKey, EncryptionKey},
     CipherSuiteVariant,
@@ -38,7 +38,7 @@ macro_rules! mls_key {
                 exporter: &impl MlsExporter,
                 key_id: MlsKeyId,
             ) -> crate::error::Result<Self> {
-                let cipher_suite = CipherSuite::from(variant);
+                let cipher_suite = CipherSuiteParams::from(variant);
                 let base_key = exporter
                     .export_secret("SFrame 1.0 Base Key", b"", cipher_suite.key_len)
                     .map_err(|err| {

@@ -1,6 +1,6 @@
 use crate::{
     crypto::{
-        cipher_suite::{CipherSuite, CipherSuiteVariant},
+        cipher_suite::{CipherSuiteParams, CipherSuiteVariant},
         common::key_derivation::expand_subsecret,
         key_derivation::{
             get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label, get_hkdf_salt_expand_label,
@@ -13,7 +13,7 @@ use crate::{
 };
 
 impl KeyDerivation for Secret {
-    fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Secret>
+    fn expand_from<M, K>(cipher_suite: &CipherSuiteParams, key_material: M, key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>,
@@ -39,7 +39,7 @@ impl KeyDerivation for Secret {
 }
 
 impl Ratcheting for Vec<u8> {
-    fn ratchet(&self, cipher_suite: &CipherSuite) -> Result<Vec<u8>>
+    fn ratchet(&self, cipher_suite: &CipherSuiteParams) -> Result<Vec<u8>>
     where
         Self: AsRef<[u8]>,
     {
@@ -55,7 +55,7 @@ impl Ratcheting for Vec<u8> {
 }
 
 fn expand_secret(
-    cipher_suite: &CipherSuite,
+    cipher_suite: &CipherSuiteParams,
     key_material: &[u8],
     key_id: u64,
 ) -> std::result::Result<(Vec<u8>, Vec<u8>), openssl::error::ErrorStack> {
@@ -78,7 +78,7 @@ fn expand_secret(
 }
 
 fn extract_pseudo_random_key(
-    cipher_suite: &CipherSuite,
+    cipher_suite: &CipherSuiteParams,
     key_material: &[u8],
     salt: &[u8],
 ) -> std::result::Result<Vec<u8>, openssl::error::ErrorStack> {
@@ -95,7 +95,7 @@ fn extract_pseudo_random_key(
 }
 
 fn expand_key(
-    cipher_suite: &CipherSuite,
+    cipher_suite: &CipherSuiteParams,
     prk: &[u8],
     info: &[u8],
     key_len: usize,
@@ -113,7 +113,7 @@ fn expand_key(
 }
 
 fn init_openssl_ctx(
-    cipher_suite: &CipherSuite,
+    cipher_suite: &CipherSuiteParams,
 ) -> std::result::Result<openssl::pkey_ctx::PkeyCtx<()>, openssl::error::ErrorStack> {
     let mut ctx = openssl::pkey_ctx::PkeyCtx::new_id(openssl::pkey::Id::HKDF)?;
     ctx.derive_init()?;
@@ -148,7 +148,7 @@ mod test {
     #[test_case(CipherSuiteVariant::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32")]
     fn derive_correct_sub_keys(variant: CipherSuiteVariant) {
         let test_vec = get_aes_ctr_test_vector(&variant.to_string());
-        let cipher_suite = CipherSuite::from(variant);
+        let cipher_suite = CipherSuiteParams::from(variant);
 
         let (key, auth) = expand_subsecret(&cipher_suite, &test_vec.base_key);
         assert_bytes_eq(&key, &test_vec.enc_key);

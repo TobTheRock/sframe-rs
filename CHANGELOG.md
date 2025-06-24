@@ -158,7 +158,7 @@ replaced with a dedicated `EncryptionKey` (used for e.g. `MediaFrameView::encryp
 - Add FrameValidation in Receiver
 - Impl from trait for KeyId
 - Implement AesGcm128Sha256
-- Allow configuring ciphersuite of sender and receiver
+- Allow configuring CipherSuiteParams of sender and receiver
 - Github actions
 
 ### Performance
@@ -193,7 +193,7 @@ The user is now responsible of copying data on subsequential encrypt/decrypt cal
 - Add FrameValidation in Receiver
 - Impl from trait for KeyId
 - Implement AesGcm128Sha256
-- Allow configuring ciphersuite of sender and receiver
+- Allow configuring CipherSuiteParams of sender and receiver
 - Github actions
 
 ### Performance

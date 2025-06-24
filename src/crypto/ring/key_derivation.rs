@@ -1,6 +1,6 @@
 use crate::{
     crypto::{
-        cipher_suite::{CipherSuite, CipherSuiteVariant},
+        cipher_suite::{CipherSuiteParams, CipherSuiteVariant},
         key_derivation::{
             get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label, get_hkdf_salt_expand_label,
             KeyDerivation, Ratcheting,
@@ -12,7 +12,7 @@ use crate::{
 };
 
 impl KeyDerivation for Secret {
-    fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Secret>
+    fn expand_from<M, K>(cipher_suite: &CipherSuiteParams, key_material: M, key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>,
@@ -43,7 +43,7 @@ impl KeyDerivation for Secret {
 }
 
 impl Ratcheting for Vec<u8> {
-    fn ratchet(&self, cipher_suite: &CipherSuite) -> Result<Vec<u8>>
+    fn ratchet(&self, cipher_suite: &CipherSuiteParams) -> Result<Vec<u8>>
     where
         Self: AsRef<[u8]>,
     {

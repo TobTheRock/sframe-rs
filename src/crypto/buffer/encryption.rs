@@ -1,4 +1,4 @@
-use crate::{crypto::cipher_suite::CipherSuite, error::Result, frame::FrameBuffer};
+use crate::{crypto::cipher_suite::CipherSuiteParams, error::Result, frame::FrameBuffer};
 
 use super::AadData;
 
@@ -17,7 +17,7 @@ pub struct EncryptionBuffer<'a> {
 impl<'a> EncryptionBuffer<'a> {
     pub fn try_allocate(
         buffer: &'a mut impl FrameBuffer,
-        cipher_suite: &CipherSuite,
+        cipher_suite: &CipherSuiteParams,
         aad_data: &impl AadData,
         unencrypted_data: &[u8],
     ) -> Result<Self> {

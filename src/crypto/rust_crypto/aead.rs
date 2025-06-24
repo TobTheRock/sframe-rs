@@ -226,7 +226,7 @@ where
     T: ArrayLength<u8>,
 {
     fn compute_tag(&self, iv: &[u8], aad: &[u8], ct: &[u8]) -> SimpleHmac<Sha256> {
-        // TODO generalize this, is given by CipherSuite
+        // TODO generalize this, is given by CipherSuiteParams
         const NONCE_LEN: usize = 12;
         let nonce = &iv[0..NONCE_LEN];
 

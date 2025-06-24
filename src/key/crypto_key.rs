@@ -1,5 +1,5 @@
 use crate::{
-    crypto::{cipher_suite::CipherSuite, key_derivation::KeyDerivation, secret::Secret},
+    crypto::{cipher_suite::CipherSuiteParams, key_derivation::KeyDerivation, secret::Secret},
     error::Result,
     header::KeyId,
     CipherSuiteVariant,
@@ -13,7 +13,7 @@ macro_rules! sframe_key {
         #[derive(Clone, Debug, PartialEq, Eq)]
         pub struct $name {
             secret: Secret,
-            cipher_suite: CipherSuite,
+            cipher_suite: CipherSuiteParams,
             key_id: KeyId,
         }
 
@@ -58,7 +58,7 @@ macro_rules! sframe_key {
             }
 
             /// Returns the cipher suite of this key.
-            pub(crate) fn cipher_suite(&self) -> &CipherSuite {
+            pub(crate) fn cipher_suite(&self) -> &CipherSuiteParams {
                 &self.cipher_suite
             }
 
@@ -68,7 +68,7 @@ macro_rules! sframe_key {
                 variant: CipherSuiteVariant,
                 test_vec: &crate::test_vectors::SframeTest,
             ) -> Self {
-                let cipher_suite: CipherSuite = variant.into();
+                let cipher_suite: CipherSuiteParams = variant.into();
                 if cipher_suite.is_ctr_mode() {
                     // the test vectors do not provide the auth key, so we have to expand here
                     $name::derive_from(variant, test_vec.key_id, &test_vec.key_material).unwrap()
