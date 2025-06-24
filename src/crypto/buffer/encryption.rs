@@ -1,4 +1,4 @@
-use crate::{crypto::cipher_suite::CipherSuite, error::Result, frame::FrameBuffer};
+use crate::{crypto::cipher_suite::CipherSuiteParams, error::Result, frame::FrameBuffer};
 
 use super::AadData;
 
@@ -17,7 +17,7 @@ pub struct EncryptionBuffer<'a> {
 impl<'a> EncryptionBuffer<'a> {
     pub fn try_allocate(
         buffer: &'a mut impl FrameBuffer,
-        cipher_suite: &CipherSuite,
+        cipher_suite: &CipherSuiteParams,
         aad_data: &impl AadData,
         unencrypted_data: &[u8],
     ) -> Result<Self> {
@@ -72,7 +72,7 @@ impl<'a, 'buf> From<&'a mut EncryptionBuffer<'buf>> for EncryptionBufferView<'a>
 
 #[cfg(test)]
 mod test {
-    use crate::{crypto::buffer::test::TestAadData, CipherSuiteVariant};
+    use crate::{crypto::buffer::test::TestAadData, CipherSuite};
 
     use super::*;
 
@@ -81,7 +81,7 @@ mod test {
         let mut buffer = Vec::new();
         let aad_data = TestAadData { data: [1, 2, 3, 4] };
         let unencrypted_data = [5, 6, 7, 8, 9];
-        let cipher_suite = CipherSuiteVariant::AesGcm128Sha256.into();
+        let cipher_suite = CipherSuite::AesGcm128Sha256.into();
 
         let mut encryption_buffer = EncryptionBuffer::try_allocate(
             &mut buffer,

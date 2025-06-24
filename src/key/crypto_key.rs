@@ -1,8 +1,8 @@
 use crate::{
-    crypto::{cipher_suite::CipherSuite, key_derivation::KeyDerivation, secret::Secret},
+    crypto::{cipher_suite::CipherSuiteParams, key_derivation::KeyDerivation, secret::Secret},
     error::Result,
     header::KeyId,
-    CipherSuiteVariant,
+    CipherSuite,
 };
 
 macro_rules! sframe_key {
@@ -13,7 +13,7 @@ macro_rules! sframe_key {
         #[derive(Clone, Debug, PartialEq, Eq)]
         pub struct $name {
             secret: Secret,
-            cipher_suite: CipherSuite,
+            cipher_suite: CipherSuiteParams,
             key_id: KeyId,
         }
 
@@ -22,7 +22,7 @@ macro_rules! sframe_key {
             /// It is then assigned the provided key ID and the cipher suite variant.
             /// If key derivation fails an error is returned.
             pub fn derive_from<K, M>(
-                variant: CipherSuiteVariant,
+                cipher_suite: CipherSuite,
                 key_id: K,
                 key_material: M,
             ) -> Result<Self>
@@ -31,13 +31,13 @@ macro_rules! sframe_key {
                 M: AsRef<[u8]>,
             {
                 let key_id = key_id.into();
-                let cipher_suite = variant.into();
+                let params = cipher_suite.into();
 
-                let secret = Secret::expand_from(&cipher_suite, key_material, key_id)?;
+                let secret = Secret::expand_from(&params, key_material, key_id)?;
 
                 Ok(Self {
                     secret,
-                    cipher_suite,
+                    cipher_suite: params,
                     key_id,
                 })
             }
@@ -48,8 +48,8 @@ macro_rules! sframe_key {
             }
 
             /// Returns the cipher suite variant of this key.
-            pub fn cipher_suite_variant(&self) -> CipherSuiteVariant {
-                self.cipher_suite.variant
+            pub fn cipher_suite(&self) -> CipherSuite {
+                self.cipher_suite.cipher_suite
             }
 
             /// Returns a reference to the secret associated with this key.
@@ -57,26 +57,27 @@ macro_rules! sframe_key {
                 &self.secret
             }
 
-            /// Returns the cipher suite of this key.
-            pub(crate) fn cipher_suite(&self) -> &CipherSuite {
+            /// Returns the cipher suite parameters of this key.
+            pub(crate) fn cipher_suite_params(&self) -> &CipherSuiteParams {
                 &self.cipher_suite
             }
 
             #[cfg(test)]
             /// Creates an Sframe key from a test vector for testing purposes.
             pub(crate) fn from_test_vector(
-                variant: CipherSuiteVariant,
+                cipher_suite: CipherSuite,
                 test_vec: &crate::test_vectors::SframeTest,
             ) -> Self {
-                let cipher_suite: CipherSuite = variant.into();
-                if cipher_suite.is_ctr_mode() {
+                let params: CipherSuiteParams = cipher_suite.into();
+                if params.is_ctr_mode() {
                     // the test vectors do not provide the auth key, so we have to expand here
-                    $name::derive_from(variant, test_vec.key_id, &test_vec.key_material).unwrap()
+                    $name::derive_from(cipher_suite, test_vec.key_id, &test_vec.key_material)
+                        .unwrap()
                 } else {
                     let secret = Secret::from_test_vector(test_vec);
                     $name {
                         secret,
-                        cipher_suite,
+                        cipher_suite: params,
                         key_id: test_vec.key_id,
                     }
                 }

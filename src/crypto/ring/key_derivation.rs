@@ -1,6 +1,6 @@
 use crate::{
     crypto::{
-        cipher_suite::{CipherSuite, CipherSuiteVariant},
+        cipher_suite::{CipherSuite, CipherSuiteParams},
         key_derivation::{
             get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label, get_hkdf_salt_expand_label,
             KeyDerivation, Ratcheting,
@@ -12,25 +12,29 @@ use crate::{
 };
 
 impl KeyDerivation for Secret {
-    fn expand_from<M, K>(cipher_suite: &CipherSuite, key_material: M, key_id: K) -> Result<Secret>
+    fn expand_from<M, K>(
+        cipher_suite: &CipherSuiteParams,
+        key_material: M,
+        key_id: K,
+    ) -> Result<Secret>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>,
     {
         let key_id = key_id.into();
-        let algorithm = cipher_suite.variant.into();
+        let algorithm = cipher_suite.cipher_suite.into();
         // No salt used for the extraction: https://www.rfc-editor.org/rfc/rfc9605.html#name-key-derivation
         let pseudo_random_key =
             ring::hkdf::Salt::new(algorithm, b"").extract(key_material.as_ref());
 
         let key = expand_key(
             &pseudo_random_key,
-            &get_hkdf_key_expand_label(key_id, cipher_suite.variant),
+            &get_hkdf_key_expand_label(key_id, cipher_suite.cipher_suite),
             cipher_suite.key_len,
         )?;
         let salt = expand_key(
             &pseudo_random_key,
-            &get_hkdf_salt_expand_label(key_id, cipher_suite.variant),
+            &get_hkdf_salt_expand_label(key_id, cipher_suite.cipher_suite),
             cipher_suite.nonce_len,
         )?;
 
@@ -43,11 +47,11 @@ impl KeyDerivation for Secret {
 }
 
 impl Ratcheting for Vec<u8> {
-    fn ratchet(&self, cipher_suite: &CipherSuite) -> Result<Vec<u8>>
+    fn ratchet(&self, cipher_suite: &CipherSuiteParams) -> Result<Vec<u8>>
     where
         Self: AsRef<[u8]>,
     {
-        let algorithm = cipher_suite.variant.into();
+        let algorithm = cipher_suite.cipher_suite.into();
         let pseudo_random_key = ring::hkdf::Salt::new(algorithm, b"").extract(self);
 
         expand_key(
@@ -67,11 +71,11 @@ impl ring::hkdf::KeyType for OkmKeyLength {
     }
 }
 
-impl From<CipherSuiteVariant> for ring::hkdf::Algorithm {
-    fn from(variant: CipherSuiteVariant) -> Self {
-        match variant {
-            CipherSuiteVariant::AesGcm128Sha256 => ring::hkdf::HKDF_SHA256,
-            CipherSuiteVariant::AesGcm256Sha512 => ring::hkdf::HKDF_SHA512,
+impl From<CipherSuite> for ring::hkdf::Algorithm {
+    fn from(cipher_suite: CipherSuite) -> Self {
+        match cipher_suite {
+            CipherSuite::AesGcm128Sha256 => ring::hkdf::HKDF_SHA256,
+            CipherSuite::AesGcm256Sha512 => ring::hkdf::HKDF_SHA512,
         }
     }
 }

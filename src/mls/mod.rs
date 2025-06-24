@@ -1,8 +1,8 @@
 use crate::{
-    crypto::cipher_suite::CipherSuite,
+    crypto::cipher_suite::CipherSuiteParams,
     error::SframeError,
     key::{DecryptionKey, EncryptionKey},
-    CipherSuiteVariant,
+    CipherSuite,
 };
 use log::error;
 
@@ -34,19 +34,19 @@ macro_rules! mls_key {
             /// Derives a new sframe key from the base key provided by the MLS exporter.
             /// Associates it with an MLS specific Key ID.
             pub fn derive_from_mls(
-                variant: CipherSuiteVariant,
+                cipher_suite: CipherSuite,
                 exporter: &impl MlsExporter,
                 key_id: MlsKeyId,
             ) -> crate::error::Result<Self> {
-                let cipher_suite = CipherSuite::from(variant);
+                let params = CipherSuiteParams::from(cipher_suite);
                 let base_key = exporter
-                    .export_secret("SFrame 1.0 Base Key", b"", cipher_suite.key_len)
+                    .export_secret("SFrame 1.0 Base Key", b"", params.key_len)
                     .map_err(|err| {
                         error!("Failed to export base key from MLS: {}", err);
                         SframeError::KeyDerivationFailure
                     })?;
 
-                $name::derive_from(variant, key_id, base_key)
+                $name::derive_from(cipher_suite, key_id, base_key)
             }
         }
     };
@@ -86,12 +86,9 @@ mod test {
         let exporter = TestMlsExporter { fail: false };
         let key_id = MlsKeyId::new(0u64, 3u64, 5u64, MlsKeyIdBitRange::new(4, 4));
 
-        let _key = EncryptionKey::derive_from_mls(
-            crate::CipherSuiteVariant::AesGcm256Sha512,
-            &exporter,
-            key_id,
-        )
-        .unwrap();
+        let _key =
+            EncryptionKey::derive_from_mls(crate::CipherSuite::AesGcm256Sha512, &exporter, key_id)
+                .unwrap();
     }
 
     #[test]
@@ -99,11 +96,8 @@ mod test {
         let exporter = TestMlsExporter { fail: true };
         let key_id = MlsKeyId::new(0u64, 3u64, 5u64, MlsKeyIdBitRange::new(4, 4));
 
-        let result = EncryptionKey::derive_from_mls(
-            crate::CipherSuiteVariant::AesGcm256Sha512,
-            &exporter,
-            key_id,
-        );
+        let result =
+            EncryptionKey::derive_from_mls(crate::CipherSuite::AesGcm256Sha512, &exporter, key_id);
 
         assert!(result.is_err());
     }

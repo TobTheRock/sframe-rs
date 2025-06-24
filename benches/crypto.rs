@@ -8,7 +8,7 @@ use sframe::{
     frame::{EncryptedFrame, FrameCounter, MediaFrame, MediaFrameView, MonotonicCounter},
     header::Counter,
     key::{DecryptionKey, EncryptionKey},
-    CipherSuiteVariant,
+    CipherSuite,
 };
 
 const KEY_MATERIAL: &str = "THIS_IS_SOME_MATERIAL";
@@ -32,15 +32,15 @@ struct CryptoBenches {
     enc_key: EncryptionKey,
     dec_key: DecryptionKey,
 
-    variant: CipherSuiteVariant,
+    cipher_suite: CipherSuite,
 }
 
-impl From<CipherSuiteVariant> for CryptoBenches {
-    fn from(variant: CipherSuiteVariant) -> Self {
+impl From<CipherSuite> for CryptoBenches {
+    fn from(cipher_suite: CipherSuite) -> Self {
         let counter = MonotonicCounter::with_start_value(rand::random(), u64::MAX);
 
-        let enc_key = EncryptionKey::derive_from(variant, KEY_ID, KEY_MATERIAL).unwrap();
-        let dec_key = DecryptionKey::derive_from(variant, KEY_ID, KEY_MATERIAL).unwrap();
+        let enc_key = EncryptionKey::derive_from(cipher_suite, KEY_ID, KEY_MATERIAL).unwrap();
+        let dec_key = DecryptionKey::derive_from(cipher_suite, KEY_ID, KEY_MATERIAL).unwrap();
 
         let max_payload_size = payload_sizes().iter().max().unwrap();
         let crypt_buffer = Vec::with_capacity(max_payload_size + BUF_OVERHEAD);
@@ -50,7 +50,7 @@ impl From<CipherSuiteVariant> for CryptoBenches {
             dec_key,
             counter,
             crypt_buffer,
-            variant,
+            cipher_suite,
         }
     }
 }
@@ -59,7 +59,7 @@ impl CryptoBenches {
     fn run_benches(&mut self, c: &mut Criterion) {
         bench_over_payload_sizes(
             c,
-            &format!("encrypt with {:?}", self.variant),
+            &format!("encrypt with {:?}", self.cipher_suite),
             |b, &payload_size| {
                 b.iter_batched(
                     || create_random_media_frame(payload_size),
@@ -78,7 +78,7 @@ impl CryptoBenches {
 
         bench_over_payload_sizes(
             c,
-            &format!("decrypt with {:?}", self.variant),
+            &format!("decrypt with {:?}", self.cipher_suite),
             |b, &payload_size| {
                 b.iter_batched(
                     || encrypt_random_frame(payload_size, &mut self.counter, &self.enc_key),
@@ -93,9 +93,10 @@ impl CryptoBenches {
             },
         );
 
-        c.bench_function(&format!("expand key with {:?}", self.variant), |b| {
+        c.bench_function(&format!("expand key with {:?}", self.cipher_suite), |b| {
             b.iter(|| {
-                let key = EncryptionKey::derive_from(self.variant, KEY_ID, KEY_MATERIAL).unwrap();
+                let key =
+                    EncryptionKey::derive_from(self.cipher_suite, KEY_ID, KEY_MATERIAL).unwrap();
                 black_box(key);
             })
         });
@@ -135,17 +136,17 @@ fn encrypt_random_frame(
 }
 
 fn crypto_benches(c: &mut Criterion) {
-    for variant in [
-        CipherSuiteVariant::AesGcm128Sha256,
-        CipherSuiteVariant::AesGcm256Sha512,
+    for cipher_suite in [
+        CipherSuite::AesGcm128Sha256,
+        CipherSuite::AesGcm256Sha512,
         #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-        CipherSuiteVariant::AesCtr128HmacSha256_80,
+        CipherSuite::AesCtr128HmacSha256_80,
         #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-        CipherSuiteVariant::AesCtr128HmacSha256_64,
+        CipherSuite::AesCtr128HmacSha256_64,
         #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-        CipherSuiteVariant::AesCtr128HmacSha256_32,
+        CipherSuite::AesCtr128HmacSha256_32,
     ] {
-        let mut ctx = CryptoBenches::from(variant);
+        let mut ctx = CryptoBenches::from(cipher_suite);
         ctx.run_benches(c);
     }
 }

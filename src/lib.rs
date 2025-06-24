@@ -48,7 +48,7 @@ pub mod mls;
 /// Ratchet support as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
 pub mod ratchet;
 
-pub use crypto::cipher_suite::CipherSuiteVariant;
+pub use crypto::cipher_suite::CipherSuite;
 
 #[cfg(test)]
 #[allow(clippy::all)]
