@@ -182,7 +182,7 @@ impl std::fmt::Display for SframeHeader {
             HeaderField::FixedLen(_) => "CTR",
             HeaderField::VariableLen(_) => "CLEN",
         };
-        let mut second_line = format!("|X|{:^5}|Y|{:^5}|", kid_field_label, ctr_field_label);
+        let mut second_line = format!("|X|{kid_field_label:^5}|Y|{ctr_field_label:^5}|");
 
         let mut serialized = Vec::from(self).into_iter().map(|x| format!("{x:08b} "));
         let first_byte = serialized.next().ok_or(error)?;
@@ -202,7 +202,7 @@ impl std::fmt::Display for SframeHeader {
 
                 write!(first_last_line, "{:-^1$}+", "", variable_key.len() + 1)?;
                 write!(second_line, "{:^1$}|", "KID", variable_key.len() + 1)?;
-                write!(third_line, " {:^}|", variable_key)?;
+                write!(third_line, " {variable_key:^}|")?;
             }
         };
 
@@ -214,15 +214,15 @@ impl std::fmt::Display for SframeHeader {
 
                 write!(first_last_line, "{:-^1$}+", "", variable_ctr.len() + 1)?;
                 write!(second_line, "{:^1$}|", "CTR", variable_ctr.len() + 1)?;
-                write!(third_line, " {:^}|", variable_ctr)?;
+                write!(third_line, " {variable_ctr:^}|")?;
             }
         };
 
         writeln!(f)?;
-        writeln!(f, "{}", first_last_line)?;
-        writeln!(f, "{}", second_line)?;
-        writeln!(f, "{}", third_line)?;
-        write!(f, "{}", first_last_line)
+        writeln!(f, "{first_last_line}")?;
+        writeln!(f, "{second_line}")?;
+        writeln!(f, "{third_line}")?;
+        write!(f, "{first_last_line}")
     }
 }
 

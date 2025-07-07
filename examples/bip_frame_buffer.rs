@@ -31,7 +31,7 @@ impl<const N: usize> FrameBuffer for ProducerBuffer<'_, N> {
         let grant = self
             .producer
             .grant(size)
-            .map_err(|err| SframeError::Other(format!("Could not acquire grant {:?}", err)))?;
+            .map_err(|err| SframeError::Other(format!("Could not acquire grant {err:?}")))?;
         self.grant = Some(grant);
         self.samples_to_commit = size;
 

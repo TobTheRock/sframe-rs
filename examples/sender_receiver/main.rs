@@ -28,12 +28,11 @@ fn main() {
     } = Args::parse();
 
     println!(
-        "- Using cipher suite {:?}, key id {}, secret {}",
-        cipher_suite, key_id, secret
+        "- Using cipher suite {cipher_suite:?}, key id {key_id}, secret {secret}"
     );
 
     if let Some(log_level) = log_level {
-        println!("- Using log level {}", log_level);
+        println!("- Using log level {log_level}");
         simple_logger::init_with_level(log_level).unwrap();
     }
 
@@ -41,7 +40,7 @@ fn main() {
 
     let (mut base_key, key_id) = if let Some(n_ratchet_bits) = n_ratchet_bits {
         // just to demonstrate the functionality, ratcheting should only take place if a new receiver joins
-        println!("- Using {} bits for the ratcheting step", n_ratchet_bits);
+        println!("- Using {n_ratchet_bits} bits for the ratcheting step");
 
         let r = RatchetingKeyId::new(key_id, n_ratchet_bits);
         let base_key =
@@ -110,11 +109,11 @@ fn main() {
 
 fn display_encrypted(encrypted: &[u8]) {
     let header = SframeHeader::deserialize(encrypted).unwrap();
-    println!("- Sframe Header: {}", header);
+    println!("- Sframe Header: {header}");
 
     let header_len = header.len();
     let payload = bin2string(&encrypted[header_len..]);
-    println!("- Encrypted Payload: {}", payload)
+    println!("- Encrypted Payload: {payload}")
 }
 
 fn bin2string(bin: &[u8]) -> String {
