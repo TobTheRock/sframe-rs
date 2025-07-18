@@ -196,11 +196,7 @@ impl MediaFrame {
         let meta_len = meta_data.len();
         let payload_len = payload.len();
         log::trace!(
-            "Creating MediaFrame # {} with payload size {} using meta data of size {}",
-            counter,
-            payload_len,
-            meta_len,
-        );
+            "Creating MediaFrame # {counter} with payload of size {payload_len} using meta data of size {meta_len}" );
 
         let mut buffer = Vec::with_capacity(payload_len + meta_len);
         buffer.extend(meta_data);

@@ -45,10 +45,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         M: AsRef<[u8]> + ?Sized,
     {
         let header = SframeHeader::deserialize(data)?;
-        log::trace!(
-            "EncryptedFrame # {} with header {header}",
-            header.counter()
-        );
+        log::trace!("EncryptedFrame # {} with header {header}", header.counter());
 
         let (header_buf, cipher_text) = data.as_ref().split_at(header.len());
         Ok(Self {
@@ -135,9 +132,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let key_id = self.header.key_id();
 
         log::trace!(
-            "Trying to decrypt EncryptedFrame # {} with KeyId {}",
-            counter,
-            key_id
+            "Trying to decrypt EncryptedFrame # {counter} with KeyId {key_id}"
         );
 
         let key = key_store
