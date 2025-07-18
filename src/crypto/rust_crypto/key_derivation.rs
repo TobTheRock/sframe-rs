@@ -101,7 +101,7 @@ impl Ratcheting for Vec<u8> {
 
 impl From<hkdf::InvalidLength> for SframeError {
     fn from(error: hkdf::InvalidLength) -> Self {
-        log::error!("Cannot derive key: {}", error);
+        log::error!("Cannot derive key: {error}");
         SframeError::KeyDerivationFailure
     }
 }

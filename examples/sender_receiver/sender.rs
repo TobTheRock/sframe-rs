@@ -63,7 +63,7 @@ impl Sender {
     {
         let key_id = key_id.into();
         log::debug!("Setting up sframe Sender");
-        log::trace!("KeyID {:?} (ciphersuite {:?})", key_id, variant);
+        log::trace!("KeyID {key_id} (ciphersuite {variant})");
         Sender {
             counter: Default::default(),
             key_id,

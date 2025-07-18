@@ -46,9 +46,8 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     {
         let header = SframeHeader::deserialize(data)?;
         log::trace!(
-            "EncryptedFrame # {} with header {}",
-            header.counter(),
-            header
+            "EncryptedFrame # {} with header {header}",
+            header.counter()
         );
 
         let (header_buf, cipher_text) = data.as_ref().split_at(header.len());

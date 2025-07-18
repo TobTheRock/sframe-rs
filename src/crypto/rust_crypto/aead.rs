@@ -76,7 +76,7 @@ impl EncryptionKey {
                 buffer_view.cipher_text,
             )
             .map_err(|err| {
-                log::debug!("Encryption failed: {}", err);
+                log::debug!("Encryption failed: {err}");
                 SframeError::EncryptionFailure
             })?;
         buffer_view.tag.copy_from_slice(tag.as_slice());
@@ -149,7 +149,7 @@ impl DecryptionKey {
             GenericArray::from_slice(tag),
         )
         .map_err(|err| {
-            log::debug!("Decryption failed: {}", err);
+            log::debug!("Decryption failed: {err}");
             SframeError::DecryptionFailure
         })?;
 
@@ -268,7 +268,7 @@ where
         buffer: &mut [u8],
     ) -> std::result::Result<GenericArray<u8, Self::TagSize>, aes_gcm::Error> {
         self.cipher(iv, buffer).map_err(|err| {
-            log::debug!("AesCtr: Error encrypting: {}", err);
+            log::debug!("AesCtr: Error encrypting: {err}");
             aes_gcm::Error
         })?;
 
@@ -298,12 +298,12 @@ where
         self.compute_tag(iv, associated_data, buffer)
             .verify_truncated_left(tag)
             .map_err(|err| {
-                log::debug!("AesCtr: Error decrypting: {}", err);
+                log::debug!("AesCtr: Error decrypting: {err}");
                 aes_gcm::Error
             })?;
 
         self.cipher(iv, buffer).map_err(|err| {
-            log::debug!("AesCtr: Error encrypting: {}", err);
+            log::debug!("AesCtr: Error encrypting: {err}");
             aes_gcm::Error
         })
     }

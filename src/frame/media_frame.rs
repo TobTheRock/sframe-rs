@@ -57,8 +57,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         let payload = payload.as_ref();
         let meta_data = meta_data.as_ref();
         log::trace!(
-            "Creating MediaFrame # {} with payload size {} using meta data of size {}",
-            counter,
+            "Creating MediaFrame # {counter} with payload size {} using meta data of size {}",
             payload.len(),
             meta_data.len(),
         );
@@ -109,9 +108,8 @@ impl<'ibuf> MediaFrameView<'ibuf> {
     ) -> Result<EncryptedFrameView<'obuf>> {
         let key_id = key.key_id();
         log::trace!(
-            "Encrypting MediaFrame # {} using KeyId {} and CipherSuite {}",
+            "Encrypting MediaFrame # {} using KeyId {key_id} and CipherSuite {}",
             self.counter,
-            key_id,
             key.cipher_suite_variant()
         );
 

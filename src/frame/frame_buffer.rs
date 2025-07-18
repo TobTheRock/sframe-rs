@@ -24,7 +24,7 @@ pub trait Truncate {
 impl FrameBuffer for Vec<u8> {
     type BufferSlice = Self;
     fn allocate(&mut self, size: usize) -> Result<&mut Self::BufferSlice> {
-        log::trace!("Allocating buffer of size {}", size);
+        log::trace!("Allocating buffer of size {size}");
         self.resize(size, 0);
         Ok(self)
     }

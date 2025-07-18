@@ -64,7 +64,7 @@ impl AeadDecrypt for DecryptionKey {
                 tag,
             )
             .map_err(|err| {
-                log::debug!("Decryption failed, OpenSSL error stack: {}", err);
+                log::debug!("Decryption failed, OpenSSL error stack: {err}");
                 SframeError::DecryptionFailure
             })
         }?;
@@ -155,7 +155,7 @@ impl DecryptionKey {
 
         let candidate_tag = compute_tag(self.cipher_suite(), auth_key, aad, nonce, encrypted)
             .map_err(|err| {
-                log::debug!("Decryption failed, OpenSSL error stack: {}", err);
+                log::debug!("Decryption failed, OpenSSL error stack: {err}");
                 SframeError::DecryptionFailure
             })?;
 
@@ -165,7 +165,7 @@ impl DecryptionKey {
         }
         openssl::symm::decrypt(cipher, &secret.key, Some(&initial_counter), encrypted).map_err(
             |err| {
-                log::debug!("Decryption failed, OpenSSL error stack: {}", err);
+                log::debug!("Decryption failed, OpenSSL error stack: {err}");
                 SframeError::DecryptionFailure
             },
         )
@@ -198,7 +198,7 @@ fn compute_tag(
 
 impl From<openssl::error::ErrorStack> for SframeError {
     fn from(err: openssl::error::ErrorStack) -> Self {
-        log::debug!("Encryption failed, OpenSSL error stack: {}", err);
+        log::debug!("Encryption failed, OpenSSL error stack: {err}");
         SframeError::EncryptionFailure
     }
 }

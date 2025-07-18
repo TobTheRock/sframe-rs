@@ -33,7 +33,7 @@ where
         let cipher_text_len = encrypted_data.len();
 
         let buffer_len_needed = cipher_text_len + aad_len;
-        log::trace!("Trying to allocate buffer of size {}", buffer_len_needed);
+        log::trace!("Trying to allocate buffer of size {buffer_len_needed}");
         let io_buffer = buffer.allocate(buffer_len_needed)?;
         let mut decryption_buffer = Self {
             io_buffer,

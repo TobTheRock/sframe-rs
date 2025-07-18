@@ -32,7 +32,7 @@ impl KeyDerivation for Secret {
         };
 
         try_expand().map_err(|err: openssl::error::ErrorStack| {
-            log::debug!("Key derivation failed, OpenSSL error stack: {}", err);
+            log::debug!("Key derivation failed, OpenSSL error stack: {err}");
             SframeError::KeyDerivationFailure
         })
     }
