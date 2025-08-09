@@ -27,9 +27,7 @@ fn main() {
         n_ratchet_bits,
     } = Args::parse();
 
-    println!(
-        "- Using cipher suite {cipher_suite:?}, key id {key_id}, secret {secret}"
-    );
+    println!("- Using cipher suite {cipher_suite:?}, key id {key_id}, secret {secret}");
 
     if let Some(log_level) = log_level {
         println!("- Using log level {log_level}");
