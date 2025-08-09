@@ -131,9 +131,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let counter = self.header().counter();
         let key_id = self.header.key_id();
 
-        log::trace!(
-            "Trying to decrypt EncryptedFrame # {counter} with KeyId {key_id}"
-        );
+        log::trace!("Trying to decrypt EncryptedFrame # {counter} with KeyId {key_id}");
 
         let key = key_store
             .get_key(key_id)

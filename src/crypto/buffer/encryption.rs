@@ -26,9 +26,7 @@ impl<'a> EncryptionBuffer<'a> {
 
         let buffer_len_needed = cipher_text_len + aad_len + cipher_suite.auth_tag_len;
 
-        log::trace!(
-            "Trying to allocate encryption buffer of size {buffer_len_needed}"
-        );
+        log::trace!("Trying to allocate encryption buffer of size {buffer_len_needed}");
         let io_buffer = buffer.allocate(buffer_len_needed)?.as_mut();
         let mut encryption_buffer = Self {
             io_buffer,
