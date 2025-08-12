@@ -1,4 +1,4 @@
-use super::util::{min_len_in_bytes, U64_LEN};
+use super::util::{U64_LEN, min_len_in_bytes};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum HeaderField {

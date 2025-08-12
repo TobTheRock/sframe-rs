@@ -1,8 +1,8 @@
 use crate::{
+    CipherSuite,
     crypto::{cipher_suite::CipherSuiteParams, key_derivation::KeyDerivation, secret::Secret},
     error::Result,
     header::KeyId,
-    CipherSuite,
 };
 
 macro_rules! sframe_key {

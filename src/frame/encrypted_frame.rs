@@ -1,7 +1,7 @@
 use crate::{
     crypto::{
         aead::AeadDecrypt,
-        buffer::{decryption::DecryptionBuffer, AadData},
+        buffer::{AadData, decryption::DecryptionBuffer},
     },
     error::{Result, SframeError},
     header::SframeHeader,
@@ -9,8 +9,8 @@ use crate::{
 };
 
 use super::{
-    media_frame::{MediaFrame, MediaFrameView},
     FrameBuffer, FrameValidation,
+    media_frame::{MediaFrame, MediaFrameView},
 };
 /// A view on a buffer which contains an encrypted frame in the format as of [RFC 9605 4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.2).
 /// The frame is assumed to be stored in the buffer as follows:

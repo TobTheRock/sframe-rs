@@ -12,9 +12,9 @@ use clap::{Parser, ValueEnum};
 use receiver::{Receiver, ReceiverOptions};
 use sender::{Sender, SenderOptions};
 use sframe::{
+    CipherSuite,
     header::SframeHeader,
     ratchet::{RatchetingBaseKey, RatchetingKeyId},
-    CipherSuite,
 };
 
 fn main() {

@@ -1,14 +1,14 @@
 use bbqueue::{
-    framed::{FrameConsumer, FrameGrantW, FrameProducer},
     BBBuffer,
+    framed::{FrameConsumer, FrameGrantW, FrameProducer},
 };
-use cgisf_lib::{gen_sentence, SentenceConfigBuilder};
-use rand::{rng, Rng};
+use cgisf_lib::{SentenceConfigBuilder, gen_sentence};
+use rand::{Rng, rng};
 use sframe::{
+    CipherSuite,
     error::SframeError,
     frame::{EncryptedFrameView, FrameBuffer, MediaFrameView, MonotonicCounter, Truncate},
     key::{DecryptionKey, EncryptionKey},
-    CipherSuite,
 };
 use std::{thread, time::Duration};
 

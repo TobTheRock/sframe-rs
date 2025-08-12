@@ -164,7 +164,7 @@ fn parse_test_vectors() -> TestVectors {
 
 #[cfg(test)]
 mod test {
-    use super::{get_header_test_vectors, CIPHER_SUITE_NAME_FROM_ID};
+    use super::{CIPHER_SUITE_NAME_FROM_ID, get_header_test_vectors};
     use crate::test_vectors::{get_aes_ctr_test_vector, get_sframe_test_vector};
     use pretty_assertions::assert_eq;
 

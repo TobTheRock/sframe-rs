@@ -1,8 +1,8 @@
 use crate::{
+    CipherSuite,
     crypto::cipher_suite::CipherSuiteParams,
     error::SframeError,
     key::{DecryptionKey, EncryptionKey},
-    CipherSuite,
 };
 use log::error;
 

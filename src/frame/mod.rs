@@ -63,10 +63,10 @@ pub use validation::*;
 mod test {
     use super::media_frame::MediaFrameView;
     use crate::{
-        frame::{encrypted_frame::EncryptedFrameView, media_frame::MediaFrame, MonotonicCounter},
+        CipherSuite,
+        frame::{MonotonicCounter, encrypted_frame::EncryptedFrameView, media_frame::MediaFrame},
         key::{DecryptionKey, EncryptionKey},
         util::test::assert_bytes_eq,
-        CipherSuite,
     };
     use pretty_assertions::assert_eq;
 

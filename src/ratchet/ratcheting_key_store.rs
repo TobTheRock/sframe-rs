@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
+    CipherSuite,
     error::{Result, SframeError},
     header::KeyId,
     key::{DecryptionKey, KeyStore},
-    CipherSuite,
 };
 
 use super::{ratcheting_base_key::RatchetingBaseKey, ratcheting_key_id::RatchetingKeyId};
@@ -136,7 +136,7 @@ impl KeyStore for RatchetingKeyStore {
 mod test {
     use super::RatchetingKeyStore;
     use crate::{
-        header::KeyId, key::KeyStore, ratchet::ratcheting_key_id::RatchetingKeyId, CipherSuite,
+        CipherSuite, header::KeyId, key::KeyStore, ratchet::ratcheting_key_id::RatchetingKeyId,
     };
     use pretty_assertions::assert_eq;
 

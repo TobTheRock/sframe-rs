@@ -1,7 +1,7 @@
-use criterion::{criterion_group, Criterion};
+use criterion::{Criterion, criterion_group};
 use std::hint::black_box;
 
-use rand::{rng, Rng};
+use rand::{Rng, rng};
 use sframe::header::SframeHeader;
 
 fn create_random_values(size: usize) -> Vec<u64> {

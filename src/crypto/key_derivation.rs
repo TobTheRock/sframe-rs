@@ -1,5 +1,5 @@
 use super::cipher_suite::CipherSuiteParams;
-use crate::{error::Result, header::KeyId, CipherSuite};
+use crate::{CipherSuite, error::Result, header::KeyId};
 
 pub trait KeyDerivation: Sized {
     fn expand_from<M, K>(
@@ -50,7 +50,7 @@ const SFRAME_HDKF_SALT_EXPAND_LABEL: &[u8] = b"Secret salt ";
 #[cfg(test)]
 mod test {
 
-    use super::{get_hkdf_key_expand_label, get_hkdf_salt_expand_label, KeyDerivation, Ratcheting};
+    use super::{KeyDerivation, Ratcheting, get_hkdf_key_expand_label, get_hkdf_salt_expand_label};
 
     use crate::{
         crypto::{

@@ -2,13 +2,13 @@
 
 use std::hint::black_box;
 
-use criterion::{criterion_group, BatchSize, Bencher, BenchmarkId, Criterion};
-use rand::{rng, Rng};
+use criterion::{BatchSize, Bencher, BenchmarkId, Criterion, criterion_group};
+use rand::{Rng, rng};
 use sframe::{
+    CipherSuite,
     frame::{EncryptedFrame, FrameCounter, MediaFrame, MediaFrameView, MonotonicCounter},
     header::Counter,
     key::{DecryptionKey, EncryptionKey},
-    CipherSuite,
 };
 
 const KEY_MATERIAL: &str = "THIS_IS_SOME_MATERIAL";

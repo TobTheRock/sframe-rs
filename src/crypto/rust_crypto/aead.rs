@@ -8,16 +8,16 @@ use crate::{
     header::Counter,
     key::{DecryptionKey, EncryptionKey},
 };
-use aes_gcm::{aes::Aes128, AeadCore, AeadInPlace, Aes128Gcm, Aes256Gcm};
+use aes_gcm::{AeadCore, AeadInPlace, Aes128Gcm, Aes256Gcm, aes::Aes128};
 use cipher::{
-    consts::{U10, U4, U8},
-    generic_array::GenericArray,
     ArrayLength, IvSizeUser, KeyInit, KeyIvInit, StreamCipher, Unsigned,
+    consts::{U4, U8, U10},
+    generic_array::GenericArray,
 };
 use ctr::Ctr32BE;
 use hkdf::hmac::{Mac, SimpleHmac};
-use sha2::digest::Update;
 use sha2::Sha256;
+use sha2::digest::Update;
 
 use crate::{crypto::cipher_suite::CipherSuite, error::SframeError};
 

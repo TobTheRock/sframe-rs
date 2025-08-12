@@ -1,9 +1,9 @@
 use std::mem::replace;
 
 use crate::{
+    CipherSuite,
     crypto::{cipher_suite::CipherSuiteParams, key_derivation::Ratcheting},
     error::Result,
-    CipherSuite,
 };
 
 use super::ratcheting_key_id::RatchetingKeyId;

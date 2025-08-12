@@ -1,7 +1,7 @@
 use crate::{
     crypto::{
         aead::AeadEncrypt,
-        buffer::{encryption::EncryptionBuffer, AadData},
+        buffer::{AadData, encryption::EncryptionBuffer},
     },
     error::Result,
     header::{Counter, SframeHeader},
@@ -9,8 +9,8 @@ use crate::{
 };
 
 use super::{
-    encrypted_frame::{EncryptedFrame, EncryptedFrameView},
     FrameBuffer, FrameCounter,
+    encrypted_frame::{EncryptedFrame, EncryptedFrameView},
 };
 
 /// A view on a buffer (as a continuous slice of memory), representing a media frame.
@@ -196,7 +196,8 @@ impl MediaFrame {
         let meta_len = meta_data.len();
         let payload_len = payload.len();
         log::trace!(
-            "Creating MediaFrame # {counter} with payload of size {payload_len} using meta data of size {meta_len}" );
+            "Creating MediaFrame # {counter} with payload of size {payload_len} using meta data of size {meta_len}"
+        );
 
         let mut buffer = Vec::with_capacity(payload_len + meta_len);
         buffer.extend(meta_data);
@@ -266,10 +267,10 @@ impl AsRef<[u8]> for MediaFrame {
 #[cfg(test)]
 mod test {
     use crate::{
+        CipherSuite,
         frame::media_frame::{MediaFrame, MediaFrameView},
         key::EncryptionKey,
         util::test::assert_bytes_eq,
-        CipherSuite,
     };
     use pretty_assertions::assert_eq;
 

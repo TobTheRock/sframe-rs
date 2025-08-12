@@ -34,7 +34,7 @@ mod test {
         util::test::assert_bytes_eq,
     };
 
-    use rand::{rng, Rng};
+    use rand::{Rng, rng};
     use test_case::test_case;
 
     const KEY_MATERIAL: &str = "THIS_IS_RANDOM";

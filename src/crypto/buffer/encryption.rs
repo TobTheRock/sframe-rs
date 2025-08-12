@@ -72,7 +72,7 @@ impl<'a, 'buf> From<&'a mut EncryptionBuffer<'buf>> for EncryptionBufferView<'a>
 
 #[cfg(test)]
 mod test {
-    use crate::{crypto::buffer::test::TestAadData, CipherSuite};
+    use crate::{CipherSuite, crypto::buffer::test::TestAadData};
 
     use super::*;
 

@@ -3,8 +3,8 @@ use crate::{
         cipher_suite::{CipherSuite, CipherSuiteParams},
         common::key_derivation::expand_subsecret,
         key_derivation::{
-            get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label, get_hkdf_salt_expand_label,
-            KeyDerivation, Ratcheting,
+            KeyDerivation, Ratcheting, get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label,
+            get_hkdf_salt_expand_label,
         },
         secret::Secret,
     },

@@ -1,10 +1,10 @@
 use sframe::frame::MonotonicCounter;
 use sframe::{
+    CipherSuite,
     error::{Result, SframeError},
     frame::MediaFrameView,
     header::{Counter, KeyId},
     key::EncryptionKey,
-    CipherSuite,
 };
 
 /// options for the encryption block,

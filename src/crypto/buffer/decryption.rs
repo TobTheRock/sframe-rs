@@ -93,8 +93,8 @@ where
 mod test {
 
     use crate::{
-        crypto::{buffer::test::TestAadData, cipher_suite::CipherSuiteParams},
         CipherSuite,
+        crypto::{buffer::test::TestAadData, cipher_suite::CipherSuiteParams},
     };
 
     use super::{DecryptionBuffer, DecryptionBufferView};

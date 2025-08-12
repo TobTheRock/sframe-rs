@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use sframe::{
+    CipherSuite,
     error::Result,
     frame::{EncryptedFrameView, FrameValidationBox, ReplayAttackProtection},
     header::KeyId,
     key::DecryptionKey,
     ratchet::RatchetingKeyStore,
-    CipherSuite,
 };
 
 /// options for the decryption block,
