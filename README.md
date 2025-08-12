@@ -52,18 +52,41 @@ There is also a variant which allocates the necessary memory and owns the buffer
 To convert between `MediaFrame(View)` and `EncryptedFrame(View)` , an `EncryptionKey` or `DecryptionKey` is needed,
 which needs to be derived from a shared and secret key material.
 
-```
-+------------------+                                  +---------------------+
-|                  |                                  |                     |
-|                  |       decrypt/decrypt_into       |                     |
-|                  |        (DecryptionKey)           |                     |
-|  MediaFrame(View)|  <-----------------------------  | EncryptedFrame(View)|
-|                  |                                  |                     |
-|                  |       encrypt/encrypt_into       |                     |
-|                  |        (EncryptionKey)           |                     |
-|                  |  ----------------------------->  |                     |
-|                  |                                  |                     |
-+------------------+                                  +---------------------+
+```mermaid
+flowchart TD
+    subgraph Sender
+        A[MediaFrame<br/>Payload + Metadata] -->|new/with_metadata| B[MediaFrame/MediaFrameView]
+        B --> EncryptJunction(( ))
+        EncryptJunction -->|encrypt/encrypt_into| C[EncryptedFrame/EncryptedFrameView]
+        FC[FrameCounter] --> EncryptJunction
+        EK[EncryptionKey] --> EncryptJunction
+    end
+    
+    Shared[Key Material<br/>CipherSuite]
+    Shared -->|derive_from| EK
+    Shared -->|derive_from| DK
+    
+    subgraph Receiver
+        D[Incoming Frame Buffer] -->|new| E[EncryptedFrame/EncryptedFrameView]
+        E --> DecryptJunction(( ))
+        DecryptJunction -->|decrypt/decrypt_into| F[MediaFrame/MediaFrameView]
+        DK[DecryptionKey] --> KS[KeyStore]
+        KS --> DecryptJunction
+    end
+    
+    C -.->|Network| D
+    
+    style Shared fill:#e1f5fe
+    style B fill:#e1f5fe
+    style C fill:#e1f5fe
+    style E fill:#e1f5fe
+    style F fill:#e1f5fe
+    style EK fill:#e1f5fe
+    style DK fill:#e1f5fe
+    style FC fill:#e1f5fe
+    style KS fill:#e1f5fe
+    style EncryptJunction fill:transparent
+    style DecryptJunction fill:transparent
 ```
 
 For example:
