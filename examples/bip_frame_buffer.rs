@@ -8,7 +8,7 @@ use sframe::{
     error::SframeError,
     frame::{EncryptedFrameView, FrameBuffer, MediaFrameView, MonotonicCounter, Truncate},
     key::{DecryptionKey, EncryptionKey},
-    CipherSuiteVariant,
+    CipherSuite,
 };
 use std::{thread, time::Duration};
 
@@ -17,7 +17,7 @@ static BIP_BUFFER: BBBuffer<BUF_SIZE> = BBBuffer::<1024>::new();
 
 const SECRET: &[u8] = b"SUPER SECRET PW";
 const KEY_ID: u64 = 42;
-const VARIANT: CipherSuiteVariant = CipherSuiteVariant::AesGcm256Sha512;
+const CIPHER_SUITE: CipherSuite = CipherSuite::AesGcm256Sha512;
 struct ProducerBuffer<'a, const N: usize> {
     producer: FrameProducer<'a, N>,
     samples_to_commit: usize,
@@ -81,7 +81,7 @@ fn sleep(name: &str) {
 }
 
 fn producer_task(producer: FrameProducer<BUF_SIZE>) {
-    let key = EncryptionKey::derive_from(VARIANT, KEY_ID, SECRET).unwrap();
+    let key = EncryptionKey::derive_from(CIPHER_SUITE, KEY_ID, SECRET).unwrap();
     let mut counter = MonotonicCounter::default();
     let mut buffer = ProducerBuffer {
         producer,
@@ -113,7 +113,7 @@ fn producer_task(producer: FrameProducer<BUF_SIZE>) {
 }
 
 fn consumer_task(mut consumer: FrameConsumer<BUF_SIZE>) {
-    let key = DecryptionKey::derive_from(VARIANT, KEY_ID, SECRET).unwrap();
+    let key = DecryptionKey::derive_from(CIPHER_SUITE, KEY_ID, SECRET).unwrap();
     loop {
         // Read data from the buffer
         if let Some(grant) = consumer.read() {

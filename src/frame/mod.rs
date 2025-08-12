@@ -21,11 +21,11 @@
 //! use sframe::{
 //!     frame::{EncryptedFrameView, MediaFrameView, MonotonicCounter},
 //!     key::{DecryptionKey, EncryptionKey},
-//!     CipherSuiteVariant,
+//!     CipherSuite,
 //! };
 //!
 //! let key_id = 42u64;
-//! let enc_key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "pw123").unwrap();
+//! let enc_key = EncryptionKey::derive_from(CipherSuite::AesGcm256Sha512, key_id, "pw123").unwrap();
 //! let mut counter = MonotonicCounter::default();
 //! let payload = "Something secret";
 //!
@@ -35,7 +35,7 @@
 //!
 //! let encrypted_frame = media_frame.encrypt_into(&enc_key, &mut encrypt_buffer).unwrap();
 //!
-//! let mut dec_key = DecryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, key_id, "pw123").unwrap();
+//! let mut dec_key = DecryptionKey::derive_from(CipherSuite::AesGcm256Sha512, key_id, "pw123").unwrap();
 //! let decrypted_media_frame = encrypted_frame
 //!     .decrypt_into(&mut dec_key, &mut decrypt_buffer)
 //!     .unwrap();
@@ -66,7 +66,7 @@ mod test {
         frame::{encrypted_frame::EncryptedFrameView, media_frame::MediaFrame, MonotonicCounter},
         key::{DecryptionKey, EncryptionKey},
         util::test::assert_bytes_eq,
-        CipherSuiteVariant,
+        CipherSuite,
     };
     use pretty_assertions::assert_eq;
 
@@ -76,10 +76,8 @@ mod test {
 
     fn expand_keys() -> (EncryptionKey, DecryptionKey) {
         (
-            EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET")
-                .unwrap(),
-            DecryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET")
-                .unwrap(),
+            EncryptionKey::derive_from(CipherSuite::AesGcm256Sha512, KEY_ID, "SECRET").unwrap(),
+            DecryptionKey::derive_from(CipherSuite::AesGcm256Sha512, KEY_ID, "SECRET").unwrap(),
         )
     }
 

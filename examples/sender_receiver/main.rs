@@ -14,7 +14,7 @@ use sender::{Sender, SenderOptions};
 use sframe::{
     header::SframeHeader,
     ratchet::{RatchetingBaseKey, RatchetingKeyId},
-    CipherSuiteVariant,
+    CipherSuite,
 };
 
 fn main() {
@@ -34,7 +34,7 @@ fn main() {
         simple_logger::init_with_level(log_level).unwrap();
     }
 
-    let cipher_suite_variant = cipher_suite.into();
+    let cipher_suite = cipher_suite.into();
 
     let (mut base_key, key_id) = if let Some(n_ratchet_bits) = n_ratchet_bits {
         // just to demonstrate the functionality, ratcheting should only take place if a new receiver joins
@@ -42,7 +42,7 @@ fn main() {
 
         let r = RatchetingKeyId::new(key_id, n_ratchet_bits);
         let base_key =
-            RatchetingBaseKey::ratchet_forward(r, secret.as_bytes(), cipher_suite_variant).unwrap();
+            RatchetingBaseKey::ratchet_forward(r, secret.as_bytes(), cipher_suite).unwrap();
 
         (Some(base_key), r.into())
     } else {
@@ -51,14 +51,14 @@ fn main() {
 
     let sender_options = SenderOptions {
         key_id,
-        cipher_suite_variant,
+        cipher_suite,
         max_counter,
     };
     let mut sender = Sender::from(sender_options);
     sender.set_encryption_key(&secret).unwrap();
 
     let receiver_options = ReceiverOptions {
-        cipher_suite_variant,
+        cipher_suite,
         frame_validation: None,
         n_ratchet_bits,
     };
@@ -151,23 +151,17 @@ pub enum ArgCipherSuiteVariant {
     AesGcm256Sha512,
 }
 
-impl From<ArgCipherSuiteVariant> for CipherSuiteVariant {
+impl From<ArgCipherSuiteVariant> for CipherSuite {
     fn from(val: ArgCipherSuiteVariant) -> Self {
         match val {
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            ArgCipherSuiteVariant::AesCtr128HmacSha256_80 => {
-                CipherSuiteVariant::AesCtr128HmacSha256_80
-            }
+            ArgCipherSuiteVariant::AesCtr128HmacSha256_80 => CipherSuite::AesCtr128HmacSha256_80,
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            ArgCipherSuiteVariant::AesCtr128HmacSha256_64 => {
-                CipherSuiteVariant::AesCtr128HmacSha256_64
-            }
+            ArgCipherSuiteVariant::AesCtr128HmacSha256_64 => CipherSuite::AesCtr128HmacSha256_64,
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            ArgCipherSuiteVariant::AesCtr128HmacSha256_32 => {
-                CipherSuiteVariant::AesCtr128HmacSha256_32
-            }
-            ArgCipherSuiteVariant::AesGcm128Sha256 => CipherSuiteVariant::AesGcm128Sha256,
-            ArgCipherSuiteVariant::AesGcm256Sha512 => CipherSuiteVariant::AesGcm256Sha512,
+            ArgCipherSuiteVariant::AesCtr128HmacSha256_32 => CipherSuite::AesCtr128HmacSha256_32,
+            ArgCipherSuiteVariant::AesGcm128Sha256 => CipherSuite::AesGcm128Sha256,
+            ArgCipherSuiteVariant::AesGcm256Sha512 => CipherSuite::AesGcm256Sha512,
         }
     }
 }

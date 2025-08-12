@@ -1,9 +1,9 @@
 use std::mem::replace;
 
 use crate::{
-    crypto::{cipher_suite::CipherSuite, key_derivation::Ratcheting},
+    crypto::{cipher_suite::CipherSuiteParams, key_derivation::Ratcheting},
     error::Result,
-    CipherSuiteVariant,
+    CipherSuite,
 };
 
 use super::ratcheting_key_id::RatchetingKeyId;
@@ -15,7 +15,7 @@ use super::ratcheting_key_id::RatchetingKeyId;
 ///
 /// The original key material is not stored for security reasons.
 pub struct RatchetingBaseKey {
-    cipher_suite: CipherSuite,
+    cipher_suite: CipherSuiteParams,
     current_material: Vec<u8>,
     key_id: RatchetingKeyId,
 }
@@ -27,14 +27,14 @@ impl RatchetingBaseKey {
     pub fn ratchet_forward<K, M>(
         key_id: K,
         key_material: M,
-        cipher_suite_variant: CipherSuiteVariant,
+        cipher_suite: CipherSuite,
     ) -> Result<RatchetingBaseKey>
     where
         K: Into<RatchetingKeyId>,
         M: AsRef<[u8]>,
     {
         let mut base_key = Self {
-            cipher_suite: cipher_suite_variant.into(),
+            cipher_suite: cipher_suite.into(),
             current_material: key_material.as_ref().into(),
             key_id: key_id.into(),
         };
@@ -80,7 +80,7 @@ mod test {
         let mut base_key = RatchetingBaseKey::ratchet_forward(
             expected_key_id,
             secret,
-            crate::CipherSuiteVariant::AesGcm128Sha256,
+            crate::CipherSuite::AesGcm128Sha256,
         )
         .unwrap();
 

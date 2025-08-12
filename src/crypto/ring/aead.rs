@@ -11,7 +11,7 @@ use crate::{
 
 use ring::aead::{BoundKey, SealingKey};
 
-use crate::{crypto::cipher_suite::CipherSuiteVariant, error::SframeError};
+use crate::{crypto::cipher_suite::CipherSuite, error::SframeError};
 
 struct FrameNonceSequence {
     buffer: [u8; ring::aead::NONCE_LEN],
@@ -30,10 +30,10 @@ impl ring::aead::NonceSequence for FrameNonceSequence {
     }
 }
 
-impl From<CipherSuiteVariant> for &'static ring::aead::Algorithm {
-    fn from(variant: CipherSuiteVariant) -> Self {
-        use CipherSuiteVariant::*;
-        match variant {
+impl From<CipherSuite> for &'static ring::aead::Algorithm {
+    fn from(cipher_suite: CipherSuite) -> Self {
+        use CipherSuite::*;
+        match cipher_suite {
             AesGcm128Sha256 => &ring::aead::AES_128_GCM,
             AesGcm256Sha512 => &ring::aead::AES_256_GCM,
         }
@@ -41,10 +41,10 @@ impl From<CipherSuiteVariant> for &'static ring::aead::Algorithm {
 }
 
 fn unbound_encryption_key(
-    variant: CipherSuiteVariant,
+    cipher_suite: CipherSuite,
     secret: &Secret,
 ) -> Result<ring::aead::UnboundKey> {
-    let algorithm = variant.into();
+    let algorithm = cipher_suite.into();
     ring::aead::UnboundKey::new(algorithm, secret.key.as_slice())
         .map_err(|_| SframeError::KeyDerivationFailure)
 }
@@ -56,7 +56,7 @@ impl AeadEncrypt for EncryptionKey {
     {
         let buffer_view: EncryptionBufferView = buffer.into();
         let mut sealing_key = SealingKey::<FrameNonceSequence>::new(
-            unbound_encryption_key(self.cipher_suite_variant(), self.secret())?,
+            unbound_encryption_key(self.cipher_suite(), self.secret())?,
             self.secret().create_nonce(counter).into(),
         );
 
@@ -82,7 +82,7 @@ impl AeadDecrypt for DecryptionKey {
         let aad = ring::aead::Aad::from(buffer_view.aad);
 
         let mut opening_key = ring::aead::OpeningKey::<FrameNonceSequence>::new(
-            unbound_encryption_key(self.cipher_suite_variant(), self.secret())?,
+            unbound_encryption_key(self.cipher_suite(), self.secret())?,
             self.secret().create_nonce(counter).into(),
         );
         opening_key

@@ -4,7 +4,7 @@ use crate::{
     error::{Result, SframeError},
     header::KeyId,
     key::{DecryptionKey, KeyStore},
-    CipherSuiteVariant,
+    CipherSuite,
 };
 
 use super::{ratcheting_base_key::RatchetingBaseKey, ratcheting_key_id::RatchetingKeyId};
@@ -29,7 +29,7 @@ impl RatchetingKeyStore {
     /// expands the key and ratchets the original key material to not store for security reasons
     pub fn insert<K, M>(
         &mut self,
-        variant: CipherSuiteVariant,
+        cipher_suite: CipherSuite,
         key_id: K,
         key_material: M,
     ) -> Result<()>
@@ -39,8 +39,8 @@ impl RatchetingKeyStore {
     {
         let key_id = RatchetingKeyId::from_key_id(key_id.into(), self.n_ratchet_bits);
 
-        let sframe_key = DecryptionKey::derive_from(variant, key_id, &key_material)?;
-        let base_key = RatchetingBaseKey::ratchet_forward(key_id, key_material, variant)?;
+        let sframe_key = DecryptionKey::derive_from(cipher_suite, key_id, &key_material)?;
+        let base_key = RatchetingBaseKey::ratchet_forward(key_id, key_material, cipher_suite)?;
 
         self.keys.insert(
             key_id,
@@ -104,7 +104,7 @@ impl RatchetingKeyStore {
         if let Some(next_base_key) = next_base_key {
             let (next_key_id, next_material) = next_base_key?;
             keys.dec_key = DecryptionKey::derive_from(
-                keys.dec_key.cipher_suite_variant(),
+                keys.dec_key.cipher_suite(),
                 next_key_id,
                 next_material,
             )?;
@@ -136,8 +136,7 @@ impl KeyStore for RatchetingKeyStore {
 mod test {
     use super::RatchetingKeyStore;
     use crate::{
-        header::KeyId, key::KeyStore, ratchet::ratcheting_key_id::RatchetingKeyId,
-        CipherSuiteVariant,
+        header::KeyId, key::KeyStore, ratchet::ratcheting_key_id::RatchetingKeyId, CipherSuite,
     };
     use pretty_assertions::assert_eq;
 
@@ -151,7 +150,7 @@ mod test {
         let key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
 
         key_store
-            .insert(CipherSuiteVariant::AesGcm256Sha512, key_id, KEY_MATERIAL)
+            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
             .unwrap();
         let keys = key_store.get(key_id);
 
@@ -186,7 +185,7 @@ mod test {
         let key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
 
         key_store
-            .insert(CipherSuiteVariant::AesGcm128Sha256, key_id, KEY_MATERIAL)
+            .insert(CipherSuite::AesGcm128Sha256, key_id, KEY_MATERIAL)
             .unwrap();
         let was_removed = key_store.remove(key_id);
         let keys = key_store.get(key_id);
@@ -211,7 +210,7 @@ mod test {
         let key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
 
         key_store
-            .insert(CipherSuiteVariant::AesGcm256Sha512, key_id, KEY_MATERIAL)
+            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
             .unwrap();
         let dec_key = key_store.get_key(key_id).unwrap();
 
@@ -224,7 +223,7 @@ mod test {
         let mut key_id = RatchetingKeyId::new(42u8, N_RATCHET_BITS);
 
         key_store
-            .insert(CipherSuiteVariant::AesGcm256Sha512, key_id, KEY_MATERIAL)
+            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
             .unwrap();
 
         let ratchet_steps = key_store.try_ratchet(key_id).unwrap();
@@ -256,7 +255,7 @@ mod test {
         let mut key_id = RatchetingKeyId::new(42u8, N_RATCHET_BITS);
 
         key_store
-            .insert(CipherSuiteVariant::AesGcm128Sha256, key_id, KEY_MATERIAL)
+            .insert(CipherSuite::AesGcm128Sha256, key_id, KEY_MATERIAL)
             .unwrap();
 
         key_id.inc_ratchet_step();
@@ -278,7 +277,7 @@ mod test {
         let mut key_id = RatchetingKeyId::new(42u8, n_ratchet_bits);
 
         key_store
-            .insert(CipherSuiteVariant::AesGcm256Sha512, key_id, KEY_MATERIAL)
+            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
             .unwrap();
 
         key_id.inc_ratchet_step();

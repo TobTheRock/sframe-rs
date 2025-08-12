@@ -108,9 +108,9 @@ impl<'ibuf> MediaFrameView<'ibuf> {
     ) -> Result<EncryptedFrameView<'obuf>> {
         let key_id = key.key_id();
         log::trace!(
-            "Encrypting MediaFrame # {} using KeyId {key_id} and CipherSuite {}",
+            "Encrypting MediaFrame # {} using KeyId {key_id} and CipherSuiteParams {}",
             self.counter,
-            key.cipher_suite_variant()
+            key.cipher_suite()
         );
 
         let header = SframeHeader::new(key_id, self.counter);
@@ -121,7 +121,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
             header: &header,
         };
         let mut crypto_buffer =
-            EncryptionBuffer::try_allocate(buffer, key.cipher_suite(), &aad, self.payload)?;
+            EncryptionBuffer::try_allocate(buffer, key.cipher_suite_params(), &aad, self.payload)?;
 
         log::trace!("MediaFrame # {} trying to encrypt", self.counter);
         key.encrypt(&mut crypto_buffer, self.counter)?;
@@ -269,7 +269,7 @@ mod test {
         frame::media_frame::{MediaFrame, MediaFrameView},
         key::EncryptionKey,
         util::test::assert_bytes_eq,
-        CipherSuiteVariant,
+        CipherSuite,
     };
     use pretty_assertions::assert_eq;
 
@@ -289,8 +289,8 @@ mod test {
 
     #[test]
     fn encrypt_media_frame_view() {
-        let key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET")
-            .unwrap();
+        let key =
+            EncryptionKey::derive_from(CipherSuite::AesGcm256Sha512, KEY_ID, "SECRET").unwrap();
         let mut encrypt_buffer = Vec::new();
 
         let media_frame = MediaFrameView::with_meta_data_and_ctr(COUNTER, &PAYLOAD, META_DATA);
@@ -304,8 +304,8 @@ mod test {
 
     #[test]
     fn encrypt_media_frame() {
-        let key = EncryptionKey::derive_from(CipherSuiteVariant::AesGcm256Sha512, KEY_ID, "SECRET")
-            .unwrap();
+        let key =
+            EncryptionKey::derive_from(CipherSuite::AesGcm256Sha512, KEY_ID, "SECRET").unwrap();
 
         let media_frame = MediaFrame::with_meta_data_and_ctr(COUNTER, PAYLOAD, META_DATA);
         let encrypted_frame = media_frame.encrypt(&key).unwrap();
