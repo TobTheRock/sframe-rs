@@ -32,7 +32,7 @@ fn header_serialization(c: &mut Criterion) {
         b.iter(move || {
             headers_buffers
                 .iter_mut()
-                .for_each(|(header, ref mut buffer)| header.serialize(buffer).unwrap())
+                .for_each(|(header, buffer)| header.serialize(buffer).unwrap())
         })
     });
 
