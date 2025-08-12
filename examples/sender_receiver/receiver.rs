@@ -6,7 +6,7 @@ use sframe::{
     header::KeyId,
     key::DecryptionKey,
     ratchet::RatchetingKeyStore,
-    CipherSuiteVariant,
+    CipherSuite,
 };
 
 /// options for the decryption block,
@@ -14,8 +14,8 @@ use sframe::{
 pub struct ReceiverOptions {
     /// decryption/ key expansion algorithm used, see [RFC 9605 4.4](https://www.rfc-editor.org/rfc/rfc9605.html#name-cipher-suites)
     ///
-    /// default: [`CipherSuiteVariant::AesGcm256Sha512`]
-    pub cipher_suite_variant: CipherSuiteVariant,
+    /// default: [`CipherSuite::AesGcm256Sha512`]
+    pub cipher_suite: CipherSuite,
     /// optional frame validation before decryption, e.g to protect agains replay attacks
     ///
     /// default: [`ReplayAttackProtection`] with tolerance `128`
@@ -30,7 +30,7 @@ pub struct ReceiverOptions {
 impl Default for ReceiverOptions {
     fn default() -> Self {
         Self {
-            cipher_suite_variant: CipherSuiteVariant::AesGcm256Sha512,
+            cipher_suite: CipherSuite::AesGcm256Sha512,
             frame_validation: Some(Box::new(ReplayAttackProtection::with_tolerance(128))),
             n_ratchet_bits: None,
         }
@@ -43,7 +43,7 @@ impl Default for ReceiverOptions {
 /// - performing optional frame validation and ratcheting
 pub struct Receiver {
     keys: KeyStore,
-    variant: CipherSuiteVariant,
+    cipher_suite: CipherSuite,
     frame_validation: Option<FrameValidationBox>,
     buffer: Vec<u8>,
 }
@@ -93,11 +93,11 @@ impl Receiver {
             KeyStore::Standard(key_store) => {
                 key_store.insert(
                     key_id,
-                    DecryptionKey::derive_from(self.variant, key_id, key_material)?,
+                    DecryptionKey::derive_from(self.cipher_suite, key_id, key_material)?,
                 );
             }
             KeyStore::Ratcheting(key_store) => {
-                key_store.insert(self.variant, key_id, key_material)?;
+                key_store.insert(self.cipher_suite, key_id, key_material)?;
             }
         };
 
@@ -105,11 +105,11 @@ impl Receiver {
     }
 
     /// creates a [Receiver] with the given cipher suite variant and the default parameters
-    pub fn with_cipher_suite(variant: CipherSuiteVariant) -> Receiver {
-        log::debug!("Setting up sframe Receiver using ciphersuite {variant}");
+    pub fn with_cipher_suite(cipher_suite: CipherSuite) -> Receiver {
+        log::debug!("Setting up sframe Receiver using CipherSuiteParams {cipher_suite}");
 
         let options = ReceiverOptions {
-            cipher_suite_variant: variant,
+            cipher_suite,
             ..Default::default()
         };
 
@@ -138,7 +138,7 @@ impl From<ReceiverOptions> for Receiver {
         };
         Self {
             frame_validation: options.frame_validation,
-            variant: options.cipher_suite_variant,
+            cipher_suite: options.cipher_suite,
             keys,
             buffer: Default::default(),
         }
@@ -178,8 +178,8 @@ impl sframe::key::KeyStore for KeyStore {
 
 #[cfg(test)]
 mod test {
-    use crate::error::SframeError;
     use pretty_assertions::assert_eq;
+    use sframe::error::SframeError;
 
     use super::*;
 

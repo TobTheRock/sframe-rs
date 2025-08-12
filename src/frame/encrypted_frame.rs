@@ -142,7 +142,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         key.decrypt(&mut decryption_buffer, counter)?;
 
         let meta_len = self.meta_data.len();
-        decryption_buffer.truncate(key.cipher_suite(), meta_len);
+        decryption_buffer.truncate(key.cipher_suite_params(), meta_len);
 
         let buffer_slice: &mut [u8] = decryption_buffer.into();
         let (meta_data, payload) = buffer_slice.split_at(meta_len);
