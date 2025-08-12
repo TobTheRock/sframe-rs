@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.0.0 - 2025-08-12 
+
+### Refactor
+
+- [**breaking**] Rename CipherSuiteVariant to CipherSuite
+> This aligns the name given with the standard, which is prefered as it
+this enum is publicly facing API. Internally we can use a different name
+to also have access to the parameters for each suite.
+
+Breaking Change:
+To resolve rename `CipherSuiteVariant` to `CipherSuite`
+
 ## [0.9.0] - 2025-04-13
 
 ### Refactor
