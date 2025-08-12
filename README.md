@@ -67,7 +67,7 @@ flowchart TD
     Shared -->|derive_from| DK
     
     subgraph Receiver
-        D[Incoming Frame Buffer] -->|new| E[EncryptedFrame/EncryptedFrameView]
+        D[Incoming Frame Buffer] -->|try_new/try_with_meta_data| E[EncryptedFrame/EncryptedFrameView]
         E --> DecryptJunction(( ))
         DecryptJunction -->|decrypt/decrypt_into| F[MediaFrame/MediaFrameView]
         DK[DecryptionKey] --> KS[KeyStore]
