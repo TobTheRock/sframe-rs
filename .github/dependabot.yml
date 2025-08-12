@@ -10,8 +10,11 @@ updates:
     schedule:
       interval: "weekly"
     commit-message:
+      prefix: "chore"
   - package-ecosystem: "github-actions"
     directory: "/"
     # Check for updates every Monday
     schedule:
-      interval: "weekly"     prefix: "chore"
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
