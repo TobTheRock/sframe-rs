@@ -7,7 +7,7 @@ use super::DecryptionKey;
 /// Abstraction for a key store that allows retrieving decryption keys by their respective key id.
 pub trait KeyStore {
     /// Tries to retrieve a key with by its matching key ID.
-    /// If no such key is found an error ([`SframeError`]) is returned.
+    /// If no such key is found None is returned
     fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
     where
         K: Into<KeyId>;
