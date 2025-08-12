@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2025-08-12
+
+### Features
+
+- Update to rust 2024 edition
+
 ## 1.0.0 - 2025-08-12 
 
 ### Refactor
