@@ -30,16 +30,10 @@ jobs:
           components: clippy, rustfmt
 
       - name: check 
-        run: cargo check --no-default-features --features ${{ matrix.feature }}
-
-      - name: check (benches)
-        run: cargo check --benches --no-default-features --features ${{ matrix.feature }}
-
-      - name: check (tests)
-        run: cargo check --tests --no-default-features --features ${{ matrix.feature }}
+        run: cargo check --all-targets --no-default-features --features ${{ matrix.feature }}
 
       - name: test
-        run: cargo test --no-default-features --features ${{ matrix.feature }}
+        run: cargo test --all-targets --no-default-features --features ${{ matrix.feature }}
 
       - name: clippy
         run: cargo clippy --all-targets --no-default-features --features ${{ matrix.feature }} -- -Dwarnings
