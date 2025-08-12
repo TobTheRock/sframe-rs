@@ -76,15 +76,15 @@ flowchart TD
     
     C -.->|Network| D
     
-    style Shared fill:#e1f5fe
-    style B fill:#e1f5fe
-    style C fill:#e1f5fe
-    style E fill:#e1f5fe
-    style F fill:#e1f5fe
-    style EK fill:#e1f5fe
-    style DK fill:#e1f5fe
-    style FC fill:#e1f5fe
-    style KS fill:#e1f5fe
+    style Shared fill:#4f46e5
+    style B fill:#4f46e5
+    style C fill:#4f46e5
+    style E fill:#4f46e5
+    style F fill:#4f46e5
+    style EK fill:#4f46e5
+    style DK fill:#4f46e5
+    style FC fill:#4f46e5
+    style KS fill:#4f46e5
     style EncryptJunction fill:transparent
     style DecryptJunction fill:transparent
 ```
