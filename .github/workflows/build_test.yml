@@ -22,7 +22,7 @@ jobs:
           - openssl
           - rust-crypto
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -52,7 +52,7 @@ jobs:
           - ring
           - rust-crypto
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - uses: dtolnay/rust-toolchain@stable
         with:
