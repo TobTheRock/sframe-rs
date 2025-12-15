@@ -32,7 +32,7 @@ optional = true
 ring = { version = "0.17", features = [
   "wasm32_unknown_unknown_js",
 ], optional = true }
-getrandom = { version = "0.2", features = ["js"],  optional = true }
+getrandom = { version = "0.3", features = ["js"],  optional = true }
 
 [dependencies.openssl]
 version = "0.10"
