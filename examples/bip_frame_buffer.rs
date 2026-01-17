@@ -1,6 +1,6 @@
 use bbqueue::{
-    BBBuffer,
-    framed::{FrameConsumer, FrameGrantW, FrameProducer},
+    nicknames::Churrasco,
+    prod_cons::framed::{FramedConsumer, FramedGrantW, FramedProducer},
 };
 use cgisf_lib::{SentenceConfigBuilder, gen_sentence};
 use rand::{Rng, rng};
@@ -13,24 +13,24 @@ use sframe::{
 use std::{thread, time::Duration};
 
 const BUF_SIZE: usize = 1024;
-static BIP_BUFFER: BBBuffer<BUF_SIZE> = BBBuffer::<1024>::new();
+static BIP_BUFFER: Churrasco<BUF_SIZE> = Churrasco::new();
 
 const SECRET: &[u8] = b"SUPER SECRET PW";
 const KEY_ID: u64 = 42;
 const CIPHER_SUITE: CipherSuite = CipherSuite::AesGcm256Sha512;
-struct ProducerBuffer<'a, const N: usize> {
-    producer: FrameProducer<'a, N>,
+struct ProducerBuffer<'a> {
+    producer: FramedProducer<&'a Churrasco<BUF_SIZE>>,
     samples_to_commit: usize,
-    grant: Option<FrameGrantW<'a, N>>,
+    grant: Option<FramedGrantW<&'a Churrasco<BUF_SIZE>>>,
 }
 
-impl<const N: usize> FrameBuffer for ProducerBuffer<'_, N> {
+impl FrameBuffer for ProducerBuffer<'_> {
     type BufferSlice = Self;
 
     fn allocate(&mut self, size: usize) -> sframe::error::Result<&mut Self::BufferSlice> {
         let grant = self
             .producer
-            .grant(size)
+            .grant(size as u16)
             .map_err(|err| SframeError::Other(format!("Could not acquire grant {err:?}")))?;
         self.grant = Some(grant);
         self.samples_to_commit = size;
@@ -39,7 +39,7 @@ impl<const N: usize> FrameBuffer for ProducerBuffer<'_, N> {
     }
 }
 
-impl<const N: usize> AsRef<[u8]> for ProducerBuffer<'_, N> {
+impl AsRef<[u8]> for ProducerBuffer<'_> {
     fn as_ref(&self) -> &[u8] {
         if let Some(grant) = &self.grant {
             grant
@@ -49,7 +49,7 @@ impl<const N: usize> AsRef<[u8]> for ProducerBuffer<'_, N> {
     }
 }
 
-impl<const N: usize> AsMut<[u8]> for ProducerBuffer<'_, N> {
+impl AsMut<[u8]> for ProducerBuffer<'_> {
     fn as_mut(&mut self) -> &mut [u8] {
         if let Some(grant) = &mut self.grant {
             grant
@@ -59,16 +59,16 @@ impl<const N: usize> AsMut<[u8]> for ProducerBuffer<'_, N> {
     }
 }
 
-impl<const N: usize> Truncate for ProducerBuffer<'_, N> {
+impl Truncate for ProducerBuffer<'_> {
     fn truncate(&mut self, size: usize) {
         // note: not strictly necessary, truncate is only used for decryption
         self.samples_to_commit -= size;
     }
 }
-impl<const N: usize> ProducerBuffer<'_, N> {
+impl ProducerBuffer<'_> {
     fn commit(&mut self) {
         if let Some(grant) = self.grant.take() {
-            grant.commit(self.samples_to_commit);
+            grant.commit(self.samples_to_commit as u16);
         }
     }
 }
@@ -80,7 +80,7 @@ fn sleep(name: &str) {
     thread::sleep(t);
 }
 
-fn producer_task(producer: FrameProducer<BUF_SIZE>) {
+fn producer_task(producer: FramedProducer<&'static Churrasco<BUF_SIZE>>) {
     let key = EncryptionKey::derive_from(CIPHER_SUITE, KEY_ID, SECRET).unwrap();
     let mut counter = MonotonicCounter::default();
     let mut buffer = ProducerBuffer {
@@ -112,11 +112,11 @@ fn producer_task(producer: FrameProducer<BUF_SIZE>) {
     }
 }
 
-fn consumer_task(mut consumer: FrameConsumer<BUF_SIZE>) {
+fn consumer_task(consumer: FramedConsumer<&'static Churrasco<BUF_SIZE>>) {
     let key = DecryptionKey::derive_from(CIPHER_SUITE, KEY_ID, SECRET).unwrap();
     loop {
         // Read data from the buffer
-        if let Some(grant) = consumer.read() {
+        if let Ok(grant) = consumer.read() {
             if let Ok(encrypted_frame) = EncryptedFrameView::try_new(grant.as_ref()) {
                 let decrypted = encrypted_frame.decrypt(&key);
                 if let Err(err) = decrypted {
@@ -150,8 +150,9 @@ fn consumer_task(mut consumer: FrameConsumer<BUF_SIZE>) {
 }
 
 fn main() {
-    // Convert the buffer to a constant buffer for the producer thread
-    let (producer, consumer) = BIP_BUFFER.try_split_framed().unwrap();
+    // Get producer and consumer handles from the buffer
+    let producer = BIP_BUFFER.framed_producer();
+    let consumer = BIP_BUFFER.framed_consumer();
 
     // Spawn the producer thread
     let producer_thread = thread::spawn(move || {
