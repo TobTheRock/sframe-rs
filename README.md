@@ -5,7 +5,7 @@
 [![Crates.io](https://img.shields.io/crates/d/sframe)](https://crates.io/crates/sframe)
 [![license](https://img.shields.io/crates/l/sframe.svg?style=flat)](https://crates.io/crates/sframe/)
 [![documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/sframe/)
-![maintenance](https://img.shields.io/maintenance/yes/2025)
+![maintenance](https://img.shields.io/maintenance/yes/2026)
 
 This library is an implementation of [Sframe  (RFC 9605)](https://www.rfc-editor.org/rfc/rfc9605.html) and provides and end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
 It was forked from the original [goto-opensource/secure-frame-rs](https://github.com/goto-opensource/secure-frame-rs) and is continued here.
@@ -24,6 +24,7 @@ Currently two crypto libraries are supported:
   - uses rust bindings to OpenSSL.
   - Per default the OpenSSL library is locally compiled and then statically linked. The build process requires a C compiler, `perl` (and `perl-core`), and `make`. For further options see the [openssl crate documentation](https://docs.rs/openssl/0.10.55/openssl/).
   - Compilation to Wasm32 is [not yet supported](https://github.com/sfackler/rust-openssl/issues/1016)
+  - **Note:** This backend uses `unsafe` code for in-place encryption/decryption to avoid memory allocations.
 - rust crypto
   - is enabled with the feature `rust-crypto`
     - to build e.g. use `cargo build --features rust-crypto --no-default-features`
