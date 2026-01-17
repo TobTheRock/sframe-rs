@@ -2,7 +2,7 @@
 edition = "2024"
 license = "MIT/Apache-2.0"
 name = "sframe"
-version = "1.0.1"
+version = "1.1.0"
 
 authors = [
   "Tobias Waurick <tobtherock@proton.me>",
