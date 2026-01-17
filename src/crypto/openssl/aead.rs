@@ -14,6 +14,26 @@ use crate::{crypto::cipher_suite::CipherSuite, error::SframeError};
 const AES_GCM_IV_LEN: usize = 12;
 const AES_CTR_IVS_LEN: usize = 16;
 
+/// Performs in-place encryption/decryption using OpenSSL's Crypter.
+///
+/// # Safety
+/// OpenSSL's `EVP_CipherUpdate` explicitly supports in-place operations:
+/// "The pointers out and in may point to the same location, in which case the
+/// encryption will be done in-place."
+/// See: <https://manpages.debian.org/experimental/libssl-doc/EVP_EncryptUpdate.3ssl.en.html>
+///
+/// The buffer must be valid for `buffer.len()` bytes and we process it in a single call.
+fn update_inplace(
+    crypter: &mut openssl::symm::Crypter,
+    buffer: &mut [u8],
+) -> std::result::Result<usize, openssl::error::ErrorStack> {
+    let len = buffer.len();
+    let ptr = buffer.as_mut_ptr();
+    // SAFETY: See function documentation above.
+    let input = unsafe { std::slice::from_raw_parts(ptr, len) };
+    crypter.update(input, buffer)
+}
+
 impl AeadEncrypt for EncryptionKey {
     fn encrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
     where
@@ -38,42 +58,27 @@ impl AeadDecrypt for DecryptionKey {
         let buffer_view = buffer.into();
         let cipher_text = buffer_view.cipher_text;
         let cipher_suite = self.cipher_suite_params();
-        let secret = self.secret();
 
         if cipher_text.len() < cipher_suite.auth_tag_len {
             return Err(SframeError::DecryptionFailure);
         }
 
-        // TODO maybe we could store the cipher permanently, small performance gain (similar for ring)
         let cipher = cipher_suite.cipher_suite.into();
 
         let encrypted_len = cipher_text.len() - cipher_suite.auth_tag_len;
-        let encrypted = &cipher_text[..encrypted_len];
-        let tag = &cipher_text[encrypted_len..];
 
-        let out = if cipher_suite.is_ctr_mode() {
-            self.decrypt_aes_ctr(cipher, counter, buffer_view.aad, encrypted, tag)
+        if cipher_suite.is_ctr_mode() {
+            let (encrypted, tag) = cipher_text.split_at_mut(encrypted_len);
+            self.decrypt_aes_ctr_inplace(cipher, counter, buffer_view.aad, encrypted, tag)?;
         } else {
-            let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(counter);
-            openssl::symm::decrypt_aead(
+            self.decrypt_aead_inplace(
                 cipher,
-                &secret.key,
-                Some(&nonce),
+                counter,
                 buffer_view.aad,
-                encrypted,
-                tag,
-            )
-            .map_err(|err| {
-                log::debug!("Decryption failed, OpenSSL error stack: {err}");
-                SframeError::DecryptionFailure
-            })
-        }?;
-
-        debug_assert!(
-            out.len() == encrypted_len,
-            "For a symmetric encryption it is given that the output has the same length as the input"
-        );
-        cipher_text[..encrypted_len].copy_from_slice(&out);
+                cipher_text,
+                encrypted_len,
+            )?;
+        }
 
         Ok(())
     }
@@ -83,17 +88,27 @@ impl EncryptionKey {
     fn encrypt_aead(&self, buffer_view: EncryptionBufferView, counter: Counter) -> Result<()> {
         let secret = self.secret();
         let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(counter);
+        let cipher: openssl::symm::Cipher = self.cipher_suite_params().cipher_suite.into();
 
-        // TODO this allocates a new vec, maybe use the openssl cipher API direct instead of allocating
-        let out = openssl::symm::encrypt_aead(
-            self.cipher_suite_params().cipher_suite.into(),
+        let mut crypter = openssl::symm::Crypter::new(
+            cipher,
+            openssl::symm::Mode::Encrypt,
             &secret.key,
             Some(&nonce),
-            buffer_view.aad,
-            buffer_view.cipher_text,
-            buffer_view.tag,
         )?;
-        EncryptionKey::copy_encrypted_to_buffer(buffer_view, out);
+
+        crypter.aad_update(buffer_view.aad)?;
+
+        let plaintext_len = buffer_view.cipher_text.len();
+        let encrypted_len = update_inplace(&mut crypter, buffer_view.cipher_text)?;
+        let final_len = crypter.finalize(&mut buffer_view.cipher_text[encrypted_len..])?;
+
+        debug_assert!(
+            encrypted_len + final_len == plaintext_len,
+            "For a symmetric encryption it is given that the output has the same length as the input"
+        );
+
+        crypter.get_tag(buffer_view.tag)?;
 
         Ok(())
     }
@@ -101,53 +116,105 @@ impl EncryptionKey {
     fn encrypt_aes_ctr(&self, buffer_view: EncryptionBufferView, counter: Counter) -> Result<()> {
         let secret = self.secret();
         let auth_key = secret.auth.as_ref().ok_or(SframeError::EncryptionFailure)?;
+        let cipher: openssl::symm::Cipher = self.cipher_suite_params().cipher_suite.into();
         // openssl expects a fixed iv length of 16 byte, thus we needed to pad the sframe nonce
         let initial_counter = secret.create_nonce::<AES_CTR_IVS_LEN>(counter);
         let nonce = &initial_counter[..self.cipher_suite_params().nonce_len];
 
-        // TODO this allocates a new vec, maybe use the openssl cipher API direct instead of allocating
-        let encrypted = openssl::symm::encrypt(
-            self.cipher_suite_params().cipher_suite.into(),
+        let mut crypter = openssl::symm::Crypter::new(
+            cipher,
+            openssl::symm::Mode::Encrypt,
             &secret.key,
             Some(&initial_counter),
-            buffer_view.cipher_text,
         )?;
+
+        let plaintext_len = buffer_view.cipher_text.len();
+        let encrypted_len = update_inplace(&mut crypter, buffer_view.cipher_text)?;
+        let final_len = crypter.finalize(&mut buffer_view.cipher_text[encrypted_len..])?;
+
+        debug_assert!(
+            encrypted_len + final_len == plaintext_len,
+            "For a symmetric encryption it is given that the output has the same length as the input"
+        );
 
         let tag = compute_tag(
             self.cipher_suite_params(),
             auth_key,
             buffer_view.aad,
             nonce,
-            &encrypted,
+            buffer_view.cipher_text,
         )?;
         buffer_view.tag.copy_from_slice(&tag);
 
-        EncryptionKey::copy_encrypted_to_buffer(buffer_view, encrypted);
-
         Ok(())
-    }
-
-    fn copy_encrypted_to_buffer(buffer_view: EncryptionBufferView, encrypted: Vec<u8>) {
-        let cipher_text_len = buffer_view.cipher_text.len();
-        debug_assert!(
-            encrypted.len() == cipher_text_len,
-            "For a symmetric encryption it is given that the output has the same length as the input"
-        );
-        buffer_view
-            .cipher_text
-            .copy_from_slice(&encrypted[..cipher_text_len]);
     }
 }
 
 impl DecryptionKey {
-    fn decrypt_aes_ctr(
+    fn decrypt_aead_inplace(
         &self,
         cipher: openssl::symm::Cipher,
         counter: Counter,
         aad: &[u8],
-        encrypted: &[u8],
+        cipher_text: &mut [u8],
+        encrypted_len: usize,
+    ) -> Result<()> {
+        let secret = self.secret();
+        let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(counter);
+
+        let mut crypter = openssl::symm::Crypter::new(
+            cipher,
+            openssl::symm::Mode::Decrypt,
+            &secret.key,
+            Some(&nonce),
+        )
+        .map_err(|err| {
+            log::debug!("Decryption failed, OpenSSL error stack: {err}");
+            SframeError::DecryptionFailure
+        })?;
+
+        crypter.aad_update(aad).map_err(|err| {
+            log::debug!("Decryption failed, OpenSSL error stack: {err}");
+            SframeError::DecryptionFailure
+        })?;
+
+        // Set the authentication tag before decryption
+        crypter
+            .set_tag(&cipher_text[encrypted_len..])
+            .map_err(|err| {
+                log::debug!("Decryption failed, OpenSSL error stack: {err}");
+                SframeError::DecryptionFailure
+            })?;
+
+        let decrypted_len = update_inplace(&mut crypter, &mut cipher_text[..encrypted_len])
+            .map_err(|err| {
+                log::debug!("Decryption failed, OpenSSL error stack: {err}");
+                SframeError::DecryptionFailure
+            })?;
+
+        let final_len = crypter
+            .finalize(&mut cipher_text[decrypted_len..encrypted_len])
+            .map_err(|err| {
+                log::debug!("Decryption failed, OpenSSL error stack: {err}");
+                SframeError::DecryptionFailure
+            })?;
+
+        debug_assert!(
+            decrypted_len + final_len == encrypted_len,
+            "For a symmetric encryption it is given that the output has the same length as the input"
+        );
+
+        Ok(())
+    }
+
+    fn decrypt_aes_ctr_inplace(
+        &self,
+        cipher: openssl::symm::Cipher,
+        counter: Counter,
+        aad: &[u8],
+        encrypted: &mut [u8],
         tag: &[u8],
-    ) -> Result<Vec<u8>> {
+    ) -> Result<()> {
         let secret = self.secret();
         let initial_counter: [u8; 16] = secret.create_nonce::<AES_CTR_IVS_LEN>(counter);
         let nonce = &initial_counter[..self.cipher_suite_params().nonce_len];
@@ -165,12 +232,37 @@ impl DecryptionKey {
             log::debug!("Tags mismatching, discarding frame.");
             return Err(SframeError::DecryptionFailure);
         }
-        openssl::symm::decrypt(cipher, &secret.key, Some(&initial_counter), encrypted).map_err(
-            |err| {
+
+        let mut crypter = openssl::symm::Crypter::new(
+            cipher,
+            openssl::symm::Mode::Decrypt,
+            &secret.key,
+            Some(&initial_counter),
+        )
+        .map_err(|err| {
+            log::debug!("Decryption failed, OpenSSL error stack: {err}");
+            SframeError::DecryptionFailure
+        })?;
+
+        let encrypted_len = encrypted.len();
+        let decrypted_len = update_inplace(&mut crypter, encrypted).map_err(|err| {
+            log::debug!("Decryption failed, OpenSSL error stack: {err}");
+            SframeError::DecryptionFailure
+        })?;
+
+        let final_len = crypter
+            .finalize(&mut encrypted[decrypted_len..])
+            .map_err(|err| {
                 log::debug!("Decryption failed, OpenSSL error stack: {err}");
                 SframeError::DecryptionFailure
-            },
-        )
+            })?;
+
+        debug_assert!(
+            decrypted_len + final_len == encrypted_len,
+            "For a symmetric decryption it is given that the output has the same length as the input"
+        );
+
+        Ok(())
     }
 }
 
