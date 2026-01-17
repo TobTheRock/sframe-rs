@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-01-17
+
+### Performance
+
+- In place encryption/decryption
+
+
 ## [1.0.1] - 2025-08-12
 
 ### Features
