@@ -2,6 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-01-17
+
+
 ## 1.1 - 2026-17-01
 
 ### Performance
