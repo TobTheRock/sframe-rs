@@ -1,7 +1,9 @@
 use crate::{
+    CipherSuite,
     crypto::{
         aead::AeadDecrypt,
         buffer::{AadData, decryption::DecryptionBuffer},
+        key_derivation::KeyDerivation,
     },
     error::{Result, SframeError},
     header::SframeHeader,
@@ -107,7 +109,11 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     /// Dynamically allocates memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
-    pub fn decrypt(&self, key_store: &impl KeyStore) -> Result<MediaFrame> {
+    pub fn decrypt<A, D>(&self, key_store: &impl KeyStore<A, D>) -> Result<MediaFrame>
+    where
+        A: AeadDecrypt + TryFrom<CipherSuite, Error = SframeError>,
+        D: KeyDerivation,
+    {
         let mut buffer = Vec::new();
         let view = self.decrypt_into(key_store, &mut buffer)?;
 
@@ -123,11 +129,15 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     /// As [`DecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
-    pub fn decrypt_into<'obuf>(
+    pub fn decrypt_into<'obuf, A, D>(
         &self,
-        key_store: &impl KeyStore,
+        key_store: &impl KeyStore<A, D>,
         buffer: &'obuf mut impl FrameBuffer,
-    ) -> Result<MediaFrameView<'obuf>> {
+    ) -> Result<MediaFrameView<'obuf>>
+    where
+        A: AeadDecrypt + TryFrom<CipherSuite, Error = SframeError>,
+        D: KeyDerivation,
+    {
         let counter = self.header().counter();
         let key_id = self.header.key_id();
 
@@ -267,7 +277,11 @@ impl EncryptedFrame {
     /// Dynamically allocats memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
-    pub fn decrypt(&self, key_store: &impl KeyStore) -> Result<MediaFrame> {
+    pub fn decrypt<A, D>(&self, key_store: &impl KeyStore<A, D>) -> Result<MediaFrame>
+    where
+        A: AeadDecrypt + TryFrom<CipherSuite, Error = SframeError>,
+        D: KeyDerivation,
+    {
         let view = EncryptedFrameView::with_header(
             self.header,
             &self.buffer[self.meta_len..],
@@ -282,11 +296,15 @@ impl EncryptedFrame {
     /// As [`DecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
-    pub fn decrypt_into<'obuf>(
+    pub fn decrypt_into<'obuf, A, D>(
         &self,
-        key_store: &impl KeyStore,
+        key_store: &impl KeyStore<A, D>,
         buffer: &'obuf mut impl FrameBuffer,
-    ) -> Result<MediaFrameView<'obuf>> {
+    ) -> Result<MediaFrameView<'obuf>>
+    where
+        A: AeadDecrypt + TryFrom<CipherSuite, Error = SframeError>,
+        D: KeyDerivation,
+    {
         let view = EncryptedFrameView::with_header(
             self.header,
             &self.buffer[self.meta_len..],

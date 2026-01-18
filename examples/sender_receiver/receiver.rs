@@ -163,15 +163,15 @@ impl Default for KeyStore {
     }
 }
 
-impl sframe::key::KeyStore for KeyStore {
+impl sframe::key::KeyStore<sframe::key::Aead, sframe::key::Kdf> for KeyStore {
     fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
     where
         K: Into<KeyId>,
     {
         let key_id = key_id.into();
         match self {
-            KeyStore::Standard(keys) => keys.get_key(key_id),
-            KeyStore::Ratcheting(keys) => keys.get_key(key_id),
+            KeyStore::Standard(keys) => sframe::key::KeyStore::get_key(keys, key_id),
+            KeyStore::Ratcheting(keys) => sframe::key::KeyStore::get_key(keys, key_id),
         }
     }
 }

@@ -1,3 +1,6 @@
+//! Key derivation implementation for RustCrypto backend.
+
+use super::Kdf;
 use crate::{
     crypto::{
         cipher_suite::{CipherSuite, CipherSuiteParams},
@@ -14,7 +17,7 @@ use crate::{
 use hkdf::SimpleHkdf;
 use sha2::{Digest, Sha256, Sha512};
 
-impl KeyDerivation for Secret {
+impl KeyDerivation for Kdf {
     fn expand_from<M, K>(
         cipher_suite: &CipherSuiteParams,
         key_material: M,

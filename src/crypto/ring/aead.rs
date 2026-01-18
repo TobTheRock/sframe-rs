@@ -1,17 +1,18 @@
+//! AEAD implementation using the ring library.
+
+use super::Aead;
 use crate::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
         buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
+        cipher_suite::CipherSuite,
         secret::Secret,
     },
-    error::Result,
+    error::{Result, SframeError},
     header::Counter,
-    key::{DecryptionKey, EncryptionKey},
 };
 
 use ring::aead::{BoundKey, SealingKey};
-
-use crate::{crypto::cipher_suite::CipherSuite, error::SframeError};
 
 struct FrameNonceSequence {
     buffer: [u8; ring::aead::NONCE_LEN],
@@ -49,15 +50,15 @@ fn unbound_encryption_key(
         .map_err(|_| SframeError::KeyDerivationFailure)
 }
 
-impl AeadEncrypt for EncryptionKey {
-    fn encrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
+impl AeadEncrypt for Aead {
+    fn encrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>,
     {
         let buffer_view: EncryptionBufferView = buffer.into();
         let mut sealing_key = SealingKey::<FrameNonceSequence>::new(
-            unbound_encryption_key(self.cipher_suite(), self.secret())?,
-            self.secret().create_nonce(counter).into(),
+            unbound_encryption_key(self.cipher_suite, secret)?,
+            secret.create_nonce(counter).into(),
         );
 
         let aad = ring::aead::Aad::from(buffer_view.aad);
@@ -73,8 +74,8 @@ impl AeadEncrypt for EncryptionKey {
     }
 }
 
-impl AeadDecrypt for DecryptionKey {
-    fn decrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
+impl AeadDecrypt for Aead {
+    fn decrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>,
     {
@@ -82,8 +83,8 @@ impl AeadDecrypt for DecryptionKey {
         let aad = ring::aead::Aad::from(buffer_view.aad);
 
         let mut opening_key = ring::aead::OpeningKey::<FrameNonceSequence>::new(
-            unbound_encryption_key(self.cipher_suite(), self.secret())?,
-            self.secret().create_nonce(counter).into(),
+            unbound_encryption_key(self.cipher_suite, secret)?,
+            secret.create_nonce(counter).into(),
         );
         opening_key
             .open_in_place(aad, buffer_view.cipher_text)

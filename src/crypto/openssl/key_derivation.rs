@@ -1,3 +1,6 @@
+//! Key derivation implementation for OpenSSL backend.
+
+use super::Kdf;
 use crate::{
     crypto::{
         cipher_suite::{CipherSuite, CipherSuiteParams},
@@ -12,7 +15,7 @@ use crate::{
     header::KeyId,
 };
 
-impl KeyDerivation for Secret {
+impl KeyDerivation for Kdf {
     fn expand_from<M, K>(
         cipher_suite: &CipherSuiteParams,
         key_material: M,
@@ -139,6 +142,7 @@ impl From<CipherSuite> for &'static openssl::md::MdRef {
         }
     }
 }
+
 #[cfg(test)]
 mod test {
 

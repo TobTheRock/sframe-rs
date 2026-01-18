@@ -1,25 +1,44 @@
 use crate::{
-    crypto::buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
+    crypto::{
+        buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
+        secret::Secret,
+    },
     error::Result,
     header::Counter,
 };
 
+/// Trait for AEAD encryption implementations.
+///
+/// Implementors should encrypt the plaintext in the buffer using the provided secret and counter.
 pub trait AeadEncrypt {
-    fn encrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
+    /// Encrypts the plaintext in the buffer in-place.
+    ///
+    /// # Arguments
+    /// * `secret` - The secret key material containing the encryption key and salt.
+    /// * `buffer` - The buffer containing AAD and plaintext (will be encrypted in-place).
+    /// * `counter` - The counter used for nonce generation.
+    fn encrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>;
 }
 
+/// Trait for AEAD decryption implementations.
+///
+/// Implementors should decrypt the ciphertext in the buffer using the provided secret and counter.
 pub trait AeadDecrypt {
-    fn decrypt<'a, B>(&self, buffer: B, counter: Counter) -> Result<()>
+    /// Decrypts the ciphertext in the buffer in-place.
+    ///
+    /// # Arguments
+    /// * `secret` - The secret key material containing the encryption key and salt.
+    /// * `buffer` - The buffer containing AAD and ciphertext+tag (will be decrypted in-place).
+    /// * `counter` - The counter used for nonce generation.
+    fn decrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>;
 }
 
 #[cfg(test)]
 mod test {
-
-    use super::{AeadDecrypt, AeadEncrypt};
     use crate::{
         crypto::{
             buffer::{

@@ -1,14 +1,21 @@
 use crate::header::Counter;
 
+/// Secret key material derived from base key material.
+/// Contains the encryption key, salt for nonce generation, and optionally an auth key for CTR mode.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Secret {
-    pub(super) key: Vec<u8>,
-    pub(super) salt: Vec<u8>,
-    pub(super) auth: Option<Vec<u8>>,
+    /// The encryption key.
+    pub key: Vec<u8>,
+    /// The salt used for nonce generation.
+    pub salt: Vec<u8>,
+    /// The authentication key (only used for CTR mode ciphers).
+    pub auth: Option<Vec<u8>>,
 }
 
 impl Secret {
-    pub(crate) fn create_nonce<const LEN: usize>(&self, counter: Counter) -> [u8; LEN] {
+    /// Creates a nonce by XORing the salt with the counter.
+    /// The counter bytes are applied in little-endian order from the end of the nonce.
+    pub fn create_nonce<const LEN: usize>(&self, counter: Counter) -> [u8; LEN] {
         let be_counter = counter.to_be_bytes();
         let mut counter = be_counter.iter().rev();
         let mut iv = [0u8; LEN];

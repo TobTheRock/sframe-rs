@@ -1,20 +1,33 @@
 use std::collections::HashMap;
 
-use crate::header::KeyId;
+use crate::{
+    CipherSuite,
+    crypto::{aead::AeadDecrypt, key_derivation::KeyDerivation},
+    error::SframeError,
+    header::KeyId,
+};
 
-use super::DecryptionKey;
+use super::crypto_key::DecryptionKey;
 
 /// Abstraction for a key store that allows retrieving decryption keys by their respective key id.
-pub trait KeyStore {
+pub trait KeyStore<A, D>
+where
+    A: AeadDecrypt + TryFrom<CipherSuite, Error = SframeError>,
+    D: KeyDerivation,
+{
     /// Tries to retrieve a key with by its matching key ID.
     /// If no such key is found None is returned
-    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
+    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey<A, D>>
     where
         K: Into<KeyId>;
 }
 
-impl KeyStore for DecryptionKey {
-    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
+impl<A, D> KeyStore<A, D> for DecryptionKey<A, D>
+where
+    A: AeadDecrypt + TryFrom<CipherSuite, Error = SframeError>,
+    D: KeyDerivation,
+{
+    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey<A, D>>
     where
         K: Into<KeyId>,
     {
@@ -27,8 +40,12 @@ impl KeyStore for DecryptionKey {
     }
 }
 
-impl KeyStore for HashMap<KeyId, DecryptionKey> {
-    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
+impl<A, D> KeyStore<A, D> for HashMap<KeyId, DecryptionKey<A, D>>
+where
+    A: AeadDecrypt + TryFrom<CipherSuite, Error = SframeError>,
+    D: KeyDerivation,
+{
+    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey<A, D>>
     where
         K: Into<KeyId>,
     {

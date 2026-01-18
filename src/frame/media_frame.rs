@@ -1,11 +1,13 @@
 use crate::{
+    CipherSuite,
     crypto::{
         aead::AeadEncrypt,
         buffer::{AadData, encryption::EncryptionBuffer},
+        key_derivation::KeyDerivation,
     },
-    error::Result,
+    error::{Result, SframeError},
     header::{Counter, SframeHeader},
-    key::EncryptionKey,
+    key::crypto_key::EncryptionKey,
 };
 
 use super::{
@@ -86,7 +88,11 @@ impl<'ibuf> MediaFrameView<'ibuf> {
     /// Encrypts the media frame with the sframe key according to [RFC 9605 4.4.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-encryption). Dynamically allocates memory for the resulting [`EncryptedFrame`].
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails.
-    pub fn encrypt(&self, key: &EncryptionKey) -> Result<EncryptedFrame> {
+    pub fn encrypt<A, D>(&self, key: &EncryptionKey<A, D>) -> Result<EncryptedFrame>
+    where
+        A: AeadEncrypt + TryFrom<CipherSuite, Error = SframeError>,
+        D: KeyDerivation,
+    {
         let mut buffer = Vec::new();
         let view = self.encrypt_into(key, &mut buffer)?;
 
@@ -101,11 +107,15 @@ impl<'ibuf> MediaFrameView<'ibuf> {
     /// Encrypts the media frame with the sframe key according to [RFC 9605 4.4.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-encryption) and stores the result, an [`EncryptedFrameView`], into the provided buffer.
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails.
-    pub fn encrypt_into<'obuf>(
+    pub fn encrypt_into<'obuf, A, D>(
         &self,
-        key: &EncryptionKey,
+        key: &EncryptionKey<A, D>,
         buffer: &'obuf mut impl FrameBuffer,
-    ) -> Result<EncryptedFrameView<'obuf>> {
+    ) -> Result<EncryptedFrameView<'obuf>>
+    where
+        A: AeadEncrypt + TryFrom<CipherSuite, Error = SframeError>,
+        D: KeyDerivation,
+    {
         let key_id = key.key_id();
         log::trace!(
             "Encrypting MediaFrame # {} using KeyId {key_id} and CipherSuiteParams {}",
@@ -237,7 +247,11 @@ impl MediaFrame {
     /// Dynamically allocates memory for the resulting [`EncryptedFrame`].
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails
-    pub fn encrypt(&self, key: &EncryptionKey) -> Result<EncryptedFrame> {
+    pub fn encrypt<A, D>(&self, key: &EncryptionKey<A, D>) -> Result<EncryptedFrame>
+    where
+        A: AeadEncrypt + TryFrom<CipherSuite, Error = SframeError>,
+        D: KeyDerivation,
+    {
         let view =
             MediaFrameView::with_meta_data_and_ctr(self.counter, self.payload(), self.meta_data());
         view.encrypt(key)
@@ -247,11 +261,15 @@ impl MediaFrame {
     /// and stores the result into the provided buffer. An [`EncryptedFrameView`] on the buffer is returned on success.
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails.
-    pub fn encrypt_into<'obuf>(
+    pub fn encrypt_into<'obuf, A, D>(
         &self,
-        key: &EncryptionKey,
+        key: &EncryptionKey<A, D>,
         buffer: &'obuf mut impl FrameBuffer,
-    ) -> Result<EncryptedFrameView<'obuf>> {
+    ) -> Result<EncryptedFrameView<'obuf>>
+    where
+        A: AeadEncrypt + TryFrom<CipherSuite, Error = SframeError>,
+        D: KeyDerivation,
+    {
         let view =
             MediaFrameView::with_meta_data_and_ctr(self.counter, self.payload(), self.meta_data());
         view.encrypt_into(key, buffer)

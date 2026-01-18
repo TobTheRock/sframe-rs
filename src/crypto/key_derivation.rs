@@ -1,12 +1,21 @@
-use super::cipher_suite::CipherSuiteParams;
+use super::{cipher_suite::CipherSuiteParams, secret::Secret};
 use crate::{CipherSuite, error::Result, header::KeyId};
 
-pub trait KeyDerivation: Sized {
+/// Trait for key derivation implementations.
+///
+/// Implementors should derive secret key material from base key material using HKDF or similar.
+pub trait KeyDerivation {
+    /// Expands key material into a Secret containing encryption key, salt, and optionally auth key.
+    ///
+    /// # Arguments
+    /// * `cipher_suite` - The cipher suite parameters determining key lengths.
+    /// * `key_material` - The base key material to derive from.
+    /// * `key_id` - The key ID used in the HKDF label.
     fn expand_from<M, K>(
         cipher_suite: &CipherSuiteParams,
         key_material: M,
         key_id: K,
-    ) -> Result<Self>
+    ) -> Result<Secret>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>;
@@ -53,15 +62,23 @@ mod test {
     use super::{KeyDerivation, Ratcheting, get_hkdf_key_expand_label, get_hkdf_salt_expand_label};
 
     use crate::{
-        crypto::{
-            cipher_suite::{CipherSuite, CipherSuiteParams},
-            secret::Secret,
-        },
+        crypto::cipher_suite::{CipherSuite, CipherSuiteParams},
         test_vectors::get_sframe_test_vector,
         util::test::assert_bytes_eq,
     };
 
     use test_case::test_case;
+
+    // Import the appropriate Kdf based on feature flags
+    cfg_if::cfg_if! {
+        if #[cfg(all(feature = "ring", not(feature = "openssl"), not(feature = "rust-crypto")))] {
+            use crate::crypto::ring::Kdf;
+        } else if #[cfg(all(feature = "openssl", not(feature = "ring"), not(feature = "rust-crypto")))] {
+            use crate::crypto::openssl::Kdf;
+        } else if #[cfg(all(feature = "rust-crypto", not(feature = "ring"), not(feature = "openssl")))] {
+            use crate::crypto::rust_crypto::Kdf;
+        }
+    }
 
     #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]
     #[test_case(CipherSuite::AesGcm256Sha512; "AesGcm256Sha512")]
@@ -87,7 +104,7 @@ mod test {
         let test_vec = get_sframe_test_vector(&cipher_suite.to_string());
         let params: CipherSuiteParams = CipherSuiteParams::from(cipher_suite);
 
-        let secret = Secret::expand_from(&params, &test_vec.key_material, test_vec.key_id).unwrap();
+        let secret = Kdf::expand_from(&params, &test_vec.key_material, test_vec.key_id).unwrap();
 
         assert_bytes_eq(&secret.key, &test_vec.sframe_key);
         assert_bytes_eq(&secret.salt, &test_vec.sframe_salt);
@@ -107,7 +124,7 @@ mod test {
             let params = CipherSuiteParams::from(cipher_suite);
 
             let secret =
-                Secret::expand_from(&params, &test_vec.key_material, test_vec.key_id).unwrap();
+                Kdf::expand_from(&params, &test_vec.key_material, test_vec.key_id).unwrap();
 
             assert_bytes_eq(&secret.salt, &test_vec.sframe_salt);
             // the subkeys stored in sframe_key.key and sframe_key.auth are not directly included in the test vectors, but we can extract them from sframe_key
