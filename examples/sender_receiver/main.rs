@@ -13,6 +13,7 @@ use receiver::{Receiver, ReceiverOptions};
 use sender::{Sender, SenderOptions};
 use sframe::{
     CipherSuite,
+    crypto::Kdf,
     header::SframeHeader,
     ratchet::{RatchetingBaseKey, RatchetingKeyId},
 };
@@ -42,7 +43,7 @@ fn main() {
 
         let r = RatchetingKeyId::new(key_id, n_ratchet_bits);
         let base_key =
-            RatchetingBaseKey::ratchet_forward(r, secret.as_bytes(), cipher_suite).unwrap();
+            RatchetingBaseKey::<Kdf>::ratchet_forward(r, secret.as_bytes(), cipher_suite).unwrap();
 
         (Some(base_key), r.into())
     } else {

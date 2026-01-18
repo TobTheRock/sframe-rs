@@ -1,18 +1,21 @@
 use crate::{
     CipherSuite,
-    crypto::cipher_suite::CipherSuiteParams,
+    crypto::{
+        aead::{AeadDecrypt, AeadEncrypt},
+        key_derivation::KeyDerivation,
+    },
     error::SframeError,
-    key::{DecryptionKey, EncryptionKey},
+    key::crypto_key::{DecryptionKey, EncryptionKey},
 };
 use log::error;
 
-/// definitions of a key id according to [RFC 9605 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.2)
+/// definitions of a key id according to [RFC 9605 Section 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.2)
 pub mod mls_key_id;
 
 pub use mls_key_id::{MlsKeyId, MlsKeyIdBitRange};
 
 /// Trait abstraction for an MLS exporter defined in [RFC 9420](https://datatracker.ietf.org/doc/html/rfc9420#exporters).
-/// As of  [RFC 9605 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.2) this exporter
+/// As of [RFC 9605 Section 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.2) this exporter
 /// can be used to derive an [`EncryptionKey`].
 pub trait MlsExporter {
     /// Type of the base key returned by the MLS exporter
@@ -29,8 +32,12 @@ pub trait MlsExporter {
 }
 
 macro_rules! mls_key {
-    ($name:ident) => {
-        impl $name {
+    ($name:ident, $aead:ident) => {
+        impl<A, D> $name<A, D>
+        where
+            A: $aead,
+            D: KeyDerivation,
+        {
             /// Derives a new sframe key from the base key provided by the MLS exporter.
             /// Associates it with an MLS specific Key ID.
             pub fn derive_from_mls(
@@ -38,22 +45,21 @@ macro_rules! mls_key {
                 exporter: &impl MlsExporter,
                 key_id: MlsKeyId,
             ) -> crate::error::Result<Self> {
-                let params = CipherSuiteParams::from(cipher_suite);
                 let base_key = exporter
-                    .export_secret("SFrame 1.0 Base Key", b"", params.key_len)
+                    .export_secret("SFrame 1.0 Base Key", b"", cipher_suite.key_len())
                     .map_err(|err| {
                         error!("Failed to export base key from MLS: {}", err);
                         SframeError::KeyDerivationFailure
                     })?;
 
-                $name::derive_from(cipher_suite, key_id, base_key)
+                Self::derive_from(cipher_suite, key_id, base_key)
             }
         }
     };
 }
 
-mls_key!(DecryptionKey);
-mls_key!(EncryptionKey);
+mls_key!(DecryptionKey, AeadDecrypt);
+mls_key!(EncryptionKey, AeadEncrypt);
 
 #[cfg(test)]
 mod test {

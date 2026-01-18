@@ -26,6 +26,10 @@ pub enum SframeError {
     #[error("Unable to create unbound encryption key")]
     RatchetingFailure,
 
+    /// The cipher suite is not supported by the current crypto backend
+    #[error("Cipher suite is not supported by this backend")]
+    UnsupportedCipherSuite,
+
     /// frame validation failed before decryption
     #[error("{0}")]
     FrameValidationFailed(String),

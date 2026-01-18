@@ -34,7 +34,8 @@
     clippy::match_same_arms
 )]
 
-mod crypto;
+/// Cryptographic primitives and traits for implementing custom crypto backends.
+pub mod crypto;
 mod util;
 
 /// error definitions
