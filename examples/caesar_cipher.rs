@@ -9,7 +9,7 @@
 use sframe::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
-        buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
+        buffer::{DecryptionBufferView, EncryptionBufferView},
         cipher_suite::{CipherSuite, CipherSuiteParams},
         key_derivation::KeyDerivation,
         secret::Secret,

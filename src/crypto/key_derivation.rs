@@ -1,16 +1,9 @@
 use super::{cipher_suite::CipherSuiteParams, secret::Secret};
 use crate::{CipherSuite, error::Result, header::KeyId};
 
-/// Trait for key derivation implementations.
-///
-/// Implementors should derive secret key material from base key material using HKDF or similar.
+/// Trait for key derivation implementations as defined in [RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2).
 pub trait KeyDerivation {
-    /// Expands key material into a Secret containing encryption key, salt, and optionally auth key.
-    ///
-    /// # Arguments
-    /// * `cipher_suite` - The cipher suite parameters determining key lengths.
-    /// * `key_material` - The base key material to derive from.
-    /// * `key_id` - The key ID used in the HKDF label.
+    /// Expands key material into a [`Secret`].
     fn expand_from<M, K>(
         cipher_suite: &CipherSuiteParams,
         key_material: M,
@@ -21,12 +14,15 @@ pub trait KeyDerivation {
         K: Into<KeyId>;
 }
 
+/// Trait for key material ratcheting as defined in [RFC 9605 Section 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1).
 pub trait Ratcheting: Sized {
+    /// Ratchets the key material forward, producing new key material.
     fn ratchet(&self, cipher_suite: &CipherSuiteParams) -> Result<Vec<u8>>
     where
         Self: AsRef<[u8]>;
 }
 
+/// Constructs the HKDF info label for key expansion as defined in [RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2).
 pub fn get_hkdf_key_expand_label(key_id: u64, cipher_suite: CipherSuite) -> Vec<u8> {
     [
         SFRAME_LABEL,
@@ -37,6 +33,7 @@ pub fn get_hkdf_key_expand_label(key_id: u64, cipher_suite: CipherSuite) -> Vec<
     .concat()
 }
 
+/// Constructs the HKDF info label for salt expansion as defined in [RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2).
 pub fn get_hkdf_salt_expand_label(key_id: u64, cipher_suite: CipherSuite) -> Vec<u8> {
     [
         SFRAME_LABEL,
@@ -47,6 +44,7 @@ pub fn get_hkdf_salt_expand_label(key_id: u64, cipher_suite: CipherSuite) -> Vec
     .concat()
 }
 
+/// Returns the HKDF info label for ratcheting as defined in [RFC 9605 Section 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1).
 pub const fn get_hkdf_ratchet_expand_label() -> &'static [u8] {
     b"Sframe 1.0 Ratchet"
 }

@@ -1,12 +1,6 @@
 use crate::{crypto::cipher_suite::CipherSuiteParams, error::Result, frame::FrameBuffer};
 
-use super::AadData;
-
-pub struct EncryptionBufferView<'a> {
-    pub aad: &'a mut [u8],
-    pub cipher_text: &'a mut [u8],
-    pub tag: &'a mut [u8],
-}
+use super::{AadData, EncryptionBufferView};
 
 pub struct EncryptionBuffer<'a> {
     io_buffer: &'a mut [u8],

@@ -1,37 +1,23 @@
 use crate::{
     crypto::{
-        buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
+        buffer::{DecryptionBufferView, EncryptionBufferView},
         secret::Secret,
     },
     error::Result,
     header::Counter,
 };
 
-/// Trait for AEAD encryption implementations.
-///
-/// Implementors should encrypt the plaintext in the buffer using the provided secret and counter.
+/// Trait for AEAD encryption implementations as defined in [RFC 9605 Section 4.4.3](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.3).
 pub trait AeadEncrypt {
     /// Encrypts the plaintext in the buffer in-place.
-    ///
-    /// # Arguments
-    /// * `secret` - The secret key material containing the encryption key and salt.
-    /// * `buffer` - The buffer containing AAD and plaintext (will be encrypted in-place).
-    /// * `counter` - The counter used for nonce generation.
     fn encrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>;
 }
 
-/// Trait for AEAD decryption implementations.
-///
-/// Implementors should decrypt the ciphertext in the buffer using the provided secret and counter.
+/// Trait for AEAD decryption implementations as defined in [RFC 9605 Section 4.4.4](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.4).
 pub trait AeadDecrypt {
     /// Decrypts the ciphertext in the buffer in-place.
-    ///
-    /// # Arguments
-    /// * `secret` - The secret key material containing the encryption key and salt.
-    /// * `buffer` - The buffer containing AAD and ciphertext+tag (will be decrypted in-place).
-    /// * `counter` - The counter used for nonce generation.
     fn decrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>;
@@ -41,10 +27,7 @@ pub trait AeadDecrypt {
 mod test {
     use crate::{
         crypto::{
-            buffer::{
-                decryption::DecryptionBufferView,
-                encryption::{EncryptionBuffer, EncryptionBufferView},
-            },
+            buffer::{DecryptionBufferView, EncryptionBufferView, encryption::EncryptionBuffer},
             cipher_suite::CipherSuite,
         },
         header::{KeyId, SframeHeader},

@@ -1,4 +1,4 @@
-//! Ring backend implementation for SFrame crypto operations.
+//! Ring backend implementation for ``SFrame`` crypto operations.
 
 mod aead;
 mod key_derivation;

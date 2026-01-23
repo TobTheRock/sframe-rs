@@ -4,7 +4,7 @@ use crate::{
     CipherSuite,
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
-        buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
+        buffer::{DecryptionBufferView, EncryptionBufferView},
         cipher_suite::CipherSuiteParams,
         key_derivation::KeyDerivation,
         secret::Secret,
@@ -13,7 +13,7 @@ use crate::{
     header::{Counter, KeyId},
 };
 
-/// Represents an SFrame encryption key as described in [RFC 9605 4.4.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.1).
+/// Represents an `SFrame` encryption key as described in [RFC 9605 4.4.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.1).
 ///
 /// The key is generic over:
 /// - `A`: The AEAD encryption implementation
@@ -36,7 +36,7 @@ where
     A: AeadEncrypt + TryFrom<CipherSuite, Error = SframeError>,
     D: KeyDerivation,
 {
-    /// Tries to derive an SFrame key from the provided base key material using the given cipher suite variant.
+    /// Tries to derive an `SFrame` key from the provided base key material using the given cipher suite variant.
     /// It is then assigned the provided key ID and the cipher suite variant.
     /// If key derivation fails an error is returned.
     pub fn derive_from<K, M>(cipher_suite: CipherSuite, key_id: K, key_material: M) -> Result<Self>
@@ -116,7 +116,7 @@ where
     }
 }
 
-/// Represents an SFrame decryption key as described in [RFC 9605 4.4.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.1).
+/// Represents an `SFrame` decryption key as described in [RFC 9605 4.4.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.1).
 ///
 /// The key is generic over:
 /// - `A`: The AEAD decryption implementation
@@ -139,7 +139,7 @@ where
     A: AeadDecrypt + TryFrom<CipherSuite, Error = SframeError>,
     D: KeyDerivation,
 {
-    /// Tries to derive an SFrame key from the provided base key material using the given cipher suite variant.
+    /// Tries to derive an `SFrame` key from the provided base key material using the given cipher suite variant.
     /// It is then assigned the provided key ID and the cipher suite variant.
     /// If key derivation fails an error is returned.
     pub fn derive_from<K, M>(cipher_suite: CipherSuite, key_id: K, key_material: M) -> Result<Self>

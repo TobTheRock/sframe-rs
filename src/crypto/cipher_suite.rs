@@ -37,9 +37,10 @@ impl std::fmt::Display for CipherSuite {
 }
 
 // TODO convert this into a trait
-/// cipher suite as of [RFC 9605 4.5](https://www.rfc-editor.org/rfc/rfc9605.html#cipher-suites)
+/// Cipher suite parameters as defined in [RFC 9605 Section 4.5](https://www.rfc-editor.org/rfc/rfc9605.html#cipher-suites).
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct CipherSuiteParams {
+    /// The cipher suite variant these parameters correspond to.
     pub cipher_suite: CipherSuite,
     /// Hash.Nh - The size in bytes of the output of the hash function
     pub hash_len: usize,

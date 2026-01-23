@@ -4,12 +4,7 @@ use crate::{
     frame::{FrameBuffer, Truncate},
 };
 
-use super::AadData;
-
-pub struct DecryptionBufferView<'a> {
-    pub aad: &'a mut [u8],
-    pub cipher_text: &'a mut [u8],
-}
+use super::{AadData, DecryptionBufferView};
 
 pub struct DecryptionBuffer<'a, F>
 where

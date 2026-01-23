@@ -4,7 +4,7 @@ use super::Aead;
 use crate::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
-        buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
+        buffer::{DecryptionBufferView, EncryptionBufferView},
         cipher_suite::CipherSuite,
         secret::Secret,
     },
