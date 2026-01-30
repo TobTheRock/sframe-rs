@@ -56,7 +56,7 @@ mod test {
         let mut frame_buffer = Vec::new();
         let mut encryption_buffer = EncryptionBuffer::try_allocate(
             &mut frame_buffer,
-            enc_key.cipher_suite_params(),
+            enc_key.cipher_suite(),
             &Vec::from(&header),
             &data,
         )
@@ -83,7 +83,7 @@ mod test {
         assert_bytes_eq(&aad, &test_vec.aad);
 
         let mut cipher_text = test_vec.plain_text.clone();
-        let mut tag = vec![0u8; enc_key.cipher_suite_params().auth_tag_len];
+        let mut tag = vec![0u8; enc_key.cipher_suite().auth_tag_len()];
         let encryption_buffer = EncryptionBufferView {
             aad: &mut aad,
             cipher_text: &mut cipher_text,
@@ -123,7 +123,7 @@ mod test {
         dec_key
             .decrypt(decryption_buffer, header.counter())
             .unwrap();
-        data.truncate(data.len() - dec_key.cipher_suite_params().auth_tag_len);
+        data.truncate(data.len() - dec_key.cipher_suite().auth_tag_len());
 
         assert_bytes_eq(&data, &test_vec.plain_text);
     }

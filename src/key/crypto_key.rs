@@ -5,7 +5,6 @@ use crate::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
         buffer::{DecryptionBufferView, EncryptionBufferView},
-        cipher_suite::CipherSuiteParams,
         key_derivation::KeyDerivation,
         secret::Secret,
     },
@@ -13,7 +12,7 @@ use crate::{
     header::{Counter, KeyId},
 };
 
-/// Represents an `SFrame` encryption key as described in [RFC 9605 4.4.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.1).
+/// Represents an `SFrame` encryption key as described in [RFC 9605 Section 4.4.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.1).
 ///
 /// The key is generic over:
 /// - `A`: The AEAD encryption implementation
@@ -26,7 +25,7 @@ where
 {
     aead: A,
     secret: Secret,
-    cipher_suite: CipherSuiteParams,
+    cipher_suite: CipherSuite,
     key_id: KeyId,
     _derivation: PhantomData<D>,
 }
@@ -45,14 +44,13 @@ where
         M: AsRef<[u8]>,
     {
         let key_id = key_id.into();
-        let params: CipherSuiteParams = cipher_suite.into();
         let aead = A::try_from(cipher_suite)?;
-        let secret = D::expand_from(&params, key_material, key_id)?;
+        let secret = D::expand_from(cipher_suite, key_material, key_id)?;
 
         Ok(Self {
             aead,
             secret,
-            cipher_suite: params,
+            cipher_suite,
             key_id,
             _derivation: PhantomData,
         })
@@ -75,12 +73,7 @@ where
 
     /// Returns the cipher suite variant of this key.
     pub fn cipher_suite(&self) -> CipherSuite {
-        self.cipher_suite.cipher_suite
-    }
-
-    /// Returns the cipher suite parameters of this key.
-    pub(crate) fn cipher_suite_params(&self) -> &CipherSuiteParams {
-        &self.cipher_suite
+        self.cipher_suite
     }
 
     #[cfg(test)]
@@ -98,8 +91,7 @@ where
     where
         A: TryFrom<CipherSuite, Error = SframeError>,
     {
-        let params: CipherSuiteParams = cipher_suite.into();
-        if params.is_ctr_mode() {
+        if cipher_suite.is_ctr_mode() {
             // the test vectors do not provide the auth key, so we have to expand here
             Self::derive_from(cipher_suite, test_vec.key_id, &test_vec.key_material).unwrap()
         } else {
@@ -108,7 +100,7 @@ where
             Self {
                 aead,
                 secret,
-                cipher_suite: params,
+                cipher_suite,
                 key_id: test_vec.key_id,
                 _derivation: PhantomData,
             }
@@ -116,7 +108,7 @@ where
     }
 }
 
-/// Represents an `SFrame` decryption key as described in [RFC 9605 4.4.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.1).
+/// Represents an `SFrame` decryption key as described in [RFC 9605 Section 4.4.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.1).
 ///
 /// The key is generic over:
 /// - `A`: The AEAD decryption implementation
@@ -129,7 +121,7 @@ where
 {
     aead: A,
     secret: Secret,
-    cipher_suite: CipherSuiteParams,
+    cipher_suite: CipherSuite,
     key_id: KeyId,
     _derivation: PhantomData<D>,
 }
@@ -148,14 +140,13 @@ where
         M: AsRef<[u8]>,
     {
         let key_id = key_id.into();
-        let params: CipherSuiteParams = cipher_suite.into();
         let aead = A::try_from(cipher_suite)?;
-        let secret = D::expand_from(&params, key_material, key_id)?;
+        let secret = D::expand_from(cipher_suite, key_material, key_id)?;
 
         Ok(Self {
             aead,
             secret,
-            cipher_suite: params,
+            cipher_suite,
             key_id,
             _derivation: PhantomData,
         })
@@ -178,12 +169,7 @@ where
 
     /// Returns the cipher suite variant of this key.
     pub fn cipher_suite(&self) -> CipherSuite {
-        self.cipher_suite.cipher_suite
-    }
-
-    /// Returns the cipher suite parameters of this key.
-    pub(crate) fn cipher_suite_params(&self) -> &CipherSuiteParams {
-        &self.cipher_suite
+        self.cipher_suite
     }
 
     #[cfg(test)]
@@ -201,8 +187,7 @@ where
     where
         A: TryFrom<CipherSuite, Error = SframeError>,
     {
-        let params: CipherSuiteParams = cipher_suite.into();
-        if params.is_ctr_mode() {
+        if cipher_suite.is_ctr_mode() {
             // the test vectors do not provide the auth key, so we have to expand here
             Self::derive_from(cipher_suite, test_vec.key_id, &test_vec.key_material).unwrap()
         } else {
@@ -211,7 +196,7 @@ where
             Self {
                 aead,
                 secret,
-                cipher_suite: params,
+                cipher_suite,
                 key_id: test_vec.key_id,
                 _derivation: PhantomData,
             }

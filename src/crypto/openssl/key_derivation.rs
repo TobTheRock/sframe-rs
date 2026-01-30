@@ -3,7 +3,7 @@
 use super::Kdf;
 use crate::{
     crypto::{
-        cipher_suite::{CipherSuite, CipherSuiteParams},
+        cipher_suite::CipherSuite,
         common::key_derivation::expand_subsecret,
         key_derivation::{
             KeyDerivation, Ratcheting, get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label,
@@ -16,11 +16,7 @@ use crate::{
 };
 
 impl KeyDerivation for Kdf {
-    fn expand_from<M, K>(
-        cipher_suite: &CipherSuiteParams,
-        key_material: M,
-        key_id: K,
-    ) -> Result<Secret>
+    fn expand_from<M, K>(cipher_suite: CipherSuite, key_material: M, key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>,
@@ -46,7 +42,7 @@ impl KeyDerivation for Kdf {
 }
 
 impl Ratcheting for Vec<u8> {
-    fn ratchet(&self, cipher_suite: &CipherSuiteParams) -> Result<Vec<u8>>
+    fn ratchet(&self, cipher_suite: CipherSuite) -> Result<Vec<u8>>
     where
         Self: AsRef<[u8]>,
     {
@@ -55,14 +51,14 @@ impl Ratcheting for Vec<u8> {
             cipher_suite,
             &prk,
             get_hkdf_ratchet_expand_label(),
-            cipher_suite.nonce_len,
+            cipher_suite.nonce_len(),
         )
         .map_err(|_: openssl::error::ErrorStack| SframeError::RatchetingFailure)
     }
 }
 
 fn expand_secret(
-    cipher_suite: &CipherSuiteParams,
+    cipher_suite: CipherSuite,
     key_material: &[u8],
     key_id: u64,
 ) -> std::result::Result<(Vec<u8>, Vec<u8>), openssl::error::ErrorStack> {
@@ -71,21 +67,21 @@ fn expand_secret(
     let key = expand_key(
         cipher_suite,
         &prk,
-        &get_hkdf_key_expand_label(key_id, cipher_suite.cipher_suite),
-        cipher_suite.key_len,
+        &get_hkdf_key_expand_label(key_id, cipher_suite),
+        cipher_suite.key_len(),
     )?;
     let salt = expand_key(
         cipher_suite,
         &prk,
-        &get_hkdf_salt_expand_label(key_id, cipher_suite.cipher_suite),
-        cipher_suite.nonce_len,
+        &get_hkdf_salt_expand_label(key_id, cipher_suite),
+        cipher_suite.nonce_len(),
     )?;
 
     Ok((key, salt))
 }
 
 fn extract_pseudo_random_key(
-    cipher_suite: &CipherSuiteParams,
+    cipher_suite: CipherSuite,
     key_material: &[u8],
     salt: &[u8],
 ) -> std::result::Result<Vec<u8>, openssl::error::ErrorStack> {
@@ -102,7 +98,7 @@ fn extract_pseudo_random_key(
 }
 
 fn expand_key(
-    cipher_suite: &CipherSuiteParams,
+    cipher_suite: CipherSuite,
     prk: &[u8],
     info: &[u8],
     key_len: usize,
@@ -120,12 +116,12 @@ fn expand_key(
 }
 
 fn init_openssl_ctx(
-    cipher_suite: &CipherSuiteParams,
+    cipher_suite: CipherSuite,
 ) -> std::result::Result<openssl::pkey_ctx::PkeyCtx<()>, openssl::error::ErrorStack> {
     let mut ctx = openssl::pkey_ctx::PkeyCtx::new_id(openssl::pkey::Id::HKDF)?;
     ctx.derive_init()?;
 
-    let digest = cipher_suite.cipher_suite.into();
+    let digest = cipher_suite.into();
     ctx.set_hkdf_md(digest)?;
 
     Ok(ctx)
@@ -156,9 +152,8 @@ mod test {
     #[test_case(CipherSuite::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32")]
     fn derive_correct_sub_keys(cipher_suite: CipherSuite) {
         let test_vec = get_aes_ctr_test_vector(&cipher_suite.to_string());
-        let cipher_suite = CipherSuiteParams::from(cipher_suite);
 
-        let (key, auth) = expand_subsecret(&cipher_suite, &test_vec.base_key);
+        let (key, auth) = expand_subsecret(cipher_suite, &test_vec.base_key);
         assert_bytes_eq(&key, &test_vec.enc_key);
         assert_bytes_eq(&auth, &test_vec.auth_key);
     }

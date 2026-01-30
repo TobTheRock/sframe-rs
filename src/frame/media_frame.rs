@@ -118,7 +118,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
     {
         let key_id = key.key_id();
         log::trace!(
-            "Encrypting MediaFrame # {} using KeyId {key_id} and CipherSuiteParams {}",
+            "Encrypting MediaFrame # {} using KeyId {key_id} and CipherSuite {}",
             self.counter,
             key.cipher_suite()
         );
@@ -131,7 +131,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
             header: &header,
         };
         let mut crypto_buffer =
-            EncryptionBuffer::try_allocate(buffer, key.cipher_suite_params(), &aad, self.payload)?;
+            EncryptionBuffer::try_allocate(buffer, key.cipher_suite(), &aad, self.payload)?;
 
         log::trace!("MediaFrame # {} trying to encrypt", self.counter);
         key.encrypt(&mut crypto_buffer, self.counter)?;

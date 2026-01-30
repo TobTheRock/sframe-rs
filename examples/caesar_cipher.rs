@@ -10,7 +10,7 @@ use sframe::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
         buffer::{DecryptionBufferView, EncryptionBufferView},
-        cipher_suite::{CipherSuite, CipherSuiteParams},
+        cipher_suite::CipherSuite,
         key_derivation::KeyDerivation,
         secret::Secret,
     },
@@ -81,10 +81,9 @@ impl AeadDecrypt for CaesarAead {
         B: Into<DecryptionBufferView<'a>>,
     {
         let buffer_view: DecryptionBufferView = buffer.into();
-        let params: CipherSuiteParams = self.cipher_suite.into();
 
         // Split cipher_text into actual ciphertext and tag
-        let tag_len = params.auth_tag_len;
+        let tag_len = self.cipher_suite.auth_tag_len();
         let cipher_len = buffer_view.cipher_text.len().saturating_sub(tag_len);
 
         // Verify tag first (computed on encrypted data)
@@ -110,11 +109,7 @@ impl AeadDecrypt for CaesarAead {
 pub struct CaesarKdf;
 
 impl KeyDerivation for CaesarKdf {
-    fn expand_from<M, K>(
-        cipher_suite: &CipherSuiteParams,
-        key_material: M,
-        _key_id: K,
-    ) -> Result<Secret>
+    fn expand_from<M, K>(cipher_suite: CipherSuite, key_material: M, _key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>,
@@ -122,15 +117,15 @@ impl KeyDerivation for CaesarKdf {
         let material = key_material.as_ref();
 
         // Simple "derivation": just repeat/truncate the key material
-        let mut key = vec![0u8; cipher_suite.key_len];
+        let mut key = vec![0u8; cipher_suite.key_len()];
         for (i, byte) in key.iter_mut().enumerate() {
             *byte = material.get(i % material.len()).copied().unwrap_or(0);
         }
 
-        let mut salt = vec![0u8; cipher_suite.nonce_len];
+        let mut salt = vec![0u8; cipher_suite.nonce_len()];
         for (i, byte) in salt.iter_mut().enumerate() {
             *byte = material
-                .get((i + cipher_suite.key_len) % material.len())
+                .get((i + cipher_suite.key_len()) % material.len())
                 .copied()
                 .unwrap_or(0);
         }

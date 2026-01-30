@@ -18,7 +18,7 @@ pub mod secret;
 
 // Re-export commonly used types
 pub use aead::{AeadDecrypt, AeadEncrypt};
-pub use cipher_suite::{CipherSuite, CipherSuiteParams};
+pub use cipher_suite::CipherSuite;
 pub use key_derivation::KeyDerivation;
 pub use secret::Secret;
 

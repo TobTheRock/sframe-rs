@@ -4,8 +4,8 @@ use super::Aead;
 use crate::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
-        buffer::{decryption::DecryptionBufferView, encryption::EncryptionBufferView},
-        cipher_suite::{CipherSuite, CipherSuiteParams},
+        buffer::{DecryptionBufferView, EncryptionBufferView},
+        cipher_suite::CipherSuite,
         secret::Secret,
     },
     error::{Result, SframeError},
@@ -41,12 +41,11 @@ impl AeadEncrypt for Aead {
         B: Into<EncryptionBufferView<'a>>,
     {
         let buffer_view = buffer.into();
-        let cipher_suite: CipherSuiteParams = self.cipher_suite.into();
 
-        if cipher_suite.is_ctr_mode() {
-            encrypt_aes_ctr(&cipher_suite, secret, buffer_view, counter)
+        if self.cipher_suite.is_ctr_mode() {
+            encrypt_aes_ctr(self.cipher_suite, secret, buffer_view, counter)
         } else {
-            encrypt_aead(&cipher_suite, secret, buffer_view, counter)
+            encrypt_aead(self.cipher_suite, secret, buffer_view, counter)
         }?;
 
         Ok(())
@@ -60,19 +59,18 @@ impl AeadDecrypt for Aead {
     {
         let buffer_view = buffer.into();
         let cipher_text = buffer_view.cipher_text;
-        let cipher_suite: CipherSuiteParams = self.cipher_suite.into();
 
-        if cipher_text.len() < cipher_suite.auth_tag_len {
+        if cipher_text.len() < self.cipher_suite.auth_tag_len() {
             return Err(SframeError::DecryptionFailure);
         }
 
         let cipher = self.cipher_suite.into();
-        let encrypted_len = cipher_text.len() - cipher_suite.auth_tag_len;
+        let encrypted_len = cipher_text.len() - self.cipher_suite.auth_tag_len();
 
-        if cipher_suite.is_ctr_mode() {
+        if self.cipher_suite.is_ctr_mode() {
             let (encrypted, tag) = cipher_text.split_at_mut(encrypted_len);
             decrypt_aes_ctr_inplace(
-                &cipher_suite,
+                self.cipher_suite,
                 secret,
                 cipher,
                 counter,
@@ -82,7 +80,6 @@ impl AeadDecrypt for Aead {
             )?;
         } else {
             decrypt_aead_inplace(
-                &cipher_suite,
                 secret,
                 cipher,
                 counter,
@@ -97,13 +94,13 @@ impl AeadDecrypt for Aead {
 }
 
 fn encrypt_aead(
-    cipher_suite: &CipherSuiteParams,
+    cipher_suite: CipherSuite,
     secret: &Secret,
     buffer_view: EncryptionBufferView,
     counter: Counter,
 ) -> Result<()> {
     let nonce = secret.create_nonce::<AES_GCM_IV_LEN>(counter);
-    let cipher: openssl::symm::Cipher = cipher_suite.cipher_suite.into();
+    let cipher: openssl::symm::Cipher = cipher_suite.into();
 
     let mut crypter = openssl::symm::Crypter::new(
         cipher,
@@ -129,16 +126,16 @@ fn encrypt_aead(
 }
 
 fn encrypt_aes_ctr(
-    cipher_suite: &CipherSuiteParams,
+    cipher_suite: CipherSuite,
     secret: &Secret,
     buffer_view: EncryptionBufferView,
     counter: Counter,
 ) -> Result<()> {
     let auth_key = secret.auth.as_ref().ok_or(SframeError::EncryptionFailure)?;
-    let cipher: openssl::symm::Cipher = cipher_suite.cipher_suite.into();
+    let cipher: openssl::symm::Cipher = cipher_suite.into();
     // openssl expects a fixed iv length of 16 byte, thus we needed to pad the sframe nonce
     let initial_counter = secret.create_nonce::<AES_CTR_IVS_LEN>(counter);
-    let nonce = &initial_counter[..cipher_suite.nonce_len];
+    let nonce = &initial_counter[..cipher_suite.nonce_len()];
 
     let mut crypter = openssl::symm::Crypter::new(
         cipher,
@@ -169,7 +166,6 @@ fn encrypt_aes_ctr(
 }
 
 fn decrypt_aead_inplace(
-    _cipher_suite: &CipherSuiteParams,
     secret: &Secret,
     cipher: openssl::symm::Cipher,
     counter: Counter,
@@ -226,7 +222,7 @@ fn decrypt_aead_inplace(
 }
 
 fn decrypt_aes_ctr_inplace(
-    cipher_suite: &CipherSuiteParams,
+    cipher_suite: CipherSuite,
     secret: &Secret,
     cipher: openssl::symm::Cipher,
     counter: Counter,
@@ -235,7 +231,7 @@ fn decrypt_aes_ctr_inplace(
     tag: &[u8],
 ) -> Result<()> {
     let initial_counter: [u8; 16] = secret.create_nonce::<AES_CTR_IVS_LEN>(counter);
-    let nonce = &initial_counter[..cipher_suite.nonce_len];
+    let nonce = &initial_counter[..cipher_suite.nonce_len()];
     let auth_key = secret.auth.as_ref().ok_or(SframeError::DecryptionFailure)?;
 
     let candidate_tag = compute_tag(cipher_suite, auth_key, aad, nonce, encrypted).map_err(
@@ -283,7 +279,7 @@ fn decrypt_aes_ctr_inplace(
 }
 
 fn compute_tag(
-    cipher_suite: &CipherSuiteParams,
+    cipher_suite: CipherSuite,
     auth_key: &[u8],
     aad: &[u8],
     nonce: &[u8],
@@ -295,13 +291,13 @@ fn compute_tag(
     // for current platforms there is no issue casting from usize to u64
     signer.update(&(aad.len() as u64).to_be_bytes())?;
     signer.update(&(encrypted.len() as u64).to_be_bytes())?;
-    signer.update(&(cipher_suite.auth_tag_len as u64).to_be_bytes())?;
+    signer.update(&(cipher_suite.auth_tag_len() as u64).to_be_bytes())?;
     signer.update(nonce)?;
     signer.update(aad)?;
     signer.update(encrypted)?;
 
     let mut tag = signer.sign_to_vec()?;
-    tag.resize(cipher_suite.auth_tag_len, 0);
+    tag.resize(cipher_suite.auth_tag_len(), 0);
 
     Ok(tag)
 }
