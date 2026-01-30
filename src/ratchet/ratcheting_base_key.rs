@@ -1,21 +1,17 @@
 use std::mem::replace;
 
-use crate::{
-    CipherSuite,
-    crypto::{cipher_suite::CipherSuiteParams, key_derivation::Ratcheting},
-    error::Result,
-};
+use crate::{CipherSuite, crypto::key_derivation::Ratcheting, error::Result};
 
 use super::ratcheting_key_id::RatchetingKeyId;
 
-/// Base key used for ratcheting as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
+/// Base key used for ratcheting as of [RFC 9605 Section 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
 /// It allows to create a new key id and key material (base key) for each ratchet step, where
 /// - the base key is derived using HKDF
 /// - the part of the key id is used to indicate the current ratchet step (see [`RatchetingKeyId`])
 ///
 /// The original key material is not stored for security reasons.
 pub struct RatchetingBaseKey {
-    cipher_suite: CipherSuiteParams,
+    cipher_suite: CipherSuite,
     current_material: Vec<u8>,
     key_id: RatchetingKeyId,
 }
@@ -34,7 +30,7 @@ impl RatchetingBaseKey {
         M: AsRef<[u8]>,
     {
         let mut base_key = Self {
-            cipher_suite: cipher_suite.into(),
+            cipher_suite,
             current_material: key_material.as_ref().into(),
             key_id: key_id.into(),
         };
@@ -61,7 +57,7 @@ impl RatchetingBaseKey {
     fn ratchet(&mut self) -> Result<Vec<u8>> {
         self.key_id.inc_ratchet_step();
 
-        let new_material = self.current_material.ratchet(&self.cipher_suite)?;
+        let new_material = self.current_material.ratchet(self.cipher_suite)?;
         Ok(replace(&mut self.current_material, new_material))
     }
 }

@@ -36,70 +36,59 @@ impl std::fmt::Display for CipherSuite {
     }
 }
 
-// TODO convert this into a trait
-/// cipher suite as of [RFC 9605 4.5](https://www.rfc-editor.org/rfc/rfc9605.html#cipher-suites)
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct CipherSuiteParams {
-    pub cipher_suite: CipherSuite,
+impl CipherSuite {
     /// Hash.Nh - The size in bytes of the output of the hash function
-    pub hash_len: usize,
-    /// AEAD.Nk - The size in bytes of a key for the encryption algorithm
-    pub key_len: usize,
-    /// AEAD.Nn - The size in bytes of a nonce for the encryption algorithm
-    pub nonce_len: usize,
-    /// AEAD.Nt - The overhead in bytes of the encryption algorithm (typically the size of a "tag" that is added to the plaintext)
-    pub auth_tag_len: usize,
-}
-
-impl From<CipherSuite> for CipherSuiteParams {
-    fn from(cipher_suite: CipherSuite) -> Self {
-        match cipher_suite {
+    pub const fn hash_len(&self) -> usize {
+        match self {
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            CipherSuite::AesCtr128HmacSha256_80 => CipherSuiteParams {
-                cipher_suite,
-                hash_len: 32,
-                key_len: 48,
-                nonce_len: 12,
-                auth_tag_len: 10,
-            },
-            #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            CipherSuite::AesCtr128HmacSha256_64 => CipherSuiteParams {
-                cipher_suite,
-                hash_len: 32,
-                key_len: 48,
-                nonce_len: 12,
-                auth_tag_len: 8,
-            },
-            #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
-            CipherSuite::AesCtr128HmacSha256_32 => CipherSuiteParams {
-                cipher_suite,
-                hash_len: 32,
-                key_len: 48,
-                nonce_len: 12,
-                auth_tag_len: 4,
-            },
-            CipherSuite::AesGcm128Sha256 => CipherSuiteParams {
-                cipher_suite,
-                hash_len: 32,
-                key_len: 16,
-                nonce_len: 12,
-                auth_tag_len: 16,
-            },
-            CipherSuite::AesGcm256Sha512 => CipherSuiteParams {
-                cipher_suite,
-                hash_len: 64,
-                key_len: 32,
-                nonce_len: 12,
-                auth_tag_len: 16,
-            },
+            CipherSuite::AesCtr128HmacSha256_80
+            | CipherSuite::AesCtr128HmacSha256_64
+            | CipherSuite::AesCtr128HmacSha256_32 => 32,
+            CipherSuite::AesGcm128Sha256 => 32,
+            CipherSuite::AesGcm256Sha512 => 64,
         }
     }
-}
 
-impl CipherSuiteParams {
-    #[cfg(any(feature = "openssl", test))]
-    pub(crate) fn is_ctr_mode(&self) -> bool {
-        match self.cipher_suite {
+    /// AEAD.Nk - The size in bytes of a key for the encryption algorithm
+    pub const fn key_len(&self) -> usize {
+        match self {
+            #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
+            CipherSuite::AesCtr128HmacSha256_80
+            | CipherSuite::AesCtr128HmacSha256_64
+            | CipherSuite::AesCtr128HmacSha256_32 => 48,
+            CipherSuite::AesGcm128Sha256 => 16,
+            CipherSuite::AesGcm256Sha512 => 32,
+        }
+    }
+
+    /// AEAD.Nn - The size in bytes of a nonce for the encryption algorithm
+    pub const fn nonce_len(&self) -> usize {
+        match self {
+            #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
+            CipherSuite::AesCtr128HmacSha256_80
+            | CipherSuite::AesCtr128HmacSha256_64
+            | CipherSuite::AesCtr128HmacSha256_32 => 12,
+            CipherSuite::AesGcm128Sha256 | CipherSuite::AesGcm256Sha512 => 12,
+        }
+    }
+
+    /// AEAD.Nt - The overhead in bytes of the encryption algorithm (typically the size of a "tag" that is added to the plaintext)
+    pub const fn auth_tag_len(&self) -> usize {
+        match self {
+            #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
+            CipherSuite::AesCtr128HmacSha256_80 => 10,
+            #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
+            CipherSuite::AesCtr128HmacSha256_64 => 8,
+            #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
+            CipherSuite::AesCtr128HmacSha256_32 => 4,
+            CipherSuite::AesGcm128Sha256 | CipherSuite::AesGcm256Sha512 => 16,
+        }
+    }
+
+    /// Returns true if this cipher suite uses CTR mode with HMAC authentication
+    #[cfg(any(feature = "openssl", feature = "rust-crypto", test))]
+    pub const fn is_ctr_mode(&self) -> bool {
+        match self {
             #[cfg(any(feature = "openssl", feature = "rust-crypto"))]
             CipherSuite::AesCtr128HmacSha256_80
             | CipherSuite::AesCtr128HmacSha256_64

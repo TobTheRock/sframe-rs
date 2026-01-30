@@ -4,7 +4,7 @@ use crate::{
     CipherSuite,
     error::{Result, SframeError},
     header::KeyId,
-    key::{DecryptionKey, KeyStore},
+    key::{Aead, DecryptionKey, Kdf, KeyStore},
 };
 
 use super::{ratcheting_base_key::RatchetingBaseKey, ratcheting_key_id::RatchetingKeyId};
@@ -122,7 +122,7 @@ pub struct RatchetingKeys {
     pub dec_key: DecryptionKey,
 }
 
-impl KeyStore for RatchetingKeyStore {
+impl KeyStore<Aead, Kdf> for RatchetingKeyStore {
     fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
     where
         K: Into<KeyId>,
@@ -136,7 +136,8 @@ impl KeyStore for RatchetingKeyStore {
 mod test {
     use super::RatchetingKeyStore;
     use crate::{
-        CipherSuite, header::KeyId, key::KeyStore, ratchet::ratcheting_key_id::RatchetingKeyId,
+        CipherSuite, header::KeyId, key::KeyStore,
+        ratchet::ratcheting_key_id::RatchetingKeyId,
     };
     use pretty_assertions::assert_eq;
 

@@ -1,12 +1,6 @@
-use crate::{crypto::cipher_suite::CipherSuiteParams, error::Result, frame::FrameBuffer};
+use crate::{crypto::cipher_suite::CipherSuite, error::Result, frame::FrameBuffer};
 
-use super::AadData;
-
-pub struct EncryptionBufferView<'a> {
-    pub aad: &'a mut [u8],
-    pub cipher_text: &'a mut [u8],
-    pub tag: &'a mut [u8],
-}
+use super::{AadData, EncryptionBufferView};
 
 pub struct EncryptionBuffer<'a> {
     io_buffer: &'a mut [u8],
@@ -17,14 +11,14 @@ pub struct EncryptionBuffer<'a> {
 impl<'a> EncryptionBuffer<'a> {
     pub fn try_allocate(
         buffer: &'a mut impl FrameBuffer,
-        cipher_suite: &CipherSuiteParams,
+        cipher_suite: CipherSuite,
         aad_data: &impl AadData,
         unencrypted_data: &[u8],
     ) -> Result<Self> {
         let aad_len = aad_data.len();
         let cipher_text_len = unencrypted_data.len();
 
-        let buffer_len_needed = cipher_text_len + aad_len + cipher_suite.auth_tag_len;
+        let buffer_len_needed = cipher_text_len + aad_len + cipher_suite.auth_tag_len();
 
         log::trace!("Trying to allocate encryption buffer of size {buffer_len_needed}");
         let io_buffer = buffer.allocate(buffer_len_needed)?.as_mut();
@@ -81,11 +75,11 @@ mod test {
         let mut buffer = Vec::new();
         let aad_data = TestAadData { data: [1, 2, 3, 4] };
         let unencrypted_data = [5, 6, 7, 8, 9];
-        let cipher_suite = CipherSuite::AesGcm128Sha256.into();
+        let cipher_suite = CipherSuite::AesGcm128Sha256;
 
         let mut encryption_buffer = EncryptionBuffer::try_allocate(
             &mut buffer,
-            &cipher_suite,
+            cipher_suite,
             &aad_data,
             &unencrypted_data,
         )
@@ -94,6 +88,6 @@ mod test {
         let view = EncryptionBufferView::from(&mut encryption_buffer);
         assert_eq!(view.aad, [1, 2, 3, 4]);
         assert_eq!(view.cipher_text, [5, 6, 7, 8, 9]);
-        assert_eq!(view.tag.len(), cipher_suite.auth_tag_len);
+        assert_eq!(view.tag.len(), cipher_suite.auth_tag_len());
     }
 }

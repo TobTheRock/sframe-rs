@@ -1,6 +1,9 @@
+//! Key derivation implementation for RustCrypto backend.
+
+use super::Kdf;
 use crate::{
     crypto::{
-        cipher_suite::{CipherSuite, CipherSuiteParams},
+        cipher_suite::CipherSuite,
         common::key_derivation::expand_subsecret,
         key_derivation::{
             KeyDerivation, Ratcheting, get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label,
@@ -14,19 +17,15 @@ use crate::{
 use hkdf::SimpleHkdf;
 use sha2::{Digest, Sha256, Sha512};
 
-impl KeyDerivation for Secret {
-    fn expand_from<M, K>(
-        cipher_suite: &CipherSuiteParams,
-        key_material: M,
-        key_id: K,
-    ) -> Result<Secret>
+impl KeyDerivation for Kdf {
+    fn expand_from<M, K>(cipher_suite: CipherSuite, key_material: M, key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>,
     {
         let key_id = key_id.into();
 
-        let (key, salt, auth) = match cipher_suite.cipher_suite {
+        let (key, salt, auth) = match cipher_suite {
             CipherSuite::AesCtr128HmacSha256_80
             | CipherSuite::AesCtr128HmacSha256_64
             | CipherSuite::AesCtr128HmacSha256_32 => {
@@ -50,7 +49,7 @@ impl KeyDerivation for Secret {
 }
 
 fn expand<D>(
-    cipher_suite: &CipherSuiteParams,
+    cipher_suite: CipherSuite,
     key_material: &[u8],
     key_id: KeyId,
 ) -> Result<(Vec<u8>, Vec<u8>)>
@@ -60,33 +59,33 @@ where
     let algorithm = SimpleHkdf::<D>::new(None, key_material);
 
     let key = expand_key(
-        cipher_suite.key_len,
+        cipher_suite.key_len(),
         &algorithm,
-        &get_hkdf_key_expand_label(key_id, cipher_suite.cipher_suite),
+        &get_hkdf_key_expand_label(key_id, cipher_suite),
     )?;
 
     let salt = expand_key(
-        cipher_suite.nonce_len,
+        cipher_suite.nonce_len(),
         &algorithm,
-        &get_hkdf_salt_expand_label(key_id, cipher_suite.cipher_suite),
+        &get_hkdf_salt_expand_label(key_id, cipher_suite),
     )?;
 
     Ok((key, salt))
 }
 
 impl Ratcheting for Vec<u8> {
-    fn ratchet(&self, cipher_suite: &CipherSuiteParams) -> Result<Vec<u8>>
+    fn ratchet(&self, cipher_suite: CipherSuite) -> Result<Vec<u8>>
     where
         Self: AsRef<[u8]>,
     {
-        match cipher_suite.cipher_suite {
+        match cipher_suite {
             CipherSuite::AesCtr128HmacSha256_80
             | CipherSuite::AesCtr128HmacSha256_64
             | CipherSuite::AesCtr128HmacSha256_32
             | CipherSuite::AesGcm128Sha256 => {
                 let algorithm = SimpleHkdf::<Sha256>::new(Some(b""), self);
                 expand_key(
-                    cipher_suite.key_len,
+                    cipher_suite.key_len(),
                     &algorithm,
                     get_hkdf_ratchet_expand_label(),
                 )
@@ -94,7 +93,7 @@ impl Ratcheting for Vec<u8> {
             CipherSuite::AesGcm256Sha512 => {
                 let algorithm = SimpleHkdf::<Sha512>::new(Some(b""), self);
                 expand_key(
-                    cipher_suite.key_len,
+                    cipher_suite.key_len(),
                     &algorithm,
                     get_hkdf_ratchet_expand_label(),
                 )
