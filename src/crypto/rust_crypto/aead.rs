@@ -1,3 +1,6 @@
+// TODO: migrate from deprecated AeadInPlace to AeadInOut with InOutBuf
+#![allow(deprecated)]
+
 use crate::{
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
@@ -8,16 +11,16 @@ use crate::{
     header::Counter,
     key::{DecryptionKey, EncryptionKey},
 };
-use aes_gcm::{AeadCore, AeadInPlace, Aes128Gcm, Aes256Gcm, aes::Aes128};
+use aes_gcm::{AeadCore, AeadInOut, Aes128Gcm, Aes256Gcm, aead::AeadInPlace, aead::TagPosition, aes::Aes128};
 use cipher::{
-    ArrayLength, IvSizeUser, KeyInit, KeyIvInit, StreamCipher, Unsigned,
+    Array, IvSizeUser, KeyInit, KeyIvInit, StreamCipher,
+    array::ArraySize,
     consts::{U4, U8, U10},
-    generic_array::GenericArray,
+    typenum::Unsigned,
 };
 use ctr::Ctr32BE;
 use hkdf::hmac::{Mac, SimpleHmac};
 use sha2::Sha256;
-use sha2::digest::Update;
 
 use crate::{crypto::cipher_suite::CipherSuite, error::SframeError};
 
@@ -64,14 +67,16 @@ impl EncryptionKey {
         buffer_view: EncryptionBufferView,
     ) -> Result<()>
     where
-        A: InitFromSecret<'a> + AeadInPlace + AeadCore + IvLen,
+        A: InitFromSecret<'a> + AeadInOut + AeadCore + IvLen,
     {
         let secret = self.secret();
         let nonce: [u8; NONCE_LEN] = secret.create_nonce(counter);
         let algo = A::from_secret(secret)?;
+        #[allow(deprecated)]
+        let nonce = Array::from_slice(&nonce);
         let tag = algo
             .encrypt_in_place_detached(
-                GenericArray::from_slice(&nonce),
+                nonce,
                 buffer_view.aad,
                 buffer_view.cipher_text,
             )
@@ -128,7 +133,7 @@ impl DecryptionKey {
         buffer_view: DecryptionBufferView,
     ) -> Result<()>
     where
-        A: AeadInPlace + AeadCore + InitFromSecret<'a>,
+        A: AeadInOut + AeadCore + InitFromSecret<'a>,
     {
         let cipher_suite = self.cipher_suite_params();
         let cipher_text = buffer_view.cipher_text;
@@ -142,11 +147,15 @@ impl DecryptionKey {
         let nonce: [u8; IV_LEN] = secret.create_nonce(counter);
         let algo = A::from_secret(secret)?;
 
+        #[allow(deprecated)]
+        let nonce = Array::from_slice(&nonce);
+        #[allow(deprecated)]
+        let tag = Array::from_slice(tag);
         algo.decrypt_in_place_detached(
-            GenericArray::from_slice(&nonce),
+            nonce,
             buffer_view.aad,
             encrypted,
-            GenericArray::from_slice(tag),
+            tag,
         )
         .map_err(|err| {
             log::debug!("Decryption failed: {err}");
@@ -187,7 +196,7 @@ where
 
 struct AesCtr128Hmac<'a, T>
 where
-    T: ArrayLength<u8>,
+    T: ArraySize,
 {
     key: &'a [u8],
     auth_key: &'a [u8],
@@ -196,17 +205,17 @@ where
 
 impl<T> AeadCore for AesCtr128Hmac<'_, T>
 where
-    T: ArrayLength<u8>,
+    T: ArraySize,
 {
     // This is larger than the sframe spec, we need padding therefore
     type NonceSize = <Ctr32BE<Aes128> as IvSizeUser>::IvSize;
     type TagSize = T;
-    type CiphertextOverhead = T;
+    const TAG_POSITION: TagPosition = TagPosition::Postfix;
 }
 
 impl<'a, 'b, T> InitFromSecret<'a> for AesCtr128Hmac<'b, T>
 where
-    T: ArrayLength<u8>,
+    T: ArraySize,
     'a: 'b,
 {
     fn from_secret(secret: &'b Secret) -> Result<Self> {
@@ -223,7 +232,7 @@ where
 
 impl<T> AesCtr128Hmac<'_, T>
 where
-    T: ArrayLength<u8>,
+    T: ArraySize,
 {
     fn compute_tag(&self, iv: &[u8], aad: &[u8], ct: &[u8]) -> SimpleHmac<Sha256> {
         // TODO generalize this, is given by CipherSuiteParams
@@ -237,13 +246,13 @@ where
         let ct_len = ct_len_u64.to_be_bytes();
         let tag_len = T::to_u64().to_be_bytes();
 
-        let h = <SimpleHmac<Sha256> as Mac>::new_from_slice(self.auth_key).expect("Invalid key");
-        h.chain(aad_len)
-            .chain(ct_len)
-            .chain(tag_len)
-            .chain(nonce)
-            .chain(aad)
-            .chain(ct)
+        let h = SimpleHmac::<Sha256>::new_from_slice(self.auth_key).expect("Invalid key");
+        h.chain_update(aad_len)
+            .chain_update(ct_len)
+            .chain_update(tag_len)
+            .chain_update(nonce)
+            .chain_update(aad)
+            .chain_update(ct)
     }
 
     fn cipher(
@@ -257,52 +266,54 @@ where
     }
 }
 
-impl<T> AeadInPlace for AesCtr128Hmac<'_, T>
+impl<T> AeadInOut for AesCtr128Hmac<'_, T>
 where
-    T: ArrayLength<u8>,
+    T: ArraySize,
 {
-    fn encrypt_in_place_detached(
+    fn encrypt_inout_detached(
         &self,
-        iv: &GenericArray<u8, Self::NonceSize>,
+        iv: &Array<u8, Self::NonceSize>,
         associated_data: &[u8],
-        buffer: &mut [u8],
-    ) -> std::result::Result<GenericArray<u8, Self::TagSize>, aes_gcm::Error> {
-        self.cipher(iv, buffer).map_err(|err| {
+        buffer: cipher::InOutBuf<'_, '_, u8>,
+    ) -> std::result::Result<Array<u8, Self::TagSize>, aes_gcm::Error> {
+        let out = buffer.into_out();
+        self.cipher(iv, out).map_err(|err| {
             log::debug!("AesCtr: Error encrypting: {err}");
             aes_gcm::Error
         })?;
 
         let long_tag = self
-            .compute_tag(iv, associated_data, buffer)
+            .compute_tag(iv, associated_data, out)
             .finalize()
             .into_bytes();
 
         let tag_len = T::to_usize();
         let tag = &long_tag[0..tag_len];
-        Ok(GenericArray::clone_from_slice(tag))
+        Ok(Array::try_from(tag).expect("tag length mismatch"))
     }
 
-    fn decrypt_in_place_detached(
+    fn decrypt_inout_detached(
         &self,
-        iv: &GenericArray<u8, Self::NonceSize>,
+        iv: &Array<u8, Self::NonceSize>,
         associated_data: &[u8],
-        buffer: &mut [u8],
-        tag: &GenericArray<u8, Self::TagSize>,
+        buffer: cipher::InOutBuf<'_, '_, u8>,
+        tag: &Array<u8, Self::TagSize>,
     ) -> std::result::Result<(), aes_gcm::Error> {
+        let out = buffer.into_out();
         let tag_len = T::to_usize();
-        if buffer.len() < tag_len {
+        if out.len() < tag_len {
             log::debug!("Invalid cipher text, shorter than tag");
             return Err(aes_gcm::Error);
         }
 
-        self.compute_tag(iv, associated_data, buffer)
+        self.compute_tag(iv, associated_data, out)
             .verify_truncated_left(tag)
             .map_err(|err| {
                 log::debug!("AesCtr: Error decrypting: {err}");
                 aes_gcm::Error
             })?;
 
-        self.cipher(iv, buffer).map_err(|err| {
+        self.cipher(iv, out).map_err(|err| {
             log::debug!("AesCtr: Error encrypting: {err}");
             aes_gcm::Error
         })
