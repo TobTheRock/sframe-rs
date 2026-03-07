@@ -3,7 +3,7 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, Bencher, BenchmarkId, Criterion, criterion_group};
-use rand::{Rng, rng};
+use rand::{RngExt, rng};
 use sframe::{
     CipherSuite,
     frame::{EncryptedFrame, FrameCounter, MediaFrame, MediaFrameView, MonotonicCounter},

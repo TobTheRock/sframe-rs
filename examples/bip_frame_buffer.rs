@@ -3,7 +3,7 @@ use bbqueue::{
     prod_cons::framed::{FramedConsumer, FramedGrantW, FramedProducer},
 };
 use cgisf_lib::{SentenceConfigBuilder, gen_sentence};
-use rand::{Rng, rng};
+use rand::{RngExt, rng};
 use sframe::{
     CipherSuite,
     error::SframeError,
