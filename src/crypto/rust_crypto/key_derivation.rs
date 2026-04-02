@@ -12,7 +12,7 @@ use crate::{
     header::KeyId,
 };
 use hkdf::SimpleHkdf;
-use sha2::{Digest, Sha256, Sha512};
+use sha2::{Digest, Sha256, Sha512, digest::block_api::BlockSizeUser};
 
 impl KeyDerivation for Secret {
     fn expand_from<M, K>(
@@ -55,7 +55,7 @@ fn expand<D>(
     key_id: KeyId,
 ) -> Result<(Vec<u8>, Vec<u8>)>
 where
-    D: Digest + cipher::BlockSizeUser + Clone,
+    D: Digest + BlockSizeUser + Clone,
 {
     let algorithm = SimpleHkdf::<D>::new(None, key_material);
 
@@ -112,7 +112,7 @@ impl From<hkdf::InvalidLength> for SframeError {
 
 fn expand_key<D>(len: usize, algorithm: &SimpleHkdf<D>, label: &[u8]) -> Result<Vec<u8>>
 where
-    D: Digest + cipher::BlockSizeUser + Clone,
+    D: Digest + BlockSizeUser + Clone,
 {
     let mut key = vec![0_u8; len];
     algorithm.expand(label, &mut key)?;
