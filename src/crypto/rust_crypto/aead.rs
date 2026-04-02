@@ -17,7 +17,6 @@ use cipher::{
 use ctr::Ctr32BE;
 use hkdf::hmac::{Mac, SimpleHmac};
 use sha2::Sha256;
-use sha2::digest::Update;
 
 use crate::{crypto::cipher_suite::CipherSuite, error::SframeError};
 
@@ -237,13 +236,14 @@ where
         let ct_len = ct_len_u64.to_be_bytes();
         let tag_len = T::to_u64().to_be_bytes();
 
-        let h = <SimpleHmac<Sha256> as Mac>::new_from_slice(self.auth_key).expect("Invalid key");
-        h.chain(aad_len)
-            .chain(ct_len)
-            .chain(tag_len)
-            .chain(nonce)
-            .chain(aad)
-            .chain(ct)
+        let h = <SimpleHmac<Sha256> as hkdf::hmac::KeyInit>::new_from_slice(self.auth_key)
+            .expect("Invalid key");
+        h.chain_update(aad_len)
+            .chain_update(ct_len)
+            .chain_update(tag_len)
+            .chain_update(nonce)
+            .chain_update(aad)
+            .chain_update(ct)
     }
 
     fn cipher(

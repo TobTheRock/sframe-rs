@@ -48,7 +48,7 @@ version = "0.10.3"
 optional = true
 
 [dependencies.hkdf]
-version = "0.12"
+version = "0.13"
 optional = true
 
 [dependencies.sha2]
