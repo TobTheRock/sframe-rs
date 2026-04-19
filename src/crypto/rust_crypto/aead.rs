@@ -8,11 +8,11 @@ use crate::{
     header::Counter,
     key::{DecryptionKey, EncryptionKey},
 };
-use aes_gcm::{AeadCore, AeadInPlace, Aes128Gcm, Aes256Gcm, aes::Aes128};
+use aes_gcm::{AeadCore, AeadInOut, Aes128Gcm, Aes256Gcm, aead, aes::Aes128};
 use cipher::{
-    ArrayLength, IvSizeUser, KeyInit, KeyIvInit, StreamCipher, Unsigned,
+    IvSizeUser, KeyInit, KeyIvInit, StreamCipher,
+    array::{Array, ArraySize, typenum::Unsigned},
     consts::{U4, U8, U10},
-    generic_array::GenericArray,
 };
 use ctr::Ctr32BE;
 use hkdf::hmac::{Mac, SimpleHmac};
@@ -63,16 +63,18 @@ impl EncryptionKey {
         buffer_view: EncryptionBufferView,
     ) -> Result<()>
     where
-        A: InitFromSecret<'a> + AeadInPlace + AeadCore + IvLen,
+        A: InitFromSecret<'a> + AeadInOut + AeadCore + IvLen,
     {
         let secret = self.secret();
         let nonce: [u8; NONCE_LEN] = secret.create_nonce(counter);
         let algo = A::from_secret(secret)?;
+        let nonce = Array::try_from(nonce.as_slice())
+            .map_err(|_| SframeError::EncryptionFailure)?;
         let tag = algo
-            .encrypt_in_place_detached(
-                GenericArray::from_slice(&nonce),
+            .encrypt_inout_detached(
+                &nonce,
                 buffer_view.aad,
-                buffer_view.cipher_text,
+                buffer_view.cipher_text.into(),
             )
             .map_err(|err| {
                 log::debug!("Encryption failed: {err}");
@@ -127,7 +129,7 @@ impl DecryptionKey {
         buffer_view: DecryptionBufferView,
     ) -> Result<()>
     where
-        A: AeadInPlace + AeadCore + InitFromSecret<'a>,
+        A: AeadInOut + AeadCore + InitFromSecret<'a>,
     {
         let cipher_suite = self.cipher_suite_params();
         let cipher_text = buffer_view.cipher_text;
@@ -141,11 +143,15 @@ impl DecryptionKey {
         let nonce: [u8; IV_LEN] = secret.create_nonce(counter);
         let algo = A::from_secret(secret)?;
 
-        algo.decrypt_in_place_detached(
-            GenericArray::from_slice(&nonce),
+        let nonce = Array::try_from(nonce.as_slice())
+            .map_err(|_| SframeError::DecryptionFailure)?;
+        let tag = Array::try_from(tag.as_ref())
+            .map_err(|_| SframeError::DecryptionFailure)?;
+        algo.decrypt_inout_detached(
+            &nonce,
             buffer_view.aad,
-            encrypted,
-            GenericArray::from_slice(tag),
+            encrypted.into(),
+            &tag,
         )
         .map_err(|err| {
             log::debug!("Decryption failed: {err}");
@@ -186,7 +192,7 @@ where
 
 struct AesCtr128Hmac<'a, T>
 where
-    T: ArrayLength<u8>,
+    T: ArraySize,
 {
     key: &'a [u8],
     auth_key: &'a [u8],
@@ -195,17 +201,17 @@ where
 
 impl<T> AeadCore for AesCtr128Hmac<'_, T>
 where
-    T: ArrayLength<u8>,
+    T: ArraySize,
 {
     // This is larger than the sframe spec, we need padding therefore
     type NonceSize = <Ctr32BE<Aes128> as IvSizeUser>::IvSize;
     type TagSize = T;
-    type CiphertextOverhead = T;
+    const TAG_POSITION: aead::TagPosition = aead::TagPosition::Postfix;
 }
 
 impl<'a, 'b, T> InitFromSecret<'a> for AesCtr128Hmac<'b, T>
 where
-    T: ArrayLength<u8>,
+    T: ArraySize,
     'a: 'b,
 {
     fn from_secret(secret: &'b Secret) -> Result<Self> {
@@ -222,7 +228,7 @@ where
 
 impl<T> AesCtr128Hmac<'_, T>
 where
-    T: ArrayLength<u8>,
+    T: ArraySize,
 {
     fn compute_tag(&self, iv: &[u8], aad: &[u8], ct: &[u8]) -> SimpleHmac<Sha256> {
         // TODO generalize this, is given by CipherSuiteParams
@@ -236,7 +242,7 @@ where
         let ct_len = ct_len_u64.to_be_bytes();
         let tag_len = T::to_u64().to_be_bytes();
 
-        let h = <SimpleHmac<Sha256> as hkdf::hmac::KeyInit>::new_from_slice(self.auth_key)
+        let h = <SimpleHmac<Sha256> as KeyInit>::new_from_slice(self.auth_key)
             .expect("Invalid key");
         h.chain_update(aad_len)
             .chain_update(ct_len)
@@ -257,19 +263,20 @@ where
     }
 }
 
-impl<T> AeadInPlace for AesCtr128Hmac<'_, T>
+impl<T> AeadInOut for AesCtr128Hmac<'_, T>
 where
-    T: ArrayLength<u8>,
+    T: ArraySize,
 {
-    fn encrypt_in_place_detached(
+    fn encrypt_inout_detached(
         &self,
-        iv: &GenericArray<u8, Self::NonceSize>,
+        iv: &aead::Nonce<Self>,
         associated_data: &[u8],
-        buffer: &mut [u8],
-    ) -> std::result::Result<GenericArray<u8, Self::TagSize>, aes_gcm::Error> {
+        buffer: aead::inout::InOutBuf<'_, '_, u8>,
+    ) -> aead::Result<aead::Tag<Self>> {
+        let buffer = buffer.into_out();
         self.cipher(iv, buffer).map_err(|err| {
             log::debug!("AesCtr: Error encrypting: {err}");
-            aes_gcm::Error
+            aead::Error
         })?;
 
         let long_tag = self
@@ -279,32 +286,33 @@ where
 
         let tag_len = T::to_usize();
         let tag = &long_tag[0..tag_len];
-        Ok(GenericArray::clone_from_slice(tag))
+        Ok(Array::try_from(tag).expect("tag length mismatch"))
     }
 
-    fn decrypt_in_place_detached(
+    fn decrypt_inout_detached(
         &self,
-        iv: &GenericArray<u8, Self::NonceSize>,
+        iv: &aead::Nonce<Self>,
         associated_data: &[u8],
-        buffer: &mut [u8],
-        tag: &GenericArray<u8, Self::TagSize>,
-    ) -> std::result::Result<(), aes_gcm::Error> {
+        buffer: aead::inout::InOutBuf<'_, '_, u8>,
+        tag: &aead::Tag<Self>,
+    ) -> aead::Result<()> {
+        let buffer = buffer.into_out();
         let tag_len = T::to_usize();
         if buffer.len() < tag_len {
             log::debug!("Invalid cipher text, shorter than tag");
-            return Err(aes_gcm::Error);
+            return Err(aead::Error);
         }
 
         self.compute_tag(iv, associated_data, buffer)
             .verify_truncated_left(tag)
             .map_err(|err| {
                 log::debug!("AesCtr: Error decrypting: {err}");
-                aes_gcm::Error
+                aead::Error
             })?;
 
         self.cipher(iv, buffer).map_err(|err| {
             log::debug!("AesCtr: Error encrypting: {err}");
-            aes_gcm::Error
+            aead::Error
         })
     }
 }
