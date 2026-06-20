@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-06-20
+
+### Bug Fixes
+
+- Update rand 0.10 API usage (Rng -> RngExt)
+
+### Features
+
+- Expose crypto traits/functions
+
+### Refactor
+
+- Example to use rexported crypto types
+- Rename buffer field
+- Secret as a typed parameter for the crypto traits
+- Ratcheting type rexports
+- Revert Secret to a struct with optional auth key
+- Rename the example key store to free the KeyStore name
+
+
 ## 1.1 - 2026-17-01
 
 ### Performance
