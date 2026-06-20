@@ -2,35 +2,23 @@ use crate::header::Counter;
 
 /// Secret key material used by the built-in crypto backends, derived from base key material as
 /// defined in [RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2).
-///
-/// This type is opaque: it is the [`KeyDerivation::Secret`](crate::crypto::KeyDerivation::Secret)
-/// of the default backends and cannot be constructed or inspected from outside the crate. Custom
-/// backends define their own secret type instead.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Secret {
-    repr: Repr,
-}
-
-/// Internal representation, with a distinct shape per cipher mode so the auth-key invariant is
-/// enforced at construction time rather than by an `Option`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum Repr {
-    /// AEAD secret (AES-GCM): the cipher authenticates internally, so there is no separate auth key.
-    Aead { key: Vec<u8>, salt: Vec<u8> },
-    /// AES-CTR + HMAC secret: carries a dedicated authentication key.
-    #[cfg(aes_ctr)]
-    AesCtr {
-        key: Vec<u8>,
-        salt: Vec<u8>,
-        auth: Vec<u8>,
-    },
+    /// The encryption key (`sframe_key`).
+    key: Vec<u8>,
+    /// The salt for nonce generation (`sframe_salt`).
+    salt: Vec<u8>,
+    /// The authentication key (only for CTR mode ciphers).
+    auth: Option<Vec<u8>>,
 }
 
 impl Secret {
     /// Builds an AEAD (AES-GCM) secret.
     pub(crate) fn aead(key: Vec<u8>, salt: Vec<u8>) -> Self {
         Self {
-            repr: Repr::Aead { key, salt },
+            key,
+            salt,
+            auth: None,
         }
     }
 
@@ -38,35 +26,26 @@ impl Secret {
     #[cfg(aes_ctr)]
     pub(crate) fn aes_ctr(key: Vec<u8>, salt: Vec<u8>, auth: Vec<u8>) -> Self {
         Self {
-            repr: Repr::AesCtr { key, salt, auth },
+            key,
+            salt,
+            auth: Some(auth),
         }
     }
 
     /// The encryption key (`sframe_key`).
     pub(crate) fn key(&self) -> &[u8] {
-        match &self.repr {
-            Repr::Aead { key, .. } => key,
-            #[cfg(aes_ctr)]
-            Repr::AesCtr { key, .. } => key,
-        }
+        &self.key
     }
 
     /// The salt used for nonce generation (`sframe_salt`).
     pub(crate) fn salt(&self) -> &[u8] {
-        match &self.repr {
-            Repr::Aead { salt, .. } => salt,
-            #[cfg(aes_ctr)]
-            Repr::AesCtr { salt, .. } => salt,
-        }
+        &self.salt
     }
 
     /// The HMAC authentication key, present only for CTR-mode secrets.
     #[cfg(aes_ctr)]
     pub(crate) fn auth(&self) -> Option<&[u8]> {
-        match &self.repr {
-            Repr::AesCtr { auth, .. } => Some(auth),
-            Repr::Aead { .. } => None,
-        }
+        self.auth.as_deref()
     }
 
     /// Creates a nonce as defined in [RFC 9605 Section 4.4.3](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.3).
@@ -109,7 +88,6 @@ mod test {
     fn create_correct_nonce(cipher_suite: CipherSuite) {
         let test_vec = get_sframe_test_vector(&cipher_suite.to_string());
 
-        // create_nonce only depends on the salt, so the variant is irrelevant here.
         let secret = Secret::aead(test_vec.sframe_key.clone(), test_vec.sframe_salt.clone());
 
         let nonce: [u8; NONCE_LEN] = secret.create_nonce(test_vec.counter);
