@@ -89,17 +89,10 @@ flowchart TD
     
     C -.->|Network| D
     
-    style Shared fill:#4f46e5
-    style B fill:#4f46e5
-    style C fill:#4f46e5
-    style E fill:#4f46e5
-    style F fill:#4f46e5
-    style EK fill:#4f46e5
-    style DK fill:#4f46e5
-    style FC fill:#4f46e5
-    style KS fill:#4f46e5
-    style EncryptJunction fill:transparent
-    style DecryptJunction fill:transparent
+    classDef sframe fill:#6366f1,stroke:#a5b4fc,stroke-width:1px,color:#fff
+    class Shared,B,C,E,F,EK,DK,FC,KS sframe
+    style EncryptJunction fill:transparent,stroke:#888
+    style DecryptJunction fill:transparent,stroke:#888
 ```
 
 For example:
