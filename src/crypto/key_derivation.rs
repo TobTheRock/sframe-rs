@@ -4,8 +4,7 @@ use crate::{CipherSuite, error::Result, header::KeyId};
 pub trait KeyDerivation {
     /// The secret key material this backend produces. The matching
     /// [`AeadEncrypt`](super::aead::AeadEncrypt)/[`AeadDecrypt`](super::aead::AeadDecrypt)
-    /// implementation must consume the same type. The built-in backends use
-    /// [`Secret`](super::secret::Secret).
+    /// implementation must consume the same type.
     type Secret;
 
     /// Expands key material into a [`Self::Secret`].
