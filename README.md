@@ -12,7 +12,7 @@ It was forked from the original [goto-opensource/secure-frame-rs](https://github
 
 ## Supported crypto libraries
 
-Currently two crypto libraries are supported:
+Three crypto libraries are supported out of the box, selectable via mutually exclusive features:
 
 - [ring](https://crates.io/crates/ring)
   - is enabled per default with the feature `ring`
@@ -31,7 +31,19 @@ Currently two crypto libraries are supported:
   - pure rust implementation of the necessary crypto primitives (AES-GCM, SHA-512, HKDF, AES-CTR)
   - Compilation to Wasm32 is supported
 
-Both cannot be enabled at the same time, thus on conflict `sframe` issues a compiler error.
+These cannot be enabled at the same time, thus on conflict `sframe` issues a compiler error.
+
+### Custom crypto backend
+
+If none of the backend features is enabled, `sframe` exposes only the generic crypto traits and lets you
+plug in your own implementation. Implement [`AeadEncrypt`]/[`AeadDecrypt`] and [`KeyDerivation`] from the
+`crypto` module, then parameterize the generic `EncryptionKey<Aead, Kdf>` / `DecryptionKey<Aead, Kdf>` with
+your types. See the [caesar_cipher](https://github.com/TobTheRock/sframe-rs/blob/main/examples/caesar_cipher.rs)
+example for a full walkthrough.
+
+[`AeadEncrypt`]: https://docs.rs/sframe/latest/sframe/crypto/aead/trait.AeadEncrypt.html
+[`AeadDecrypt`]: https://docs.rs/sframe/latest/sframe/crypto/aead/trait.AeadDecrypt.html
+[`KeyDerivation`]: https://docs.rs/sframe/latest/sframe/crypto/key_derivation/trait.KeyDerivation.html
 
 ## Usage
 
@@ -134,6 +146,8 @@ Additionally the library provides:
   - Demonstrates how to use the API with an arbitrary buffer implemetation with the `FrameBuffer` trait.
 - [generate_headers](https://github.com/TobTheRock/sframe-rs/blob/main/examples/generate_headers.rs)
   - Serialize/Deserialize the plain SFrame headers.
+- [caesar_cipher](https://github.com/TobTheRock/sframe-rs/blob/main/examples/caesar_cipher.rs)
+  - Demonstrates how to plug in a custom crypto backend by implementing the `AeadEncrypt`, `AeadDecrypt`, and `KeyDerivation` traits.
 
 ## Benchmarks
 
