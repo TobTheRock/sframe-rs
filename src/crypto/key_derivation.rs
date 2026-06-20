@@ -61,29 +61,16 @@ const SFRAME_LABEL: &[u8] = b"SFrame 1.0 ";
 const SFRAME_HKDF_KEY_EXPAND_LABEL: &[u8] = b"Secret key ";
 const SFRAME_HDKF_SALT_EXPAND_LABEL: &[u8] = b"Secret salt ";
 
-// These tests exercise the default crypto backend, so they require one to be selected.
 #[cfg(all(test, crypto_backend))]
 mod test {
 
     use super::{KeyDerivation, Ratcheting, get_hkdf_key_expand_label, get_hkdf_salt_expand_label};
 
     use crate::{
-        crypto::cipher_suite::CipherSuite, test_vectors::get_sframe_test_vector,
-        util::test::assert_bytes_eq,
+        CipherSuite, crypto::Kdf, test_vectors::get_sframe_test_vector, util::test::assert_bytes_eq,
     };
 
     use test_case::test_case;
-
-    // Import the appropriate Kdf based on feature flags
-    cfg_if::cfg_if! {
-        if #[cfg(ring_backend)] {
-            use crate::crypto::ring::Kdf;
-        } else if #[cfg(openssl_backend)] {
-            use crate::crypto::openssl::Kdf;
-        } else if #[cfg(rust_crypto_backend)] {
-            use crate::crypto::rust_crypto::Kdf;
-        }
-    }
 
     #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]
     #[test_case(CipherSuite::AesGcm256Sha512; "AesGcm256Sha512")]
