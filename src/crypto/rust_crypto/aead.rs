@@ -22,6 +22,8 @@ use hkdf::hmac::{Mac, SimpleHmac};
 use sha2::Sha256;
 
 impl AeadEncrypt for Aead {
+    type Secret = Secret;
+
     fn encrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>,
@@ -53,6 +55,8 @@ impl AeadEncrypt for Aead {
 }
 
 impl AeadDecrypt for Aead {
+    type Secret = Secret;
+
     fn decrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>,
@@ -180,7 +184,7 @@ where
     A: KeyInit,
 {
     fn from_secret(secret: &'a Secret) -> Result<Self> {
-        let key = secret.key.as_slice();
+        let key = secret.key();
         let algo = A::new_from_slice(key).map_err(|err| SframeError::Other(err.to_string()))?;
         Ok(algo)
     }
@@ -211,8 +215,8 @@ where
     'a: 'b,
 {
     fn from_secret(secret: &'b Secret) -> Result<Self> {
-        let key = &secret.key;
-        let auth_key = secret.auth.as_ref().expect("HMAC auth key not found");
+        let key = secret.key();
+        let auth_key = secret.auth().expect("HMAC auth key not found");
 
         Ok(Self {
             key,

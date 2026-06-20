@@ -16,6 +16,8 @@ use crate::{
 };
 
 impl KeyDerivation for Kdf {
+    type Secret = Secret;
+
     fn expand_from<M, K>(cipher_suite: CipherSuite, key_material: M, key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
@@ -24,14 +26,14 @@ impl KeyDerivation for Kdf {
         let key_id = key_id.into();
         let try_expand = || {
             let (base_key, salt) = expand_secret(cipher_suite, key_material.as_ref(), key_id)?;
-            let (key, auth) = if cipher_suite.is_ctr_mode() {
+            let secret = if cipher_suite.is_ctr_mode() {
                 let (key, auth) = expand_subsecret(cipher_suite, &base_key);
-                (key, Some(auth))
+                Secret::aes_ctr(key, salt, auth)
             } else {
-                (base_key, None)
+                Secret::aead(base_key, salt)
             };
 
-            Ok(Secret { key, salt, auth })
+            Ok(secret)
         };
 
         try_expand().map_err(|err: openssl::error::ErrorStack| {

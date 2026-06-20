@@ -110,7 +110,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     /// or if decryption has failed in general.
     pub fn decrypt<A, D>(&self, key_store: &impl KeyStore<A, D>) -> Result<MediaFrame>
     where
-        A: AeadDecrypt,
+        A: AeadDecrypt<Secret = D::Secret>,
         D: KeyDerivation,
     {
         let mut buffer = Vec::new();
@@ -134,7 +134,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<MediaFrameView<'obuf>>
     where
-        A: AeadDecrypt,
+        A: AeadDecrypt<Secret = D::Secret>,
         D: KeyDerivation,
     {
         let counter = self.header().counter();
@@ -278,7 +278,7 @@ impl EncryptedFrame {
     /// or if decryption has failed in general.
     pub fn decrypt<A, D>(&self, key_store: &impl KeyStore<A, D>) -> Result<MediaFrame>
     where
-        A: AeadDecrypt,
+        A: AeadDecrypt<Secret = D::Secret>,
         D: KeyDerivation,
     {
         let view = EncryptedFrameView::with_header(
@@ -301,7 +301,7 @@ impl EncryptedFrame {
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<MediaFrameView<'obuf>>
     where
-        A: AeadDecrypt,
+        A: AeadDecrypt<Secret = D::Secret>,
         D: KeyDerivation,
     {
         let view = EncryptedFrameView::with_header(

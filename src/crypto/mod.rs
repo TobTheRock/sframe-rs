@@ -1,28 +1,39 @@
 //! Cryptographic primitives and traits for SFrame as defined in [RFC 9605](https://www.rfc-editor.org/rfc/rfc9605.html).
 //!
 //! This module exposes the traits needed to implement custom crypto backends:
-//! - [`AeadEncrypt`] and [`AeadDecrypt`] for AEAD encryption/decryption ([Section 4.4.3/4.4.4](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.3))
-//! - [`KeyDerivation`] for key derivation from base key material ([Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2))
-//! - [`Secret`] for storing derived key material (`sframe_key` and `sframe_salt`)
+//! - [`AeadEncrypt`](crate::crypto::AeadEncrypt) and [`AeadDecrypt`](crate::crypto::AeadDecrypt) for AEAD encryption/decryption ([Section 4.4.3/4.4.4](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.3))
+//! - [`KeyDerivation`](crate::crypto::KeyDerivation) for key derivation from base key material ([Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2))
 
 /// AEAD encryption and decryption traits ([RFC 9605 Section 4.4.3](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.3)).
-pub mod aead;
+pub(crate) mod aead;
 /// Buffer types for AEAD operations ([RFC 9605 Section 4.4](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4)).
-pub mod buffer;
+pub(crate) mod buffer;
 /// Cipher suite definitions and parameters ([RFC 9605 Section 4.5](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.5)).
-pub mod cipher_suite;
+pub(crate) mod cipher_suite;
 /// Key derivation traits and HKDF label functions ([RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2)).
-pub mod key_derivation;
-/// Secret key material storage ([RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2)).
-pub mod secret;
+pub(crate) mod key_derivation;
 
-// Re-export the traits and types needed to implement a custom crypto backend.
+// Re-export everything a custom crypto backend needs to name: the traits and the buffer view
+// types that appear in their method signatures. The modules themselves stay crate-private so the
+// layout is an implementation detail.
 pub use aead::{AeadDecrypt, AeadEncrypt};
-pub use key_derivation::{KeyDerivation, Ratcheting};
-pub use secret::Secret;
+pub use buffer::{DecryptionBufferView, EncryptionBufferView};
+pub use key_derivation::{
+    KeyDerivation, Ratcheting, get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label,
+    get_hkdf_salt_expand_label,
+};
 
 // Backend modules, selectable via features. None is also valid: in that case only the
 // generic traits are exposed and a custom crypto backend has to be provided.
+cfg_if::cfg_if! {
+    if #[cfg(crypto_backend)] {
+        /// Secret key material used by the built-in backends ([RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2)).
+        /// Only present when a built-in backend is selected; custom backends define their own secret type.
+        pub(crate) mod secret;
+        // `Secret` is the default backends' associated secret type and must be exposed as a part of public the trait impls
+        pub use secret::Secret;
+    }
+}
 cfg_if::cfg_if! {
     if #[cfg(ring_backend)] {
         pub(crate) mod ring;

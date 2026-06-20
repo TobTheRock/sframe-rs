@@ -1,10 +1,19 @@
-use super::secret::Secret;
 use crate::{CipherSuite, error::Result, header::KeyId};
 
 /// Trait for key derivation implementations as defined in [RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2).
 pub trait KeyDerivation {
-    /// Expands key material into a [`Secret`].
-    fn expand_from<M, K>(cipher_suite: CipherSuite, key_material: M, key_id: K) -> Result<Secret>
+    /// The secret key material this backend produces. The matching
+    /// [`AeadEncrypt`](super::aead::AeadEncrypt)/[`AeadDecrypt`](super::aead::AeadDecrypt)
+    /// implementation must consume the same type. The built-in backends use
+    /// [`Secret`](super::secret::Secret).
+    type Secret;
+
+    /// Expands key material into a [`Self::Secret`].
+    fn expand_from<M, K>(
+        cipher_suite: CipherSuite,
+        key_material: M,
+        key_id: K,
+    ) -> Result<Self::Secret>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>;
@@ -102,8 +111,8 @@ mod test {
         let secret =
             Kdf::expand_from(cipher_suite, &test_vec.key_material, test_vec.key_id).unwrap();
 
-        assert_bytes_eq(&secret.key, &test_vec.sframe_key);
-        assert_bytes_eq(&secret.salt, &test_vec.sframe_salt);
+        assert_bytes_eq(secret.key(), &test_vec.sframe_key);
+        assert_bytes_eq(secret.salt(), &test_vec.sframe_salt);
     }
 
     #[cfg(aes_ctr)]
@@ -121,14 +130,14 @@ mod test {
             let secret =
                 Kdf::expand_from(cipher_suite, &test_vec.key_material, test_vec.key_id).unwrap();
 
-            assert_bytes_eq(&secret.salt, &test_vec.sframe_salt);
+            assert_bytes_eq(secret.salt(), &test_vec.sframe_salt);
             // the subkeys stored in sframe_key.key and sframe_key.auth are not directly included in the test vectors, but we can extract them from sframe_key
             let secret_len = cipher_suite.key_len() - cipher_suite.hash_len();
-            assert_bytes_eq(&secret.key, &test_vec.sframe_key[..secret_len]);
+            assert_bytes_eq(secret.key(), &test_vec.sframe_key[..secret_len]);
 
-            let auth_key = secret.auth.unwrap();
+            let auth_key = secret.auth().unwrap();
             assert_eq!(auth_key.len(), cipher_suite.hash_len());
-            assert_bytes_eq(&auth_key, &test_vec.sframe_key[secret_len..]);
+            assert_bytes_eq(auth_key, &test_vec.sframe_key[secret_len..]);
         }
     }
 

@@ -18,6 +18,8 @@ use hkdf::SimpleHkdf;
 use sha2::{Digest, Sha256, Sha512, digest::block_api::BlockSizeUser};
 
 impl KeyDerivation for Kdf {
+    type Secret = Secret;
+
     fn expand_from<M, K>(cipher_suite: CipherSuite, key_material: M, key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
@@ -25,26 +27,26 @@ impl KeyDerivation for Kdf {
     {
         let key_id = key_id.into();
 
-        let (key, salt, auth) = match cipher_suite {
+        let secret = match cipher_suite {
             CipherSuite::AesCtr128HmacSha256_80
             | CipherSuite::AesCtr128HmacSha256_64
             | CipherSuite::AesCtr128HmacSha256_32 => {
                 let (base_key, salt) =
                     expand::<Sha256>(cipher_suite, key_material.as_ref(), key_id)?;
                 let (key, auth) = expand_subsecret(cipher_suite, &base_key);
-                (key, salt, Some(auth))
+                Secret::aes_ctr(key, salt, auth)
             }
             CipherSuite::AesGcm128Sha256 => {
                 let (key, salt) = expand::<Sha256>(cipher_suite, key_material.as_ref(), key_id)?;
-                (key, salt, None)
+                Secret::aead(key, salt)
             }
             CipherSuite::AesGcm256Sha512 => {
                 let (key, salt) = expand::<Sha512>(cipher_suite, key_material.as_ref(), key_id)?;
-                (key, salt, None)
+                Secret::aead(key, salt)
             }
         };
 
-        Ok(Secret { key, salt, auth })
+        Ok(secret)
     }
 }
 

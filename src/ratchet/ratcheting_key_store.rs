@@ -19,7 +19,7 @@ use super::{ratcheting_base_key::RatchetingBaseKey, ratcheting_key_id::Ratchetin
 /// Generic over the crypto backend used for decryption (`A`) and key derivation (`D`).
 pub struct RatchetingKeyStore<A, D>
 where
-    A: AeadDecrypt,
+    A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
     keys: HashMap<RatchetingKeyId, RatchetingKeys<A, D>>,
@@ -28,7 +28,7 @@ where
 
 impl<A, D> RatchetingKeyStore<A, D>
 where
-    A: AeadDecrypt,
+    A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
     /// creates a new [`RatchetingKeyStore`] which uses `n_ratchet_bits` to determine the Ratchet Step  
@@ -131,7 +131,7 @@ where
 /// Storage struct used by [`RatchetingKeyStore`], each associated with a [`RatchetingKeyId`]
 pub struct RatchetingKeys<A, D>
 where
-    A: AeadDecrypt,
+    A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
     /// provides key material used for ratcheting
@@ -142,7 +142,7 @@ where
 
 impl<A, D> KeyStore<A, D> for RatchetingKeyStore<A, D>
 where
-    A: AeadDecrypt,
+    A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
     fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey<A, D>>

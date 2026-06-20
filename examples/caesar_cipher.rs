@@ -1,22 +1,29 @@
 //! Example demonstrating a custom crypto backend using a Caesar cipher implementation.
 //!
 //! This example shows how users can implement their own crypto backend by implementing
-//! the `AeadEncrypt`, `AeadDecrypt`, and `KeyDerivation` traits.
+//! the `AeadEncrypt`, `AeadDecrypt`, and `KeyDerivation` traits, including a backend-specific
+//! secret type (the built-in `Secret` is private to the crate).
 //!
 //! **Note**: Caesar cipher is NOT cryptographically secure - this is purely for demonstration
 //! of the pluggable backend API. The cipher shifts each byte by a derived offset.
 
 use sframe::{
     CipherSuite,
-    crypto::{
-        AeadDecrypt, AeadEncrypt, KeyDerivation, Secret,
-        buffer::{DecryptionBufferView, EncryptionBufferView},
-    },
+    crypto::{AeadDecrypt, AeadEncrypt, DecryptionBufferView, EncryptionBufferView, KeyDerivation},
     error::{Result, SframeError},
     frame::{MediaFrame, MonotonicCounter},
     header::{Counter, KeyId},
     key::crypto_key::{DecryptionKey, EncryptionKey},
 };
+
+/// The secret material produced by [`CaesarKdf`] and consumed by [`CaesarAead`].
+///
+/// A custom backend defines its own secret type — it can be any shape that suits the algorithm.
+/// For a Caesar cipher all we need is the byte offset to shift by.
+#[derive(Clone, Debug)]
+pub struct CaesarSecret {
+    shift: u8,
+}
 
 /// Caesar cipher AEAD implementation - shifts each byte by a derived offset.
 #[derive(Clone, Debug)]
@@ -33,31 +40,18 @@ impl TryFrom<CipherSuite> for CaesarAead {
     }
 }
 
-impl CaesarAead {
-    /// Derive the shift amount from key and counter
-    fn derive_shift(secret: &Secret, counter: Counter) -> u8 {
-        let nonce = secret.create_nonce::<12>(counter);
-        // Combine first key byte with first nonce byte to get shift
-        secret
-            .key
-            .first()
-            .copied()
-            .unwrap_or(0)
-            .wrapping_add(nonce[0])
-    }
-}
-
 impl AeadEncrypt for CaesarAead {
-    fn encrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
+    type Secret = CaesarSecret;
+
+    fn encrypt<'a, B>(&self, secret: &CaesarSecret, buffer: B, _counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>,
     {
         let buffer_view: EncryptionBufferView = buffer.into();
-        let shift = Self::derive_shift(secret, counter);
 
         // Caesar cipher: shift each byte forward
         for byte in buffer_view.data.iter_mut() {
-            *byte = byte.wrapping_add(shift);
+            *byte = byte.wrapping_add(secret.shift);
         }
 
         // Simple authentication tag: sum of all encrypted bytes
@@ -74,7 +68,9 @@ impl AeadEncrypt for CaesarAead {
 }
 
 impl AeadDecrypt for CaesarAead {
-    fn decrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
+    type Secret = CaesarSecret;
+
+    fn decrypt<'a, B>(&self, secret: &CaesarSecret, buffer: B, _counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>,
     {
@@ -94,45 +90,36 @@ impl AeadDecrypt for CaesarAead {
         }
 
         // Caesar cipher: shift each byte backward to decrypt
-        let shift = Self::derive_shift(secret, counter);
         for byte in buffer_view.data[..cipher_len].iter_mut() {
-            *byte = byte.wrapping_sub(shift);
+            *byte = byte.wrapping_sub(secret.shift);
         }
 
         Ok(())
     }
 }
 
-/// A fake key derivation that just copies/pads the key material.
+/// A fake key derivation that folds the key material into a single shift offset.
 pub struct CaesarKdf;
 
 impl KeyDerivation for CaesarKdf {
-    fn expand_from<M, K>(cipher_suite: CipherSuite, key_material: M, _key_id: K) -> Result<Secret>
+    type Secret = CaesarSecret;
+
+    fn expand_from<M, K>(
+        _cipher_suite: CipherSuite,
+        key_material: M,
+        _key_id: K,
+    ) -> Result<CaesarSecret>
     where
         M: AsRef<[u8]>,
         K: Into<KeyId>,
     {
-        let material = key_material.as_ref();
+        // Simple "derivation": sum the key material bytes into a single offset.
+        let shift = key_material
+            .as_ref()
+            .iter()
+            .fold(0u8, |acc, &b| acc.wrapping_add(b));
 
-        // Simple "derivation": just repeat/truncate the key material
-        let mut key = vec![0u8; cipher_suite.key_len()];
-        for (i, byte) in key.iter_mut().enumerate() {
-            *byte = material.get(i % material.len()).copied().unwrap_or(0);
-        }
-
-        let mut salt = vec![0u8; cipher_suite.nonce_len()];
-        for (i, byte) in salt.iter_mut().enumerate() {
-            *byte = material
-                .get((i + cipher_suite.key_len()) % material.len())
-                .copied()
-                .unwrap_or(0);
-        }
-
-        Ok(Secret {
-            key,
-            salt,
-            auth: None,
-        })
+        Ok(CaesarSecret { shift })
     }
 }
 

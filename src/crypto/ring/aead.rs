@@ -46,11 +46,13 @@ fn unbound_encryption_key(
     secret: &Secret,
 ) -> Result<ring::aead::UnboundKey> {
     let algorithm = cipher_suite.into();
-    ring::aead::UnboundKey::new(algorithm, secret.key.as_slice())
+    ring::aead::UnboundKey::new(algorithm, secret.key())
         .map_err(|_| SframeError::KeyDerivationFailure)
 }
 
 impl AeadEncrypt for Aead {
+    type Secret = Secret;
+
     fn encrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>,
@@ -75,6 +77,8 @@ impl AeadEncrypt for Aead {
 }
 
 impl AeadDecrypt for Aead {
+    type Secret = Secret;
+
     fn decrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>,

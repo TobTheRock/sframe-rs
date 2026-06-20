@@ -1,25 +1,30 @@
 use crate::{
     CipherSuite,
-    crypto::{
-        buffer::{DecryptionBufferView, EncryptionBufferView},
-        secret::Secret,
-    },
+    crypto::buffer::{DecryptionBufferView, EncryptionBufferView},
     error::{Result, SframeError},
     header::Counter,
 };
 
 /// Trait for AEAD encryption implementations as defined in [RFC 9605 Section 4.4.3](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.3).
 pub trait AeadEncrypt: TryFrom<CipherSuite, Error = SframeError> {
+    /// The secret key material this backend consumes, as produced by its
+    /// [`KeyDerivation`](super::key_derivation::KeyDerivation) implementation.
+    type Secret;
+
     /// Encrypts the plaintext in the buffer in-place.
-    fn encrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
+    fn encrypt<'a, B>(&self, secret: &Self::Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>;
 }
 
 /// Trait for AEAD decryption implementations as defined in [RFC 9605 Section 4.4.4](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.4).
 pub trait AeadDecrypt: TryFrom<CipherSuite, Error = SframeError> {
+    /// The secret key material this backend consumes, as produced by its
+    /// [`KeyDerivation`](super::key_derivation::KeyDerivation) implementation.
+    type Secret;
+
     /// Decrypts the ciphertext in the buffer in-place.
-    fn decrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
+    fn decrypt<'a, B>(&self, secret: &Self::Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>;
 }

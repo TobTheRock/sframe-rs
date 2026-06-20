@@ -36,6 +36,8 @@ fn update_inplace(
 }
 
 impl AeadEncrypt for Aead {
+    type Secret = Secret;
+
     fn encrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<EncryptionBufferView<'a>>,
@@ -53,6 +55,8 @@ impl AeadEncrypt for Aead {
 }
 
 impl AeadDecrypt for Aead {
+    type Secret = Secret;
+
     fn decrypt<'a, B>(&self, secret: &Secret, buffer: B, counter: Counter) -> Result<()>
     where
         B: Into<DecryptionBufferView<'a>>,
@@ -105,7 +109,7 @@ fn encrypt_aead(
     let mut crypter = openssl::symm::Crypter::new(
         cipher,
         openssl::symm::Mode::Encrypt,
-        &secret.key,
+        secret.key(),
         Some(&nonce),
     )?;
 
@@ -131,7 +135,7 @@ fn encrypt_aes_ctr(
     buffer_view: EncryptionBufferView,
     counter: Counter,
 ) -> Result<()> {
-    let auth_key = secret.auth.as_ref().ok_or(SframeError::EncryptionFailure)?;
+    let auth_key = secret.auth().ok_or(SframeError::EncryptionFailure)?;
     let cipher: openssl::symm::Cipher = cipher_suite.into();
     // openssl expects a fixed iv length of 16 byte, thus we needed to pad the sframe nonce
     let initial_counter = secret.create_nonce::<AES_CTR_IVS_LEN>(counter);
@@ -140,7 +144,7 @@ fn encrypt_aes_ctr(
     let mut crypter = openssl::symm::Crypter::new(
         cipher,
         openssl::symm::Mode::Encrypt,
-        &secret.key,
+        secret.key(),
         Some(&initial_counter),
     )?;
 
@@ -178,7 +182,7 @@ fn decrypt_aead_inplace(
     let mut crypter = openssl::symm::Crypter::new(
         cipher,
         openssl::symm::Mode::Decrypt,
-        &secret.key,
+        secret.key(),
         Some(&nonce),
     )
     .map_err(|err| {
@@ -231,7 +235,7 @@ fn decrypt_aes_ctr_inplace(
 ) -> Result<()> {
     let initial_counter: [u8; 16] = secret.create_nonce::<AES_CTR_IVS_LEN>(counter);
     let nonce = &initial_counter[..cipher_suite.nonce_len()];
-    let auth_key = secret.auth.as_ref().ok_or(SframeError::DecryptionFailure)?;
+    let auth_key = secret.auth().ok_or(SframeError::DecryptionFailure)?;
 
     let candidate_tag =
         compute_tag(cipher_suite, auth_key, aad, nonce, encrypted).map_err(|err| {
@@ -247,7 +251,7 @@ fn decrypt_aes_ctr_inplace(
     let mut crypter = openssl::symm::Crypter::new(
         cipher,
         openssl::symm::Mode::Decrypt,
-        &secret.key,
+        secret.key(),
         Some(&initial_counter),
     )
     .map_err(|err| {

@@ -35,7 +35,7 @@ macro_rules! mls_key {
     ($name:ident, $aead:ident) => {
         impl<A, D> $name<A, D>
         where
-            A: $aead,
+            A: $aead<Secret = D::Secret>,
             D: KeyDerivation,
         {
             /// Derives a new sframe key from the base key provided by the MLS exporter.

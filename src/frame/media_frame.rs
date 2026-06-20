@@ -89,7 +89,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
     /// Returns an [`crate::error::SframeError`] when encryption fails.
     pub fn encrypt<A, D>(&self, key: &EncryptionKey<A, D>) -> Result<EncryptedFrame>
     where
-        A: AeadEncrypt,
+        A: AeadEncrypt<Secret = D::Secret>,
         D: KeyDerivation,
     {
         let mut buffer = Vec::new();
@@ -112,7 +112,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<EncryptedFrameView<'obuf>>
     where
-        A: AeadEncrypt,
+        A: AeadEncrypt<Secret = D::Secret>,
         D: KeyDerivation,
     {
         let key_id = key.key_id();
@@ -248,7 +248,7 @@ impl MediaFrame {
     /// Returns an [`crate::error::SframeError`] when encryption fails
     pub fn encrypt<A, D>(&self, key: &EncryptionKey<A, D>) -> Result<EncryptedFrame>
     where
-        A: AeadEncrypt,
+        A: AeadEncrypt<Secret = D::Secret>,
         D: KeyDerivation,
     {
         let view =
@@ -266,7 +266,7 @@ impl MediaFrame {
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<EncryptedFrameView<'obuf>>
     where
-        A: AeadEncrypt,
+        A: AeadEncrypt<Secret = D::Secret>,
         D: KeyDerivation,
     {
         let view =

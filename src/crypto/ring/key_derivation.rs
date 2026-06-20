@@ -15,6 +15,8 @@ use crate::{
 };
 
 impl KeyDerivation for Kdf {
+    type Secret = Secret;
+
     fn expand_from<M, K>(cipher_suite: CipherSuite, key_material: M, key_id: K) -> Result<Secret>
     where
         M: AsRef<[u8]>,
@@ -37,11 +39,8 @@ impl KeyDerivation for Kdf {
             cipher_suite.nonce_len(),
         )?;
 
-        Ok(Secret {
-            key,
-            salt,
-            auth: None,
-        })
+        // ring only supports AES-GCM, which authenticates internally.
+        Ok(Secret::aead(key, salt))
     }
 }
 
