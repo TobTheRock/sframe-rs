@@ -154,7 +154,7 @@ impl Default for Receiver {
 
 enum KeyStore {
     Standard(HashMap<KeyId, DecryptionKey>),
-    Ratcheting(RatchetingKeyStore<sframe::crypto::Aead, sframe::crypto::Kdf>),
+    Ratcheting(RatchetingKeyStore),
 }
 
 impl Default for KeyStore {
