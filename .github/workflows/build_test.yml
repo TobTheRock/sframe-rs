@@ -42,7 +42,25 @@ jobs:
       - name: package
         run: cargo package
 
-  
+  # No backend feature: only the generic crypto traits are exposed for custom backends.
+  # Examples and benches need a concrete backend, so we test the lib only.
+  test-no-backend:
+    name: test no backend (custom crypto)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: test
+        run: cargo test --lib --no-default-features
+
+      - name: clippy
+        run: cargo clippy --lib --tests --no-default-features -- -Dwarnings
+
   build-wasm:
     name: build wasm32
     runs-on: ubuntu-latest

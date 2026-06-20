@@ -14,6 +14,11 @@
 //!   Compilation to Wasm32 is not yet supported.
 //!   **Note:** This backend uses `unsafe` code for in-place encryption/decryption to avoid memory allocations.
 //! - **`rust-crypto`** - Uses pure rust implementations of the  [RustCrypto](https://github.com/RustCrypto) project. Compilation to Wasm32 is supported.
+//!
+//! If none of these features is enabled, only the generic crypto traits in [`crypto`] are exposed and a
+//! custom crypto backend has to be provided by implementing [`crypto::AeadEncrypt`], [`crypto::AeadDecrypt`]
+//! and [`crypto::KeyDerivation`], then parameterizing [`key::crypto_key::EncryptionKey`] /
+//! [`key::crypto_key::DecryptionKey`] with those types. See the `caesar_cipher` example for a walkthrough.
 
 #![deny(clippy::missing_panics_doc)]
 #![deny(
@@ -34,7 +39,8 @@
     clippy::match_same_arms
 )]
 
-mod crypto;
+/// Cryptographic primitives and traits for implementing custom crypto backends.
+pub mod crypto;
 mod util;
 
 /// error definitions

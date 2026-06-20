@@ -2,10 +2,11 @@ use std::collections::HashMap;
 
 use sframe::{
     CipherSuite,
+    crypto::{Aead, Kdf},
     error::Result,
     frame::{EncryptedFrameView, FrameValidationBox, ReplayAttackProtection},
     header::KeyId,
-    key::DecryptionKey,
+    key::{DecryptionKey, KeyStore},
     ratchet::RatchetingKeyStore,
 };
 
@@ -42,7 +43,7 @@ impl Default for ReceiverOptions {
 /// - decrypting incoming `SFrame` frames using an internal buffer and the stored keys
 /// - performing optional frame validation and ratcheting
 pub struct Receiver {
-    keys: KeyStore,
+    keys: ReceiverKeyStore,
     cipher_suite: CipherSuite,
     frame_validation: Option<FrameValidationBox>,
     buffer: Vec<u8>,
@@ -70,7 +71,7 @@ impl Receiver {
             encrypted_frame.validate(validator)?;
         }
 
-        if let KeyStore::Ratcheting(keys) = &mut self.keys {
+        if let ReceiverKeyStore::Ratcheting(keys) = &mut self.keys {
             keys.try_ratchet(encrypted_frame.header().key_id())?;
         }
 
@@ -90,13 +91,13 @@ impl Receiver {
     {
         let key_id = key_id.into();
         match &mut self.keys {
-            KeyStore::Standard(key_store) => {
+            ReceiverKeyStore::Standard(key_store) => {
                 key_store.insert(
                     key_id,
                     DecryptionKey::derive_from(self.cipher_suite, key_id, key_material)?,
                 );
             }
-            KeyStore::Ratcheting(key_store) => {
+            ReceiverKeyStore::Ratcheting(key_store) => {
                 key_store.insert(self.cipher_suite, key_id, key_material)?;
             }
         };
@@ -124,8 +125,8 @@ impl Receiver {
     {
         let key_id = key_id.into();
         match &mut self.keys {
-            KeyStore::Standard(key_store) => key_store.remove(&key_id).is_some(),
-            KeyStore::Ratcheting(key_store) => key_store.remove(key_id),
+            ReceiverKeyStore::Standard(key_store) => key_store.remove(&key_id).is_some(),
+            ReceiverKeyStore::Ratcheting(key_store) => key_store.remove(key_id),
         }
     }
 }
@@ -133,8 +134,10 @@ impl Receiver {
 impl From<ReceiverOptions> for Receiver {
     fn from(options: ReceiverOptions) -> Self {
         let keys = match options.n_ratchet_bits {
-            Some(n_ratchet_bits) => KeyStore::Ratcheting(RatchetingKeyStore::new(n_ratchet_bits)),
-            None => KeyStore::default(),
+            Some(n_ratchet_bits) => {
+                ReceiverKeyStore::Ratcheting(RatchetingKeyStore::new(n_ratchet_bits))
+            }
+            None => ReceiverKeyStore::default(),
         };
         Self {
             frame_validation: options.frame_validation,
@@ -152,26 +155,26 @@ impl Default for Receiver {
     }
 }
 
-enum KeyStore {
+enum ReceiverKeyStore {
     Standard(HashMap<KeyId, DecryptionKey>),
     Ratcheting(RatchetingKeyStore),
 }
 
-impl Default for KeyStore {
+impl Default for ReceiverKeyStore {
     fn default() -> Self {
-        KeyStore::Standard(Default::default())
+        ReceiverKeyStore::Standard(Default::default())
     }
 }
 
-impl sframe::key::KeyStore for KeyStore {
+impl KeyStore<Aead, Kdf> for ReceiverKeyStore {
     fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
     where
         K: Into<KeyId>,
     {
         let key_id = key_id.into();
         match self {
-            KeyStore::Standard(keys) => keys.get_key(key_id),
-            KeyStore::Ratcheting(keys) => keys.get_key(key_id),
+            ReceiverKeyStore::Standard(keys) => keys.get_key(key_id),
+            ReceiverKeyStore::Ratcheting(keys) => keys.get_key(key_id),
         }
     }
 }

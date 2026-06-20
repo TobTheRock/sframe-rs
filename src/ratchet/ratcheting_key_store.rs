@@ -2,21 +2,35 @@ use std::collections::HashMap;
 
 use crate::{
     CipherSuite,
+    crypto::{
+        aead::AeadDecrypt,
+        key_derivation::{KeyDerivation, Ratcheting},
+    },
     error::{Result, SframeError},
     header::KeyId,
-    key::{DecryptionKey, KeyStore},
+    key::{KeyStore, crypto_key::DecryptionKey},
 };
 
 use super::{ratcheting_base_key::RatchetingBaseKey, ratcheting_key_id::RatchetingKeyId};
 
 /// Utility class to store multiple encryption keys and base keys ([`RatchetingBaseKey`]) each associated with a [`KeyId`].
 /// Allows to automatically ratchet forward an encryption key if necessary.
-pub struct RatchetingKeyStore {
-    keys: HashMap<RatchetingKeyId, RatchetingKeys>,
+///
+/// Generic over the crypto backend used for decryption (`A`) and key derivation (`D`).
+pub struct RatchetingKeyStore<A, D>
+where
+    A: AeadDecrypt<Secret = D::Secret>,
+    D: KeyDerivation + Ratcheting,
+{
+    keys: HashMap<RatchetingKeyId, RatchetingKeys<A, D>>,
     n_ratchet_bits: u8,
 }
 
-impl RatchetingKeyStore {
+impl<A, D> RatchetingKeyStore<A, D>
+where
+    A: AeadDecrypt<Secret = D::Secret>,
+    D: KeyDerivation + Ratcheting,
+{
     /// creates a new [`RatchetingKeyStore`] which uses `n_ratchet_bits` to determine the Ratchet Step  
     pub fn new(n_ratchet_bits: u8) -> Self {
         Self {
@@ -63,7 +77,7 @@ impl RatchetingKeyStore {
     }
 
     /// returns the encryption key and [`RatchetingBaseKey`] associated with the key id
-    pub fn get<K>(&self, key_id: K) -> Option<&RatchetingKeys>
+    pub fn get<K>(&self, key_id: K) -> Option<&RatchetingKeys<A, D>>
     where
         K: Into<KeyId>,
     {
@@ -115,15 +129,23 @@ impl RatchetingKeyStore {
 }
 
 /// Storage struct used by [`RatchetingKeyStore`], each associated with a [`RatchetingKeyId`]
-pub struct RatchetingKeys {
+pub struct RatchetingKeys<A, D>
+where
+    A: AeadDecrypt<Secret = D::Secret>,
+    D: KeyDerivation + Ratcheting,
+{
     /// provides key material used for ratcheting
-    pub base_key: RatchetingBaseKey,
+    pub base_key: RatchetingBaseKey<D>,
     /// secrets used for decryption
-    pub dec_key: DecryptionKey,
+    pub dec_key: DecryptionKey<A, D>,
 }
 
-impl KeyStore for RatchetingKeyStore {
-    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
+impl<A, D> KeyStore<A, D> for RatchetingKeyStore<A, D>
+where
+    A: AeadDecrypt<Secret = D::Secret>,
+    D: KeyDerivation + Ratcheting,
+{
+    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey<A, D>>
     where
         K: Into<KeyId>,
     {
@@ -132,13 +154,19 @@ impl KeyStore for RatchetingKeyStore {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, crypto_backend))]
 mod test {
-    use super::RatchetingKeyStore;
     use crate::{
-        CipherSuite, header::KeyId, key::KeyStore, ratchet::ratcheting_key_id::RatchetingKeyId,
+        CipherSuite,
+        crypto::{Aead, Kdf},
+        header::KeyId,
+        key::KeyStore,
+        ratchet::ratcheting_key_id::RatchetingKeyId,
     };
     use pretty_assertions::assert_eq;
+
+    // Exercise the generic key store with the default crypto backend.
+    type RatchetingKeyStore = super::RatchetingKeyStore<Aead, Kdf>;
 
     const N_RATCHET_BITS: u8 = 8;
     const KEY_MATERIAL: &[u8] = b"SECRET";
