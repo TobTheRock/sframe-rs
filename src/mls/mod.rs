@@ -61,7 +61,7 @@ macro_rules! mls_key {
 mls_key!(DecryptionKey, AeadDecrypt);
 mls_key!(EncryptionKey, AeadEncrypt);
 
-#[cfg(test)]
+#[cfg(all(test, crypto_backend))]
 mod test {
     use super::{MlsExporter, MlsKeyId, MlsKeyIdBitRange};
     use crate::{error::SframeError, key::EncryptionKey};

@@ -53,7 +53,8 @@ const SFRAME_LABEL: &[u8] = b"SFrame 1.0 ";
 const SFRAME_HKDF_KEY_EXPAND_LABEL: &[u8] = b"Secret key ";
 const SFRAME_HDKF_SALT_EXPAND_LABEL: &[u8] = b"Secret salt ";
 
-#[cfg(test)]
+// These tests exercise the default crypto backend, so they require one to be selected.
+#[cfg(all(test, crypto_backend))]
 mod test {
 
     use super::{KeyDerivation, Ratcheting, get_hkdf_key_expand_label, get_hkdf_salt_expand_label};

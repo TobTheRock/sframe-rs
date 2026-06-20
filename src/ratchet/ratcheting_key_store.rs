@@ -154,7 +154,7 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, crypto_backend))]
 mod test {
     use crate::{
         CipherSuite,

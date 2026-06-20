@@ -59,7 +59,7 @@ pub use frame_counter::*;
 pub use media_frame::{MediaFrame, MediaFrameView};
 pub use validation::*;
 
-#[cfg(test)]
+#[cfg(all(test, crypto_backend))]
 mod test {
     use super::media_frame::MediaFrameView;
     use crate::{

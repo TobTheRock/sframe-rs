@@ -281,7 +281,7 @@ impl AsRef<[u8]> for MediaFrame {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, crypto_backend))]
 mod test {
     use crate::{
         CipherSuite,

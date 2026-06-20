@@ -28,7 +28,7 @@ impl Secret {
         iv
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, crypto_backend))]
     pub(crate) fn from_test_vector(test_vec: &crate::test_vectors::SframeTest) -> Self {
         Self {
             key: test_vec.sframe_key.clone(),

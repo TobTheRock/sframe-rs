@@ -72,7 +72,7 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, crypto_backend))]
 mod test {
     use crate::crypto::Kdf;
     use crate::ratchet::ratcheting_key_id::RatchetingKeyId;

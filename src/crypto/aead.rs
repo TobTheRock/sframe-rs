@@ -24,7 +24,7 @@ pub trait AeadDecrypt: TryFrom<CipherSuite, Error = SframeError> {
         B: Into<DecryptionBufferView<'a>>;
 }
 
-#[cfg(test)]
+#[cfg(all(test, crypto_backend))]
 mod test {
     use crate::{
         crypto::{
