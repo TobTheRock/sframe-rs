@@ -16,9 +16,8 @@ pub mod key_derivation;
 /// Secret key material storage ([RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2)).
 pub mod secret;
 
-// Re-export commonly used types
+// Re-export the traits and types needed to implement a custom crypto backend.
 pub use aead::{AeadDecrypt, AeadEncrypt};
-pub use cipher_suite::CipherSuite;
 pub use key_derivation::{KeyDerivation, Ratcheting};
 pub use secret::Secret;
 

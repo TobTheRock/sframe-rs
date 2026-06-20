@@ -7,12 +7,10 @@
 //! of the pluggable backend API. The cipher shifts each byte by a derived offset.
 
 use sframe::{
+    CipherSuite,
     crypto::{
-        aead::{AeadDecrypt, AeadEncrypt},
+        AeadDecrypt, AeadEncrypt, KeyDerivation, Secret,
         buffer::{DecryptionBufferView, EncryptionBufferView},
-        cipher_suite::CipherSuite,
-        key_derivation::KeyDerivation,
-        secret::Secret,
     },
     error::{Result, SframeError},
     frame::{MediaFrame, MonotonicCounter},
