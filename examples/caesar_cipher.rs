@@ -56,13 +56,13 @@ impl AeadEncrypt for CaesarAead {
         let shift = Self::derive_shift(secret, counter);
 
         // Caesar cipher: shift each byte forward
-        for byte in buffer_view.cipher_text.iter_mut() {
+        for byte in buffer_view.data.iter_mut() {
             *byte = byte.wrapping_add(shift);
         }
 
-        // Simple authentication tag: sum of all cipher_text bytes
+        // Simple authentication tag: sum of all encrypted bytes
         let checksum = buffer_view
-            .cipher_text
+            .data
             .iter()
             .fold(0u8, |acc, &b| acc.wrapping_add(b));
         for tag_byte in buffer_view.tag.iter_mut() {
@@ -80,22 +80,22 @@ impl AeadDecrypt for CaesarAead {
     {
         let buffer_view: DecryptionBufferView = buffer.into();
 
-        // Split cipher_text into actual ciphertext and tag
+        // Split the data buffer into actual ciphertext and tag
         let tag_len = self.cipher_suite.auth_tag_len();
-        let cipher_len = buffer_view.cipher_text.len().saturating_sub(tag_len);
+        let cipher_len = buffer_view.data.len().saturating_sub(tag_len);
 
         // Verify tag first (computed on encrypted data)
-        let checksum = buffer_view.cipher_text[..cipher_len]
+        let checksum = buffer_view.data[..cipher_len]
             .iter()
             .fold(0u8, |acc, &b| acc.wrapping_add(b));
-        let tag = &buffer_view.cipher_text[cipher_len..];
+        let tag = &buffer_view.data[cipher_len..];
         if !tag.iter().all(|&b| b == checksum) {
             return Err(SframeError::DecryptionFailure);
         }
 
         // Caesar cipher: shift each byte backward to decrypt
         let shift = Self::derive_shift(secret, counter);
-        for byte in buffer_view.cipher_text[..cipher_len].iter_mut() {
+        for byte in buffer_view.data[..cipher_len].iter_mut() {
             *byte = byte.wrapping_sub(shift);
         }
 

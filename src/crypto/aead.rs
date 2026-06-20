@@ -87,7 +87,7 @@ mod test {
         let mut tag = vec![0u8; enc_key.cipher_suite().auth_tag_len()];
         let encryption_buffer = EncryptionBufferView {
             aad: &mut aad,
-            cipher_text: &mut cipher_text,
+            data: &mut cipher_text,
             tag: &mut tag,
         };
 
@@ -118,7 +118,7 @@ mod test {
 
         let decryption_buffer = DecryptionBufferView {
             aad: &mut aad,
-            cipher_text: &mut data,
+            data: &mut data,
         };
 
         dec_key

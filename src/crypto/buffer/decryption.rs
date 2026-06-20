@@ -55,7 +55,7 @@ where
         let buffers = DecryptionBufferView::from(self);
 
         aad_data.serialize(buffers.aad)?;
-        buffers.cipher_text.copy_from_slice(unencrypted_data);
+        buffers.data.copy_from_slice(unencrypted_data);
 
         Ok(())
     }
@@ -75,12 +75,12 @@ where
     F: FrameBuffer,
 {
     fn from(unencrypted_data: &'a mut DecryptionBuffer<'buf, F>) -> Self {
-        let (aad, cipher_text) = unencrypted_data
+        let (aad, data) = unencrypted_data
             .io_buffer
             .as_mut()
             .split_at_mut(unencrypted_data.aad_len);
 
-        DecryptionBufferView { aad, cipher_text }
+        DecryptionBufferView { aad, data }
     }
 }
 
@@ -102,7 +102,7 @@ mod test {
 
         let view = DecryptionBufferView::from(&mut dec_buf);
         assert_eq!(view.aad, AAD_DATA.data);
-        assert_eq!(view.cipher_text, encrypted_data.as_slice());
+        assert_eq!(view.data, encrypted_data.as_slice());
     }
 
     #[test]

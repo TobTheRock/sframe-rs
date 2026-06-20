@@ -58,7 +58,7 @@ impl AeadDecrypt for Aead {
         B: Into<DecryptionBufferView<'a>>,
     {
         let buffer_view = buffer.into();
-        let cipher_text = buffer_view.cipher_text;
+        let cipher_text = buffer_view.data;
 
         if cipher_text.len() < self.cipher_suite.auth_tag_len() {
             return Err(SframeError::DecryptionFailure);
@@ -111,9 +111,9 @@ fn encrypt_aead(
 
     crypter.aad_update(buffer_view.aad)?;
 
-    let plaintext_len = buffer_view.cipher_text.len();
-    let encrypted_len = update_inplace(&mut crypter, buffer_view.cipher_text)?;
-    let final_len = crypter.finalize(&mut buffer_view.cipher_text[encrypted_len..])?;
+    let plaintext_len = buffer_view.data.len();
+    let encrypted_len = update_inplace(&mut crypter, buffer_view.data)?;
+    let final_len = crypter.finalize(&mut buffer_view.data[encrypted_len..])?;
 
     debug_assert!(
         encrypted_len + final_len == plaintext_len,
@@ -144,9 +144,9 @@ fn encrypt_aes_ctr(
         Some(&initial_counter),
     )?;
 
-    let plaintext_len = buffer_view.cipher_text.len();
-    let encrypted_len = update_inplace(&mut crypter, buffer_view.cipher_text)?;
-    let final_len = crypter.finalize(&mut buffer_view.cipher_text[encrypted_len..])?;
+    let plaintext_len = buffer_view.data.len();
+    let encrypted_len = update_inplace(&mut crypter, buffer_view.data)?;
+    let final_len = crypter.finalize(&mut buffer_view.data[encrypted_len..])?;
 
     debug_assert!(
         encrypted_len + final_len == plaintext_len,
@@ -158,7 +158,7 @@ fn encrypt_aes_ctr(
         auth_key,
         buffer_view.aad,
         nonce,
-        buffer_view.cipher_text,
+        buffer_view.data,
     )?;
     buffer_view.tag.copy_from_slice(&tag);
 

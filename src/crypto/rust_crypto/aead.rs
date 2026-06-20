@@ -114,7 +114,7 @@ where
         .encrypt_in_place_detached(
             GenericArray::from_slice(&nonce),
             buffer_view.aad,
-            buffer_view.cipher_text,
+            buffer_view.data,
         )
         .map_err(|err| {
             log::debug!("Encryption failed: {err}");
@@ -134,7 +134,7 @@ fn decrypt_in_place_detached<'a, A, const IV_LEN: usize>(
 where
     A: AeadInPlace + AeadCore + InitFromSecret<'a>,
 {
-    let cipher_text = buffer_view.cipher_text;
+    let cipher_text = buffer_view.data;
     if cipher_text.len() < cipher_suite.auth_tag_len() {
         return Err(SframeError::DecryptionFailure);
     }

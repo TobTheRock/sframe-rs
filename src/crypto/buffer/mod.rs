@@ -10,16 +10,17 @@ use crate::error::Result;
 pub struct DecryptionBufferView<'a> {
     /// The Additional Authenticated Data (AAD).
     pub aad: &'a mut [u8],
-    /// The ciphertext to decrypt (includes authentication tag).
-    pub cipher_text: &'a mut [u8],
+    /// The data buffer, transformed in place: on input the ciphertext (including the
+    /// authentication tag), on success the decrypted plaintext.
+    pub data: &'a mut [u8],
 }
 
 /// A view into a buffer for AEAD encryption operations.
 pub struct EncryptionBufferView<'a> {
     /// The Additional Authenticated Data (AAD).
     pub aad: &'a mut [u8],
-    /// The plaintext to encrypt.
-    pub cipher_text: &'a mut [u8],
+    /// The data buffer, transformed in place: on input the plaintext, on success the ciphertext.
+    pub data: &'a mut [u8],
     /// The buffer for the authentication tag.
     pub tag: &'a mut [u8],
 }

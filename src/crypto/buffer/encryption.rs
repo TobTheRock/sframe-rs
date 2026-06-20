@@ -37,7 +37,7 @@ impl<'a> EncryptionBuffer<'a> {
         let buffers = EncryptionBufferView::from(self);
 
         aad_data.serialize(buffers.aad)?;
-        buffers.cipher_text.copy_from_slice(unencrypted_data);
+        buffers.data.copy_from_slice(unencrypted_data);
 
         Ok(())
     }
@@ -54,13 +54,9 @@ impl<'a, 'buf> From<&'a mut EncryptionBuffer<'buf>> for EncryptionBufferView<'a>
         let (aad, remain) = unencrypted_data
             .io_buffer
             .split_at_mut(unencrypted_data.aad_len);
-        let (cipher_text, tag) = remain.split_at_mut(unencrypted_data.cipher_text_len);
+        let (data, tag) = remain.split_at_mut(unencrypted_data.cipher_text_len);
 
-        EncryptionBufferView {
-            aad,
-            cipher_text,
-            tag,
-        }
+        EncryptionBufferView { aad, data, tag }
     }
 }
 
@@ -83,7 +79,7 @@ mod test {
 
         let view = EncryptionBufferView::from(&mut encryption_buffer);
         assert_eq!(view.aad, [1, 2, 3, 4]);
-        assert_eq!(view.cipher_text, [5, 6, 7, 8, 9]);
+        assert_eq!(view.data, [5, 6, 7, 8, 9]);
         assert_eq!(view.tag.len(), cipher_suite.auth_tag_len());
     }
 }

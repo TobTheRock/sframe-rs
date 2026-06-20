@@ -63,7 +63,7 @@ impl AeadEncrypt for Aead {
 
         let aad = ring::aead::Aad::from(buffer_view.aad);
         let auth_tag = sealing_key
-            .seal_in_place_separate_tag(aad, buffer_view.cipher_text)
+            .seal_in_place_separate_tag(aad, buffer_view.data)
             .map_err(|_| SframeError::EncryptionFailure)?;
 
         buffer_view.tag.copy_from_slice(auth_tag.as_ref());
@@ -87,7 +87,7 @@ impl AeadDecrypt for Aead {
             secret.create_nonce(counter).into(),
         );
         opening_key
-            .open_in_place(aad, buffer_view.cipher_text)
+            .open_in_place(aad, buffer_view.data)
             .map_err(|_| SframeError::DecryptionFailure)?;
         Ok(())
     }
