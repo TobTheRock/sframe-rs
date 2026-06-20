@@ -11,9 +11,9 @@ pub use key_store::KeyStore;
 // implementation can be plugged in.
 cfg_if::cfg_if! {
     if #[cfg(crypto_backend)] {
-        /// Encryption key using the ring crypto backend.
+        /// Encryption key using the crypto backend selected via feature flags.
         pub type EncryptionKey = crypto_key::EncryptionKey<crate::crypto::Aead, crate::crypto::Kdf>;
-        /// Decryption key using the ring crypto backend.
+        /// Decryption key using the crypto backend selected via feature flags.
         pub type DecryptionKey = crypto_key::DecryptionKey<crate::crypto::Aead, crate::crypto::Kdf>;
-}
+    }
 }
