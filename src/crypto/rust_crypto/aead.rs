@@ -229,6 +229,7 @@ where
         const NONCE_LEN: usize = 12;
         let nonce = &iv[0..NONCE_LEN];
 
+        // TODO use expect
         let aad_len_u64: u64 = aad.len().try_into().unwrap();
         let ct_len_u64: u64 = ct.len().try_into().unwrap();
 
