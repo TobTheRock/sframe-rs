@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1] - 2026-07-10
+
+### Dependencies
+
+- Update aes-gcm from 0.10.3 to 0.11.0
+- Update cipher from 0.4 to 0.5
+- Update ctr from 0.9.2 to 0.10.0
+- Update getrandom from 0.2 to 0.4
+
+
 ## [1.2.0] - 2026-06-20
 
 ### Bug Fixes
