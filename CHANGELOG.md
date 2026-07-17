@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-07-17
+
+### Bug Fixes
+
+- Replay protection, reject duplicate counters
+
+
 ## [1.2.1] - 2026-07-10
 
 ### Dependencies
