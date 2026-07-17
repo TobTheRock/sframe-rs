@@ -8,6 +8,11 @@ All notable changes to this project will be documented in this file.
 
 - Replay protection, reject duplicate counters
 
+> This drastically changes the behavior of the replay protection
+    implementation, previously only the newest counter was tracked
+    and older frames discarded. Now duplicate frame counts are detected
+    within the window tolerance. Also it is enforced that the tolerance is neither 0 nor exceeds
+    OS capabailities by panicking.
 
 ## [1.2.1] - 2026-07-10
 
@@ -17,7 +22,6 @@ All notable changes to this project will be documented in this file.
 - Update cipher from 0.4 to 0.5
 - Update ctr from 0.9.2 to 0.10.0
 - Update getrandom from 0.2 to 0.4
-
 
 ## [1.2.0] - 2026-06-20
 
@@ -37,7 +41,6 @@ All notable changes to this project will be documented in this file.
 - Ratcheting type rexports
 - Revert Secret to a struct with optional auth key
 - Rename the example key store to free the KeyStore name
-
 
 ## 1.1 - 2026-17-01
 
