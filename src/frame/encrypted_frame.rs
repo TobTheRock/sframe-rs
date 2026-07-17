@@ -261,6 +261,7 @@ impl EncryptedFrame {
     /// Validates the header of the encrypted frame
     /// Semantic sugar to allow chaining the validation with decryption
     /// returns an [`crate::error::SframeError`] when validation fails
+    // TODO(v2): validator  should be mutable
     pub fn validate<V>(self, validator: &V) -> Result<Self>
     where
         V: FrameValidation + ?Sized,
