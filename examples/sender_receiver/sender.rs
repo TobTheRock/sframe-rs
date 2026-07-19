@@ -62,8 +62,8 @@ impl Sender {
         K: Into<KeyId>,
     {
         let key_id = key_id.into();
-        log::debug!("Setting up sframe Sender");
-        log::trace!("KeyID {key_id} (CipherSuiteParams {cipher_suite})");
+        log::debug!("[sender] Setting up sframe Sender");
+        log::trace!("[sender] KeyID {key_id} (CipherSuiteParams {cipher_suite})");
         Sender {
             counter: Default::default(),
             key_id,
@@ -127,7 +127,7 @@ impl Sender {
 impl From<SenderOptions> for Sender {
     fn from(options: SenderOptions) -> Self {
         log::debug!(
-            "Creating sframe Sender with keyID {}, CipherSuiteParams {:?}",
+            "[sender] Creating sframe Sender with keyID {}, CipherSuiteParams {:?}",
             options.key_id,
             options.cipher_suite
         );

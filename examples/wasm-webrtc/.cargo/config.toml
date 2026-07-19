@@ -1,0 +1,5 @@
+# The WebRTC Encoded Transform bindings (RtcRtpScriptTransform,
+# RtcEncodedVideoFrame, RtcRtpSender::set_transform, ...) are still unstable in
+# web-sys and only compiled in behind this cfg.
+[build]
+rustflags = ["--cfg=web_sys_unstable_apis"]

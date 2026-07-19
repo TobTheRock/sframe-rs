@@ -141,6 +141,8 @@ Additionally the library provides:
   - Serialize/Deserialize the plain SFrame headers.
 - [caesar_cipher](https://github.com/TobTheRock/sframe-rs/blob/main/examples/caesar_cipher.rs)
   - Demonstrates how to plug in a custom crypto backend by implementing the `AeadEncrypt`, `AeadDecrypt`, and `KeyDerivation` traits.
+- [wasm-webrtc](https://github.com/TobTheRock/sframe-rs/blob/main/examples/wasm-webrtc)
+  - End-to-end encrypted video in the browser, encrypts VP8 frames in a WebRTC Encoded Transform.
 
 ## Benchmarks
 

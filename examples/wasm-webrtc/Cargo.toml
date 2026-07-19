@@ -1,0 +1,69 @@
+[package]
+edition = "2024"
+name = "sframe-wasm-webrtc"
+publish = false
+version = "0.0.0"
+
+[[bin]]
+name = "app"
+path = "src/bin/app.rs"
+
+[[bin]]
+name = "worker"
+path = "src/bin/worker.rs"
+
+[dependencies]
+console_error_panic_hook = "0.1"
+console_log = "1"
+js-sys = "0.3"
+leptos = { version = "0.8", features = ["csr"] }
+log = "0.4"
+sframe = { path = "../.." }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+  "console",
+  "Document",
+  "Element",
+  "HtmlInputElement",
+  "HtmlMediaElement",
+  "HtmlVideoElement",
+  "MediaDevices",
+  "MediaStream",
+  "MediaStreamConstraints",
+  "MediaStreamTrack",
+  "MessageEvent",
+  "Navigator",
+  "ReadableStream",
+  "ReadableWritablePair",
+  "RtcConfiguration",
+  "RtcEncodedVideoFrame",
+  "RtcIceCandidate",
+  "RtcPeerConnection",
+  "RtcPeerConnectionIceEvent",
+  "RtcRtpCapabilities",
+  "RtcRtpCodecCapability",
+  "RtcRtpReceiver",
+  "RtcRtpScriptTransform",
+  "RtcRtpScriptTransformer",
+  "RtcRtpSender",
+  "RtcRtpTransceiver",
+  "RtcRtpTransceiverDirection",
+  "RtcRtpTransceiverInit",
+  "RtcSdpType",
+  "RtcSessionDescriptionInit",
+  "RtcTrackEvent",
+  "RtcTransformEvent",
+  "TransformStream",
+  "TransformStreamDefaultController",
+  "Window",
+  "Worker",
+  "WritableStream",
+  "DedicatedWorkerGlobalScope",
+]
+
+[dev-dependencies]
+pretty_assertions = "1.3"

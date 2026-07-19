@@ -107,7 +107,7 @@ impl Receiver {
 
     /// creates a [Receiver] with the given cipher suite variant and the default parameters
     pub fn with_cipher_suite(cipher_suite: CipherSuite) -> Receiver {
-        log::debug!("Setting up sframe Receiver using CipherSuiteParams {cipher_suite}");
+        log::debug!("[receiver] Setting up sframe Receiver using CipherSuiteParams {cipher_suite}");
 
         let options = ReceiverOptions {
             cipher_suite,
