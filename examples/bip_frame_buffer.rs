@@ -96,14 +96,20 @@ fn producer_task(producer: FramedProducer<&'static Churrasco<BUF_SIZE>>) {
             payload
         );
 
-        let media_frame = MediaFrameView::new(&mut counter, &payload);
-
-        if let Err(err) = media_frame.encrypt_into(&key, &mut buffer) {
-            println!(
-                "[Producer] Failed to encrypt frame # {} due to {}",
-                counter.current(),
-                err
-            );
+        match MediaFrameView::new(&mut counter, &payload) {
+            Ok(media_frame) => {
+                if let Err(err) = media_frame.encrypt_into(&key, &mut buffer) {
+                    println!(
+                        "[Producer] Failed to encrypt frame # {} due to {}",
+                        counter.current(),
+                        err
+                    );
+                }
+            }
+            Err(err) => {
+                println!("[Producer] Failed to create frame due to {}", err);
+                break;
+            }
         }
 
         buffer.commit();

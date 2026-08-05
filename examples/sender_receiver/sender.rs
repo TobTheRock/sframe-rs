@@ -86,7 +86,8 @@ impl Sender {
 
             let payload = &unencrypted_frame[skip..];
             let meta_data = &unencrypted_frame[..skip];
-            let media_frame = MediaFrameView::with_meta_data(&mut self.counter, payload, meta_data);
+            let media_frame =
+                MediaFrameView::with_meta_data(&mut self.counter, payload, meta_data)?;
 
             media_frame.encrypt_into(enc_key, &mut self.buffer)?;
 

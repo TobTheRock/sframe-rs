@@ -34,6 +34,13 @@ pub enum SframeError {
     #[error("{0}")]
     FrameValidationFailed(String),
 
+    /// the frame counter (CTR) has been exhausted for the current (base key, KID) and must not
+    /// be reused, see [RFC 9605 9.1](https://www.rfc-editor.org/rfc/rfc9605.html#name-header-value-uniqueness)
+    #[error(
+        "Frame counter has been exhausted, rotate the key/KID before encrypting further frames"
+    )]
+    CounterExhausted,
+
     /// buffer was too small to deserialize into/ serialize from
     #[error("buffer with size {0} is too small")]
     InvalidBuffer(usize),

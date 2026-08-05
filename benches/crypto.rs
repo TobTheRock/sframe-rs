@@ -65,7 +65,7 @@ impl CryptoBenches {
                     || create_random_media_frame(payload_size),
                     |unencrypted_payload| {
                         let media_frame =
-                            MediaFrameView::new(&mut self.counter, &unencrypted_payload);
+                            MediaFrameView::new(&mut self.counter, &unencrypted_payload).unwrap();
                         let encrypted_frame = media_frame
                             .encrypt_into(&self.enc_key, &mut self.crypt_buffer)
                             .unwrap();
@@ -122,7 +122,7 @@ fn create_random_media_frame(size: usize) -> MediaFrame {
     let mut unencrypted_payload = vec![0; size];
     rng().fill(unencrypted_payload.as_mut_slice());
     let mut counter = MonotonicCounter::new(rng().random::<Counter>());
-    MediaFrame::new(&mut counter, unencrypted_payload)
+    MediaFrame::new(&mut counter, unencrypted_payload).unwrap()
 }
 
 fn encrypt_random_frame(
@@ -131,7 +131,7 @@ fn encrypt_random_frame(
     enc_key: &EncryptionKey,
 ) -> EncryptedFrame {
     let unencrypted_payload = create_random_media_frame(size);
-    let media_frame = MediaFrameView::new(counter, &unencrypted_payload);
+    let media_frame = MediaFrameView::new(counter, &unencrypted_payload).unwrap();
     media_frame.encrypt(enc_key).unwrap()
 }
 

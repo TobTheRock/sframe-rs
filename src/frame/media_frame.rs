@@ -4,7 +4,7 @@ use crate::{
         buffer::{AadData, encryption::EncryptionBuffer},
         key_derivation::KeyDerivation,
     },
-    error::Result,
+    error::{Result, SframeError},
     header::{Counter, SframeHeader},
     key::crypto_key::EncryptionKey,
 };
@@ -25,25 +25,29 @@ pub struct MediaFrameView<'buf> {
 
 impl<'ibuf> MediaFrameView<'ibuf> {
     /// Creates a new view on a payload buffer and assigns it the next counter (CTR)  value.
-    pub fn new<P>(frame_counter: &mut impl FrameCounter, payload: &'ibuf P) -> Self
+    /// Returns [`crate::error::SframeError::CounterExhausted`] if `frame_counter` has run out of
+    /// counter values for the current (base key, KID).
+    pub fn new<P>(frame_counter: &mut impl FrameCounter, payload: &'ibuf P) -> Result<Self>
     where
         P: AsRef<[u8]> + ?Sized,
     {
         Self::with_meta_data(frame_counter, payload, &[])
     }
 
-    /// Creates a new view on a payload buffer, assigns it the given frame count and associates it with the meta data
+    /// Creates a new view on a payload buffer, assigns it the given frame count and associates it with the meta data.
+    /// Returns [`crate::error::SframeError::CounterExhausted`] if `frame_counter` has run out of
+    /// counter values for the current (base key, KID).
     pub fn with_meta_data<P, M>(
         frame_counter: &mut impl FrameCounter,
         payload: &'ibuf P,
         meta_data: &'ibuf M,
-    ) -> Self
+    ) -> Result<Self>
     where
         P: AsRef<[u8]> + ?Sized,
         M: AsRef<[u8]> + ?Sized,
     {
-        let counter = frame_counter.next();
-        Self::with_meta_data_and_ctr(counter, payload, meta_data)
+        let counter = frame_counter.next().ok_or(SframeError::CounterExhausted)?;
+        Ok(Self::with_meta_data_and_ctr(counter, payload, meta_data))
     }
 
     pub(super) fn with_meta_data_and_ctr<P, M>(
@@ -173,7 +177,9 @@ pub struct MediaFrame {
 
 impl MediaFrame {
     /// Creates a new media frame by copying the data of a payload buffer and assigning it the given frame count.
-    pub fn new<P>(frame_counter: &mut impl FrameCounter, payload: P) -> Self
+    /// Returns [`crate::error::SframeError::CounterExhausted`] if `frame_counter` has run out of
+    /// counter values for the current (base key, KID).
+    pub fn new<P>(frame_counter: &mut impl FrameCounter, payload: P) -> Result<Self>
     where
         P: AsRef<[u8]>,
     {
@@ -182,17 +188,19 @@ impl MediaFrame {
 
     /// Creates a new media frame and assigns it the given frame count.
     /// Payload and meta data are copied into an internal buffer.
+    /// Returns [`crate::error::SframeError::CounterExhausted`] if `frame_counter` has run out of
+    /// counter values for the current (base key, KID).
     pub fn with_meta_data<P, M>(
         frame_counter: &mut impl FrameCounter,
         payload: P,
         meta_data: M,
-    ) -> Self
+    ) -> Result<Self>
     where
         P: AsRef<[u8]>,
         M: AsRef<[u8]>,
     {
-        let counter = frame_counter.next();
-        Self::with_meta_data_and_ctr(counter, payload, meta_data)
+        let counter = frame_counter.next().ok_or(SframeError::CounterExhausted)?;
+        Ok(Self::with_meta_data_and_ctr(counter, payload, meta_data))
     }
 
     pub(super) fn with_meta_data_and_ctr<P, M>(counter: Counter, payload: P, meta_data: M) -> Self
