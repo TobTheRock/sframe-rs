@@ -64,6 +64,7 @@ mod test {
     use super::media_frame::MediaFrameView;
     use crate::{
         CipherSuite,
+        error::SframeError,
         frame::{MonotonicCounter, encrypted_frame::EncryptedFrameView, media_frame::MediaFrame},
         key::{DecryptionKey, EncryptionKey},
         util::test::assert_bytes_eq,
@@ -137,5 +138,22 @@ mod test {
         let decrypted_media_frame = encrypted.decrypt(&dec_key).unwrap();
 
         assert_eq!(decrypted_media_frame, media_frame);
+    }
+
+    #[test]
+    fn exhausted_counter_prevents_encryption_instead_of_reusing_a_counter() {
+        // An exhausted counter must never be silently reused for encryption, as that would
+        // break confidentiality by reusing (base key, KID, CTR).
+        let mut counter = MonotonicCounter::new(0);
+        assert!(MediaFrameView::new(&mut counter, PAYLOAD).is_ok());
+
+        assert_eq!(
+            MediaFrameView::new(&mut counter, PAYLOAD).unwrap_err(),
+            SframeError::CounterExhausted
+        );
+        assert_eq!(
+            MediaFrame::new(&mut counter, PAYLOAD).unwrap_err(),
+            SframeError::CounterExhausted
+        );
     }
 }
