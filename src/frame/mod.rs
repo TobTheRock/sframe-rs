@@ -53,7 +53,7 @@ mod frame_counter;
 mod media_frame;
 mod validation;
 
-pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView};
+pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView, ValidatedFrame, ValidatedFrameView};
 pub use frame_buffer::{FrameBuffer, Truncate};
 pub use frame_counter::*;
 pub use media_frame::{MediaFrame, MediaFrameView};

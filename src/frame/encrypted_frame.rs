@@ -90,17 +90,22 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         self.cipher_text
     }
 
-    /// Validates the header of the encrypted frame
-    /// Semantic sugar to allow chaining the validation with decryption
-    /// returns an [`crate::error::SframeError`] when validation fails
-    pub fn validate<V>(self, validator: &V) -> Result<Self>
+    /// Runs the read-only pre-decrypt screen of `validator` against this frame's header and,
+    /// on success, returns a [`ValidatedFrameView`] wrapping the decrypt methods.
+    /// `validator` is only ever mutated - to record this frame's counter - if the returned
+    /// [`ValidatedFrameView`] is subsequently decrypted successfully, i.e. authenticated.
+    /// Returns an [`crate::error::SframeError`] when the screen rejects the header.
+    pub fn validate<'v, V>(self, validator: &'v mut V) -> Result<ValidatedFrameView<'ibuf, 'v, V>>
     where
         V: FrameValidation + ?Sized,
     {
         log::trace!("Validating EncryptedFrame # {}", self.header.counter());
-        validator.validate(&self.header)?;
+        validator.pre_decrypt(&self.header)?;
 
-        Ok(self)
+        Ok(ValidatedFrameView {
+            frame: self,
+            validator,
+        })
     }
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store.
@@ -157,6 +162,51 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let (meta_data, payload) = buffer_slice.split_at(meta_len);
 
         let media_frame = MediaFrameView::with_meta_data_and_ctr(counter, payload, meta_data);
+        Ok(media_frame)
+    }
+}
+
+/// An [`EncryptedFrameView`] that has passed a [`FrameValidation`]'s pre-decrypt screen and
+/// borrows the validator that produced it. Decrypting it successfully is the only way to have
+/// the validator record the frame's counter, via [`FrameValidation::post_decrypt`] - so a
+/// counter can never be recorded before its frame has actually been authenticated.
+/// Obtained from [`EncryptedFrameView::validate`].
+pub struct ValidatedFrameView<'buf, 'v, V: FrameValidation + ?Sized> {
+    frame: EncryptedFrameView<'buf>,
+    validator: &'v mut V,
+}
+
+impl<'buf, V: FrameValidation + ?Sized> ValidatedFrameView<'buf, '_, V> {
+    /// the header of the wrapped encrypted frame
+    pub fn header(&self) -> &SframeHeader {
+        self.frame.header()
+    }
+
+    /// Tries to decrypt the wrapped frame, see [`EncryptedFrameView::decrypt`].
+    /// On success, the frame's counter is recorded with the validator this was obtained from.
+    pub fn decrypt<A, D>(self, key_store: &impl KeyStore<A, D>) -> Result<MediaFrame>
+    where
+        A: AeadDecrypt<Secret = D::Secret>,
+        D: KeyDerivation,
+    {
+        let media_frame = self.frame.decrypt(key_store)?;
+        self.validator.post_decrypt(self.frame.header());
+        Ok(media_frame)
+    }
+
+    /// Tries to decrypt the wrapped frame, see [`EncryptedFrameView::decrypt_into`].
+    /// On success, the frame's counter is recorded with the validator this was obtained from.
+    pub fn decrypt_into<'obuf, A, D>(
+        self,
+        key_store: &impl KeyStore<A, D>,
+        buffer: &'obuf mut impl FrameBuffer,
+    ) -> Result<MediaFrameView<'obuf>>
+    where
+        A: AeadDecrypt<Secret = D::Secret>,
+        D: KeyDerivation,
+    {
+        let media_frame = self.frame.decrypt_into(key_store, buffer)?;
+        self.validator.post_decrypt(self.frame.header());
         Ok(media_frame)
     }
 }
@@ -258,18 +308,22 @@ impl EncryptedFrame {
         &self.buffer[self.meta_len + self.header.len()..]
     }
 
-    /// Validates the header of the encrypted frame
-    /// Semantic sugar to allow chaining the validation with decryption
-    /// returns an [`crate::error::SframeError`] when validation fails
-    // TODO(v2): validator  should be mutable
-    pub fn validate<V>(self, validator: &V) -> Result<Self>
+    /// Runs the read-only pre-decrypt screen of `validator` against this frame's header and,
+    /// on success, returns a [`ValidatedFrame`] wrapping the decrypt methods.
+    /// `validator` is only ever mutated - to record this frame's counter - if the returned
+    /// [`ValidatedFrame`] is subsequently decrypted successfully, i.e. authenticated.
+    /// Returns an [`crate::error::SframeError`] when the screen rejects the header.
+    pub fn validate<V>(self, validator: &mut V) -> Result<ValidatedFrame<'_, V>>
     where
         V: FrameValidation + ?Sized,
     {
         log::trace!("Validating EncryptedFrame # {}", self.header.counter());
-        validator.validate(&self.header)?;
+        validator.pre_decrypt(&self.header)?;
 
-        Ok(self)
+        Ok(ValidatedFrame {
+            frame: self,
+            validator,
+        })
     }
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store.
@@ -312,6 +366,51 @@ impl EncryptedFrame {
         );
 
         view.decrypt_into(key_store, buffer)
+    }
+}
+
+/// An [`EncryptedFrame`] that has passed a [`FrameValidation`]'s pre-decrypt screen and
+/// borrows the validator that produced it. Decrypting it successfully is the only way to have
+/// the validator record the frame's counter, via [`FrameValidation::post_decrypt`] - so a
+/// counter can never be recorded before its frame has actually been authenticated.
+/// Obtained from [`EncryptedFrame::validate`].
+pub struct ValidatedFrame<'v, V: FrameValidation + ?Sized> {
+    frame: EncryptedFrame,
+    validator: &'v mut V,
+}
+
+impl<V: FrameValidation + ?Sized> ValidatedFrame<'_, V> {
+    /// the header of the wrapped encrypted frame
+    pub fn header(&self) -> &SframeHeader {
+        self.frame.header()
+    }
+
+    /// Tries to decrypt the wrapped frame, see [`EncryptedFrame::decrypt`].
+    /// On success, the frame's counter is recorded with the validator this was obtained from.
+    pub fn decrypt<A, D>(self, key_store: &impl KeyStore<A, D>) -> Result<MediaFrame>
+    where
+        A: AeadDecrypt<Secret = D::Secret>,
+        D: KeyDerivation,
+    {
+        let media_frame = self.frame.decrypt(key_store)?;
+        self.validator.post_decrypt(self.frame.header());
+        Ok(media_frame)
+    }
+
+    /// Tries to decrypt the wrapped frame, see [`EncryptedFrame::decrypt_into`].
+    /// On success, the frame's counter is recorded with the validator this was obtained from.
+    pub fn decrypt_into<'obuf, A, D>(
+        self,
+        key_store: &impl KeyStore<A, D>,
+        buffer: &'obuf mut impl FrameBuffer,
+    ) -> Result<MediaFrameView<'obuf>>
+    where
+        A: AeadDecrypt<Secret = D::Secret>,
+        D: KeyDerivation,
+    {
+        let media_frame = self.frame.decrypt_into(key_store, buffer)?;
+        self.validator.post_decrypt(self.frame.header());
+        Ok(media_frame)
     }
 }
 

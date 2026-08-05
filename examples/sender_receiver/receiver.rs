@@ -67,15 +67,20 @@ impl Receiver {
         let meta_data = &encrypted_frame[..skip];
         let encrypted_frame = EncryptedFrameView::try_with_meta_data(data, meta_data)?;
 
-        if let Some(validator) = &self.frame_validation {
-            encrypted_frame.validate(validator)?;
-        }
-
         if let ReceiverKeyStore::Ratcheting(keys) = &mut self.keys {
             keys.try_ratchet(encrypted_frame.header().key_id())?;
         }
 
-        encrypted_frame.decrypt_into(&self.keys, &mut self.buffer)?;
+        match &mut self.frame_validation {
+            Some(validator) => {
+                encrypted_frame
+                    .validate(validator)?
+                    .decrypt_into(&self.keys, &mut self.buffer)?;
+            }
+            None => {
+                encrypted_frame.decrypt_into(&self.keys, &mut self.buffer)?;
+            }
+        }
 
         Ok(&self.buffer)
     }
