@@ -112,7 +112,7 @@ let payload = "Something secret";
 
 let mut encrypt_buffer = Vec::new();
 let mut decrypt_buffer = Vec::new();
-let media_frame = MediaFrameView::new(&mut counter, payload);
+let media_frame = MediaFrameView::new(&mut counter, payload).unwrap();
 
 let encrypted_frame = media_frame.encrypt_into(&enc_key, &mut encrypt_buffer).unwrap();
 
