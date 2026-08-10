@@ -3,7 +3,7 @@ use zeroize::ZeroizeOnDrop;
 
 /// Secret key material used by the built-in crypto backends, derived from base key material as
 /// defined in [RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2).
-#[derive(Clone, Debug, ZeroizeOnDrop)]
+#[derive(Clone, ZeroizeOnDrop)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct Secret {
     /// The encryption key (`sframe_key`).
@@ -75,6 +75,13 @@ impl Secret {
     #[cfg(all(test, crypto_backend))]
     pub(crate) fn from_test_vector(test_vec: &crate::test_vectors::SframeTest) -> Self {
         Secret::aead(test_vec.sframe_key.clone(), test_vec.sframe_salt.clone())
+    }
+}
+
+// Redacts key material to not leak any secrets via a derived Debug trait
+impl std::fmt::Debug for Secret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Secret").finish_non_exhaustive()
     }
 }
 
