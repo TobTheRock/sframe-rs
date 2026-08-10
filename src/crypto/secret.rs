@@ -1,8 +1,9 @@
 use crate::header::Counter;
+use zeroize::ZeroizeOnDrop;
 
 /// Secret key material used by the built-in crypto backends, derived from base key material as
 /// defined in [RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, ZeroizeOnDrop)]
 pub struct Secret {
     /// The encryption key (`sframe_key`).
     key: Vec<u8>,
