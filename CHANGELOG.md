@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1] - 2026-08-10
+
+### Bug Fixes
+
+- Assert nonce buffer fits salt to catch silent truncating
+- Zeroize secrets on drop
+- Secrets are only comparable for tests
+- Redacted debug impl for secrets
+
+
 ## [1.3.0] - 2026-07-17
 
 ### Bug Fixes
