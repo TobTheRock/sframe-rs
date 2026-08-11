@@ -4,7 +4,7 @@ use sframe::{
     CipherSuite,
     crypto::{Aead, Kdf},
     error::Result,
-    frame::{EncryptedFrameView, FrameValidationBox, ReplayAttackProtection},
+    frame::{EncryptedFrameView, FrameValidation, ReplayAttackProtection},
     header::KeyId,
     key::{DecryptionKey, KeyStore},
     ratchet::RatchetingKeyStore,
@@ -17,10 +17,10 @@ pub struct ReceiverOptions {
     ///
     /// default: [`CipherSuite::AesGcm256Sha512`]
     pub cipher_suite: CipherSuite,
-    /// optional frame validation before decryption, e.g to protect agains replay attacks
+    /// optional replay protection, screening frames before and recording them after decryption
     ///
     /// default: [`ReplayAttackProtection`] with tolerance `128`
-    pub frame_validation: Option<FrameValidationBox>,
+    pub frame_validation: Option<ReplayAttackProtection>,
     /// optional ratcheting support as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1),
     /// using `n_ratchet_bits` to depict the Ratchet Step
     ///
@@ -32,7 +32,7 @@ impl Default for ReceiverOptions {
     fn default() -> Self {
         Self {
             cipher_suite: CipherSuite::AesGcm256Sha512,
-            frame_validation: Some(Box::new(ReplayAttackProtection::with_tolerance(128))),
+            frame_validation: Some(ReplayAttackProtection::with_tolerance(128)),
             n_ratchet_bits: None,
         }
     }
@@ -45,7 +45,7 @@ impl Default for ReceiverOptions {
 pub struct Receiver {
     keys: ReceiverKeyStore,
     cipher_suite: CipherSuite,
-    frame_validation: Option<FrameValidationBox>,
+    frame_validation: Option<ReplayAttackProtection>,
     buffer: Vec<u8>,
 }
 
@@ -67,8 +67,10 @@ impl Receiver {
         let meta_data = &encrypted_frame[..skip];
         let encrypted_frame = EncryptedFrameView::try_with_meta_data(data, meta_data)?;
 
+        // The header is not authenticated yet, so only screen it here - `inspect`
+        // does not touch the replay window.
         if let Some(validator) = &self.frame_validation {
-            encrypted_frame.validate(validator)?;
+            validator.inspect(encrypted_frame.header())?;
         }
 
         if let ReceiverKeyStore::Ratcheting(keys) = &mut self.keys {
@@ -76,6 +78,12 @@ impl Receiver {
         }
 
         encrypted_frame.decrypt_into(&self.keys, &mut self.buffer)?;
+
+        // Decryption authenticated the frame, only now the counter may be recorded.
+        // Otherwise forged frames could poison the window and suppress genuine ones.
+        if let Some(validator) = &self.frame_validation {
+            validator.validate(encrypted_frame.header())?;
+        }
 
         Ok(&self.buffer)
     }

@@ -30,6 +30,16 @@ impl ReplayAttackProtection {
             })),
         }
     }
+
+    /// Screens a header without recording it or advancing the window.
+    /// Safe on unauthenticated headers to reject invalid frames before decryption.
+    pub fn inspect(&self, header: &SframeHeader) -> Result<()> {
+        let counter = header.counter();
+        match &*self.window.borrow() {
+            Window::Empty(_) => Ok(()),
+            Window::Active(active) => active.inspect(counter),
+        }
+    }
 }
 
 impl FrameValidation for ReplayAttackProtection {
@@ -38,7 +48,7 @@ impl FrameValidation for ReplayAttackProtection {
         let mut window = self.window.borrow_mut();
 
         match &mut *window {
-            Window::Active(active) => active.check(counter),
+            Window::Active(active) => active.commit(counter),
             Window::Empty(empty) => {
                 // First frame: swap the pre-allocated `Empty` out (the placeholder
                 // holds an empty, non-allocating window) and consume it to anchor.
@@ -47,7 +57,7 @@ impl FrameValidation for ReplayAttackProtection {
                     size: 0,
                 };
                 let mut active = std::mem::replace(empty, placeholder).anchor(counter);
-                let result = active.check(counter);
+                let result = active.commit(counter);
                 *window = Window::Active(active);
                 result
             }
@@ -87,23 +97,34 @@ struct Active {
 }
 
 impl Active {
-    fn check(&mut self, counter: header::Counter) -> Result<()> {
+    /// Validates `counter`, records it, and advances the window.
+    /// Errors if the counter is too old or already seen.
+    fn commit(&mut self, counter: header::Counter) -> Result<()> {
         if self.is_newer(counter) {
             self.advance_to(counter);
         }
 
-        let err = |reason| {
-            Err(SframeError::FrameValidationFailed(format!(
-                "Replay check failed, frame counter {counter} {reason}"
-            )))
-        };
         match self.window_index(counter) {
-            None => err(REJECT_TOO_OLD),
-            Some(idx) if self.window.is_set(idx) => err(REJECT_DUPLICATED),
+            None => Err(rejected(counter, REJECT_TOO_OLD)),
+            Some(idx) if self.window.is_set(idx) => Err(rejected(counter, REJECT_DUPLICATED)),
             Some(idx) => {
                 self.window.set(idx);
                 Ok(())
             }
+        }
+    }
+
+    /// Validates `counter` without recording it or moving the window.
+    /// Errors if the counter is too old or already seen.
+    fn inspect(&self, counter: header::Counter) -> Result<()> {
+        if self.is_newer(counter) {
+            return Ok(());
+        }
+
+        match self.window_index(counter) {
+            None => Err(rejected(counter, REJECT_TOO_OLD)),
+            Some(idx) if self.window.is_set(idx) => Err(rejected(counter, REJECT_DUPLICATED)),
+            Some(_) => Ok(()),
         }
     }
 
@@ -137,6 +158,12 @@ impl Active {
 
 const REJECT_TOO_OLD: &str = "is too old";
 const REJECT_DUPLICATED: &str = "is duplicated";
+
+fn rejected(counter: header::Counter, reason: &str) -> SframeError {
+    SframeError::FrameValidationFailed(format!(
+        "Replay check failed, frame counter {counter} {reason}"
+    ))
+}
 
 #[cfg(test)]
 mod test {
@@ -189,6 +216,66 @@ mod test {
             }
             self
         }
+
+        fn expect_inspected(&self, counter: header::Counter) -> &Self {
+            assert_eq!(
+                self.0.inspect(&header(counter)),
+                Ok(()),
+                "counter {counter} should pass inspection"
+            );
+            self
+        }
+
+        fn expect_inspect_rejected(&self, counter: header::Counter, reason: &str) -> &Self {
+            match self.0.inspect(&header(counter)) {
+                Err(SframeError::FrameValidationFailed(msg)) => assert!(
+                    msg.contains(reason),
+                    "counter {counter}: expected reason {reason:?}, got: {msg}"
+                ),
+                other => panic!("counter {counter}: expected rejection {reason:?}, got: {other:?}"),
+            }
+            self
+        }
+    }
+
+    #[test]
+    fn inspect_does_not_record_the_counter() {
+        // Inspecting must not mutate state: the same counter can be inspected
+        // repeatedly and is still accepted by a later validate.
+        validator()
+            .expect_accepted(OLDER)
+            .expect_inspected(NEWEST)
+            .expect_inspected(NEWEST)
+            .expect_accepted(NEWEST);
+    }
+
+    #[test]
+    fn inspect_rejects_already_recorded_counter() {
+        validator()
+            .expect_accepted(NEWEST)
+            .expect_inspect_rejected(NEWEST, REJECT_DUPLICATED);
+    }
+
+    #[test]
+    fn inspect_rejects_too_old_counter() {
+        validator()
+            .expect_accepted(NEWEST)
+            .expect_inspect_rejected(TOO_OLD, REJECT_TOO_OLD);
+    }
+
+    #[test]
+    fn inspect_accepts_future_counter_without_advancing() {
+        // A future counter passes inspection but must not advance the window,
+        // so an in-window counter it would have dropped is still accepted.
+        validator()
+            .expect_accepted(NEWEST)
+            .expect_inspected(NEWER_DROPS_OLDER)
+            .expect_accepted(OLDER);
+    }
+
+    #[test]
+    fn inspect_on_empty_window_accepts_anything() {
+        validator().expect_inspected(NEWEST);
     }
 
     #[test]
