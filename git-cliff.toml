@@ -13,7 +13,7 @@ body = """
     ### {{ group | upper_first }}
     {% for commit in commits %}
         - {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message | upper_first }}\
-          {% if commit.breaking %} \n> {{ commit.body }}{% endif %}\
+        {% for footer in commit.footers | filter(attribute="breaking", value=true) %}\n\n  > **{{ footer.token }}:** {{ footer.value | trim | replace(from="\n", to="\n  > ") }}{% endfor %}\
     {% endfor %}
 {% endfor %}\n
 """
