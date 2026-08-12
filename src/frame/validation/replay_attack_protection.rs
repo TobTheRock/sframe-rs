@@ -10,6 +10,7 @@ use std::cell::RefCell;
 /// The window of allowed frame counts is given with a certain tolerance.
 pub struct ReplayAttackProtection {
     window: RefCell<Window>,
+    key_id: Option<header::KeyId>,
 }
 
 impl ReplayAttackProtection {
@@ -28,22 +29,46 @@ impl ReplayAttackProtection {
                 window: SlidingWindow::new(size),
                 size: size as u64,
             })),
+            key_id: None,
+        }
+    }
+
+    /// Associates the protection with a single sender.
+    /// Headers with a different key id are then rejected, leaving the window untouched.
+    pub fn for_key_id(self, key_id: header::KeyId) -> Self {
+        ReplayAttackProtection {
+            key_id: Some(key_id),
+            ..self
         }
     }
 
     /// Screens a header without recording it or advancing the window.
     /// Safe on unauthenticated headers to reject invalid frames before decryption.
     pub fn inspect(&self, header: &SframeHeader) -> Result<()> {
+        self.verify_key_id(header)?;
+
         let counter = header.counter();
         match &*self.window.borrow() {
             Window::Empty(_) => Ok(()),
             Window::Active(active) => active.inspect(counter),
         }
     }
+
+    /// Rejects headers of another sender, if associated with a key id.
+    fn verify_key_id(&self, header: &SframeHeader) -> Result<()> {
+        match self.key_id {
+            Some(expected) if header.key_id() != expected => {
+                Err(rejected_key_id(header.key_id(), expected))
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 impl FrameValidation for ReplayAttackProtection {
     fn validate(&self, header: &SframeHeader) -> Result<()> {
+        self.verify_key_id(header)?;
+
         let counter = header.counter();
         let mut window = self.window.borrow_mut();
 
@@ -165,6 +190,12 @@ fn rejected(counter: header::Counter, reason: &str) -> SframeError {
     ))
 }
 
+fn rejected_key_id(key_id: header::KeyId, expected: header::KeyId) -> SframeError {
+    SframeError::FrameValidationFailed(format!(
+        "Replay check failed, key id {key_id} does not match the associated {expected}"
+    ))
+}
+
 #[cfg(test)]
 mod test {
     use crate::header;
@@ -276,6 +307,46 @@ mod test {
     #[test]
     fn inspect_on_empty_window_accepts_anything() {
         validator().expect_inspected(NEWEST);
+    }
+
+    const OTHER_KID: header::KeyId = KID + 1;
+
+    fn header_of(key_id: header::KeyId, counter: header::Counter) -> SframeHeader {
+        SframeHeader::new(key_id, counter)
+    }
+
+    #[test]
+    fn accepts_the_associated_key_id() {
+        let validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
+
+        assert_eq!(validator.inspect(&header_of(KID, NEWEST)), Ok(()));
+        assert_eq!(validator.validate(&header_of(KID, NEWEST)), Ok(()));
+    }
+
+    #[test]
+    fn rejects_another_key_id() {
+        let validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
+
+        assert!(validator.inspect(&header_of(OTHER_KID, NEWEST)).is_err());
+        assert!(validator.validate(&header_of(OTHER_KID, NEWEST)).is_err());
+    }
+
+    #[test]
+    fn another_key_id_does_not_record_the_counter() {
+        let validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
+
+        let _ = validator.validate(&header_of(OTHER_KID, NEWEST));
+
+        // A foreign sender must not be able to consume counters of the associated one.
+        assert_eq!(validator.validate(&header_of(KID, NEWEST)), Ok(()));
+    }
+
+    #[test]
+    fn without_an_associated_key_id_every_sender_shares_the_window() {
+        let validator = ReplayAttackProtection::with_tolerance(TOLERANCE);
+
+        assert_eq!(validator.validate(&header_of(KID, NEWEST)), Ok(()));
+        assert_eq!(validator.validate(&header_of(OTHER_KID, NEWEST + 1)), Ok(()));
     }
 
     #[test]
