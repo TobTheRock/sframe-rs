@@ -53,7 +53,7 @@ mod frame_counter;
 mod media_frame;
 mod validation;
 
-pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView};
+pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView, ValidatedFrame, ValidatedFrameView};
 pub use frame_buffer::{FrameBuffer, Truncate};
 pub use frame_counter::*;
 pub use media_frame::{MediaFrame, MediaFrameView};
@@ -64,7 +64,11 @@ mod test {
     use super::media_frame::MediaFrameView;
     use crate::{
         CipherSuite,
-        frame::{MonotonicCounter, encrypted_frame::EncryptedFrameView, media_frame::MediaFrame},
+        error::SframeError,
+        frame::{
+            MonotonicCounter, ReplayAttackProtection, encrypted_frame::EncryptedFrameView,
+            media_frame::MediaFrame,
+        },
         key::{DecryptionKey, EncryptionKey},
         util::test::assert_bytes_eq,
     };
@@ -137,5 +141,44 @@ mod test {
         let decrypted_media_frame = encrypted.decrypt(&dec_key).unwrap();
 
         assert_eq!(decrypted_media_frame, media_frame);
+    }
+
+    #[test]
+    fn forged_frame_that_fails_authentication_does_not_poison_the_replay_window() {
+        let (enc_key, dec_key) = expand_keys();
+        let mut counter = MonotonicCounter::default();
+        let mut encrypt_buffer = Vec::new();
+        let mut decrypt_buffer = Vec::new();
+
+        let media_frame = MediaFrameView::new(&mut counter, PAYLOAD);
+        media_frame
+            .encrypt_into(&enc_key, &mut encrypt_buffer)
+            .unwrap();
+
+        // Flip the last byte (part of the auth tag) so the frame carries a valid, replayable
+        // counter but fails authentication - simulating a forged frame.
+        let last = encrypt_buffer.len() - 1;
+        encrypt_buffer[last] ^= 0xFF;
+
+        let mut validator = ReplayAttackProtection::with_tolerance(4);
+
+        let forged_frame = EncryptedFrameView::try_new(&encrypt_buffer).unwrap();
+        let err = forged_frame
+            .validate(&mut validator)
+            .unwrap()
+            .decrypt_into(&dec_key, &mut decrypt_buffer)
+            .unwrap_err();
+        assert_eq!(err, SframeError::DecryptionFailure);
+
+        // Restore the original ciphertext - the legitimate frame carrying the very same
+        // counter - and make sure it is still accepted. Had the forged frame's counter been
+        // recorded despite failing authentication, this would be rejected as a duplicate.
+        encrypt_buffer[last] ^= 0xFF;
+        let legitimate_frame = EncryptedFrameView::try_new(&encrypt_buffer).unwrap();
+        legitimate_frame
+            .validate(&mut validator)
+            .unwrap()
+            .decrypt_into(&dec_key, &mut decrypt_buffer)
+            .unwrap();
     }
 }
