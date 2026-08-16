@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-08-16
+
+### Features
+
+- Non-mutating inspect for ReplayAttackProtection
+- Optionally associate a KID to ReplayAttackProtection
+- ReplayAttackProtection Per KID
+- MonotonicCounter panics instead of wrapping
+
+
 ## [1.3.1] - 2026-08-10
 
 ### Bug Fixes
