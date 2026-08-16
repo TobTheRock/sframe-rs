@@ -201,7 +201,6 @@ mod test {
     use crate::header;
 
     use super::*;
-    use pretty_assertions::assert_eq;
 
     const KID: u64 = 23456789;
     const TOLERANCE: u64 = 128;
@@ -229,9 +228,8 @@ mod test {
 
     impl Fixture {
         fn expect_accepted(&self, counter: header::Counter) -> &Self {
-            assert_eq!(
-                self.0.validate(&header(counter)),
-                Ok(()),
+            assert!(
+                self.0.validate(&header(counter)).is_ok(),
                 "counter {counter} should be accepted"
             );
             self
@@ -249,9 +247,8 @@ mod test {
         }
 
         fn expect_inspected(&self, counter: header::Counter) -> &Self {
-            assert_eq!(
-                self.0.inspect(&header(counter)),
-                Ok(()),
+            assert!(
+                self.0.inspect(&header(counter)).is_ok(),
                 "counter {counter} should pass inspection"
             );
             self
@@ -319,8 +316,8 @@ mod test {
     fn accepts_the_associated_key_id() {
         let validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
 
-        assert_eq!(validator.inspect(&header_of(KID, NEWEST)), Ok(()));
-        assert_eq!(validator.validate(&header_of(KID, NEWEST)), Ok(()));
+        assert!(validator.inspect(&header_of(KID, NEWEST)).is_ok());
+        assert!(validator.validate(&header_of(KID, NEWEST)).is_ok());
     }
 
     #[test]
@@ -338,15 +335,19 @@ mod test {
         let _ = validator.validate(&header_of(OTHER_KID, NEWEST));
 
         // A foreign sender must not be able to consume counters of the associated one.
-        assert_eq!(validator.validate(&header_of(KID, NEWEST)), Ok(()));
+        assert!(validator.validate(&header_of(KID, NEWEST)).is_ok());
     }
 
     #[test]
     fn without_an_associated_key_id_every_sender_shares_the_window() {
         let validator = ReplayAttackProtection::with_tolerance(TOLERANCE);
 
-        assert_eq!(validator.validate(&header_of(KID, NEWEST)), Ok(()));
-        assert_eq!(validator.validate(&header_of(OTHER_KID, NEWEST + 1)), Ok(()));
+        assert!(validator.validate(&header_of(KID, NEWEST)).is_ok());
+        assert!(
+            validator
+                .validate(&header_of(OTHER_KID, NEWEST + 1))
+                .is_ok()
+        );
     }
 
     #[test]
