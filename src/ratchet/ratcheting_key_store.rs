@@ -39,6 +39,11 @@ where
         }
     }
 
+    /// returns the No. bits used to determine the Ratchet Step
+    pub fn n_ratchet_bits(&self) -> u8 {
+        self.n_ratchet_bits
+    }
+
     /// inserts a new key associated with a key id
     /// expands the key and ratchets the original key material to not store for security reasons
     pub fn insert<K, M>(
@@ -90,6 +95,9 @@ where
     /// If the [`RatchetingKeyId`] indicates a Ratchet Step, which is different from the currently known one
     /// the [`RatchetingBaseKey`] is ratcheted forward accordingly.
     /// On success returns the number of ratcheting steps performed.
+    // TODO(v2): This method mustn't commit, a forged header could evict a valid key else wise. A
+    // two step API is needed
+    // TODO(v2): improve the API, so it is easier to determine which was the KID ratched from
     pub fn try_ratchet<K>(&mut self, key_id: K) -> Result<u64>
     where
         K: Into<KeyId>,
