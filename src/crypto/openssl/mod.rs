@@ -1,8 +1,5 @@
 //! OpenSSL-based cryptographic operations.
-//!
-//! This module uses unsafe code for in-place encryption/decryption operations.
 
-#[allow(unsafe_code)]
 mod aead;
 mod key_derivation;
 

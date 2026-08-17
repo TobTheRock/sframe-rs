@@ -12,7 +12,6 @@
 //!   Per default the OpenSSL library is locally compiled and then statically linked. The build process requires a C compiler,
 //!   `perl` (and `perl-core`), and `make`. For further options see the [openssl crate documentation](https://docs.rs/openssl/0.10.55/openssl/).
 //!   Compilation to Wasm32 is not yet supported.
-//!   **Note:** This backend uses `unsafe` code for in-place encryption/decryption to avoid memory allocations.
 //! - **`rust-crypto`** - Uses pure rust implementations of the  [RustCrypto](https://github.com/RustCrypto) project. Compilation to Wasm32 is supported.
 //!
 //! If none of these features is enabled, only the generic crypto traits in [`crypto`] are exposed and a

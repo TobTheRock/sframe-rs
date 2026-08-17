@@ -24,7 +24,6 @@ Three crypto libraries are supported out of the box, selectable via mutually exc
   - uses rust bindings to OpenSSL.
   - Per default the OpenSSL library is locally compiled and then statically linked. The build process requires a C compiler, `perl` (and `perl-core`), and `make`. For further options see the [openssl crate documentation](https://docs.rs/openssl/0.10.55/openssl/).
   - Compilation to Wasm32 is [not yet supported](https://github.com/sfackler/rust-openssl/issues/1016)
-  - **Note:** This backend uses `unsafe` code for in-place encryption/decryption to avoid memory allocations.
 - rust crypto
   - is enabled with the feature `rust-crypto`
     - to build e.g. use `cargo build --features rust-crypto --no-default-features`
