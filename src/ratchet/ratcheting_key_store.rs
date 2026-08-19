@@ -203,15 +203,28 @@ mod test {
     const N_RATCHET_BITS: u8 = 8;
     const KEY_MATERIAL: &[u8] = b"SECRET";
     const GENERATION: u64 = 42;
+    const CIPHER_SUITE: CipherSuite = CipherSuite::AesGcm256Sha512;
+
+    fn key_store_with_key() -> (RatchetingKeyStore, RatchetingKeyId) {
+        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
+        let key_id = insert_key(&mut key_store, N_RATCHET_BITS);
+
+        (key_store, key_id)
+    }
+
+    fn insert_key(key_store: &mut RatchetingKeyStore, n_ratchet_bits: u8) -> RatchetingKeyId {
+        let key_id = RatchetingKeyId::new(GENERATION, n_ratchet_bits);
+        key_store
+            .insert(CIPHER_SUITE, key_id, KEY_MATERIAL)
+            .unwrap();
+
+        key_id
+    }
 
     #[test]
     fn expands_and_ratchets_forward_on_insert() {
-        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
-        let key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
+        let (key_store, key_id) = key_store_with_key();
 
-        key_store
-            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
-            .unwrap();
         let keys = key_store.get(key_id);
 
         assert!(keys.is_some());
@@ -241,12 +254,8 @@ mod test {
 
     #[test]
     fn removes_key() {
-        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
-        let key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
+        let (mut key_store, key_id) = key_store_with_key();
 
-        key_store
-            .insert(CipherSuite::AesGcm128Sha256, key_id, KEY_MATERIAL)
-            .unwrap();
         let was_removed = key_store.remove(key_id);
         let keys = key_store.get(key_id);
 
@@ -266,12 +275,8 @@ mod test {
 
     #[test]
     fn inserts_and_gets_key() {
-        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
-        let key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
+        let (key_store, key_id) = key_store_with_key();
 
-        key_store
-            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
-            .unwrap();
         let dec_key = key_store.get_key(key_id).unwrap();
 
         assert_eq!(KeyId::from(key_id), dec_key.key_id());
@@ -279,20 +284,13 @@ mod test {
 
     #[test]
     fn inserts_key_and_ratches_forward_if_needed() {
-        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
-        let mut key_id = RatchetingKeyId::new(42u8, N_RATCHET_BITS);
-
-        key_store
-            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
-            .unwrap();
+        let (mut key_store, mut key_id) = key_store_with_key();
 
         let ratchet_steps = key_store.try_ratchet(key_id).unwrap();
         assert_eq!(ratchet_steps, 0);
 
         let first_key = key_store.get_key(key_id).unwrap().clone();
-        let first_key_id = RatchetingKeyId::from_key_id(first_key.key_id(), N_RATCHET_BITS);
-        assert_eq!(first_key_id, key_id);
-        assert_eq!(first_key_id.ratchet_step(), 0);
+        assert_eq!(first_key.key_id(), KeyId::from(key_id));
 
         // ratchet
         key_id.inc_ratchet_step();
@@ -302,21 +300,12 @@ mod test {
 
         let second_key = key_store.get_key(key_id).unwrap();
         assert_ne!(first_key.secret(), second_key.secret());
-
-        let second_key_id = RatchetingKeyId::from_key_id(second_key.key_id(), N_RATCHET_BITS);
-        assert_eq!(second_key_id.ratchet_step(), 1);
-        assert_eq!(first_key_id, second_key_id);
+        assert_eq!(second_key.key_id(), KeyId::from(key_id));
     }
 
     #[test]
     fn stores_ratcheted_key() {
-        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
-
-        let mut key_id = RatchetingKeyId::new(42u8, N_RATCHET_BITS);
-
-        key_store
-            .insert(CipherSuite::AesGcm128Sha256, key_id, KEY_MATERIAL)
-            .unwrap();
+        let (mut key_store, mut key_id) = key_store_with_key();
 
         key_id.inc_ratchet_step();
 
@@ -332,16 +321,8 @@ mod test {
     #[test]
     fn ratchets_forward_multiple_steps_at_once() {
         const STEPS: u64 = 3;
-        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
-        let mut step_by_step_store = RatchetingKeyStore::new(N_RATCHET_BITS);
-        let mut key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
-
-        key_store
-            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
-            .unwrap();
-        step_by_step_store
-            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
-            .unwrap();
+        let (mut key_store, mut key_id) = key_store_with_key();
+        let (mut step_by_step_store, _) = key_store_with_key();
 
         for _ in 0..STEPS {
             key_id.inc_ratchet_step();
@@ -352,21 +333,14 @@ mod test {
 
         assert_eq!(ratchet_steps, STEPS);
         let key = key_store.get_key(key_id).unwrap();
-        assert_eq!(
-            RatchetingKeyId::from_key_id(key.key_id(), N_RATCHET_BITS).ratchet_step(),
-            STEPS
-        );
+        assert_eq!(key.key_id(), KeyId::from(key_id));
         assert_eq!(key, step_by_step_store.get_key(key_id).unwrap());
     }
 
     #[test]
     fn rejects_ratcheting_beyond_the_maximum() {
         let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS).with_max_ratchet_steps(2);
-        let mut key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
-
-        key_store
-            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
-            .unwrap();
+        let mut key_id = insert_key(&mut key_store, N_RATCHET_BITS);
         let key_before = key_store.get_key(key_id).unwrap().clone();
 
         for _ in 0..3 {
@@ -396,12 +370,7 @@ mod test {
     fn ratchets_on_ratcheting_step_overflow() {
         let n_ratchet_bits = 1;
         let mut key_store = RatchetingKeyStore::new(n_ratchet_bits);
-
-        let mut key_id = RatchetingKeyId::new(42u8, n_ratchet_bits);
-
-        key_store
-            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
-            .unwrap();
+        let mut key_id = insert_key(&mut key_store, n_ratchet_bits);
 
         key_id.inc_ratchet_step();
         key_store.try_ratchet(key_id).unwrap();
