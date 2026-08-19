@@ -42,7 +42,10 @@ where
     }
     pub fn truncate(&mut self, cipher_suite: CipherSuite, dest: usize) {
         let decrypted_begin = self.aad_len;
-        let decrypted_len = self.cipher_text_len - cipher_suite.auth_tag_len();
+        // a cipher text shorter than the auth tag holds no plaintext at all
+        let decrypted_len = self
+            .cipher_text_len
+            .saturating_sub(cipher_suite.auth_tag_len());
         let decrypted_end = decrypted_begin + decrypted_len;
 
         self.io_buffer
@@ -116,6 +119,19 @@ mod test {
             DecryptionBuffer::try_allocate(&mut buf, &AAD_DATA, &encrypted_data).unwrap();
 
         dec_buf.truncate(CipherSuite::AesGcm128Sha256, 2);
+        assert_eq!(buf, AAD_DATA.data[0..2]);
+    }
+
+    #[test]
+    fn truncate_decryption_buffer_shorter_than_the_auth_tag() {
+        let mut buf = vec![];
+        let cipher_suite = CipherSuite::AesGcm128Sha256;
+        let encrypted_data = vec![7u8; cipher_suite.auth_tag_len() - 1];
+        let mut dec_buf =
+            DecryptionBuffer::try_allocate(&mut buf, &AAD_DATA, &encrypted_data).unwrap();
+
+        dec_buf.truncate(cipher_suite, 2);
+
         assert_eq!(buf, AAD_DATA.data[0..2]);
     }
 }
