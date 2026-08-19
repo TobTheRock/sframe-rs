@@ -36,6 +36,7 @@ mod test {
             buffer::{DecryptionBufferView, EncryptionBufferView, encryption::EncryptionBuffer},
             cipher_suite::CipherSuite,
         },
+        error::SframeError,
         header::{KeyId, SframeHeader},
         key::{DecryptionKey, EncryptionKey},
         test_vectors::get_sframe_test_vector,
@@ -132,5 +133,28 @@ mod test {
         data.truncate(data.len() - dec_key.cipher_suite().auth_tag_len());
 
         assert_bytes_eq(&data, &test_vec.plain_text);
+    }
+
+    #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]
+    #[test_case(CipherSuite::AesGcm256Sha512; "AesGcm256Sha512")]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
+    fn decrypt_cipher_text_shorter_than_the_auth_tag(cipher_suite: CipherSuite) {
+        let dec_key =
+            DecryptionKey::derive_from(cipher_suite, KeyId::default(), KEY_MATERIAL.as_bytes())
+                .unwrap();
+        let header = SframeHeader::new(0, 0);
+        let mut aad = Vec::from(&header);
+        let mut data = vec![0u8; cipher_suite.auth_tag_len() - 1];
+
+        let decryption_buffer = DecryptionBufferView {
+            aad: &mut aad,
+            data: &mut data,
+        };
+
+        let result = dec_key.decrypt(decryption_buffer, header.counter());
+
+        assert_eq!(result.unwrap_err(), SframeError::DecryptionFailure);
     }
 }
