@@ -9,6 +9,7 @@ use crate::{
     error::{Result, SframeError},
     header::KeyId,
     key::{KeyStore, crypto_key::DecryptionKey},
+    util::limit_bit_len,
 };
 
 use super::{ratcheting_base_key::RatchetingBaseKey, ratcheting_key_id::RatchetingKeyId};
@@ -17,6 +18,11 @@ use super::{ratcheting_base_key::RatchetingBaseKey, ratcheting_key_id::Ratchetin
 /// Allows to automatically ratchet forward an encryption key if necessary.
 ///
 /// Generic over the crypto backend used for decryption (`A`) and key derivation (`D`).
+///
+/// As the Ratchet Step is taken from an unauthenticated header, catching up with it lets an
+/// attacker trigger key derivations with a single forged frame. By default this is only bounded by
+/// the Ratchet Step itself (`2^n_ratchet_bits - 1` steps); pick a bound matching the expected loss
+/// and re-ordering with [`RatchetingKeyStore::with_max_ratchet_steps`].
 pub struct RatchetingKeyStore<A, D>
 where
     A: AeadDecrypt<Secret = D::Secret>,
@@ -24,6 +30,7 @@ where
 {
     keys: HashMap<RatchetingKeyId, RatchetingKeys<A, D>>,
     n_ratchet_bits: u8,
+    max_ratchet_steps: u64,
 }
 
 impl<A, D> RatchetingKeyStore<A, D>
@@ -31,12 +38,23 @@ where
     A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
-    /// creates a new [`RatchetingKeyStore`] which uses `n_ratchet_bits` to determine the Ratchet Step  
+    /// creates a new [`RatchetingKeyStore`] which uses `n_ratchet_bits` to determine the Ratchet
+    /// Step, limited to 63 bits as in [`RatchetingKeyId`]
     pub fn new(n_ratchet_bits: u8) -> Self {
+        let n_ratchet_bits = limit_bit_len("n_ratchet_bits", n_ratchet_bits, u64::BITS as u8 - 1);
+
         Self {
             n_ratchet_bits,
             keys: Default::default(),
+            max_ratchet_steps: (1u64 << n_ratchet_bits) - 1,
         }
+    }
+
+    /// limits how many ratchet steps [`RatchetingKeyStore::try_ratchet`] catches up with at once
+    // TODO(v2): make this an mandatory parameter?
+    pub fn with_max_ratchet_steps(mut self, max_ratchet_steps: u64) -> Self {
+        self.max_ratchet_steps = max_ratchet_steps;
+        self
     }
 
     /// returns the No. bits used to determine the Ratchet Step
@@ -95,6 +113,7 @@ where
     /// If the [`RatchetingKeyId`] indicates a Ratchet Step, which is different from the currently known one
     /// the [`RatchetingBaseKey`] is ratcheted forward accordingly.
     /// On success returns the number of ratcheting steps performed.
+    /// Fails if more than [`RatchetingKeyStore::with_max_ratchet_steps`] steps would be needed.
     // TODO(v2): This method mustn't commit, a forged header could evict a valid key else wise. A
     // two step API is needed
     // TODO(v2): improve the API, so it is easier to determine which was the KID ratched from
@@ -120,11 +139,16 @@ where
             .0)
             % max_ratchet_value;
 
-        let next_base_key = (0..step_diff)
-            .map(|_| keys.base_key.next_base_key())
-            .next_back();
-        if let Some(next_base_key) = next_base_key {
-            let (next_key_id, next_material) = next_base_key?;
+        if step_diff > self.max_ratchet_steps {
+            return Err(SframeError::RatchetingFailure);
+        }
+
+        let mut next_base_key = None;
+        for _ in 0..step_diff {
+            next_base_key = Some(keys.base_key.next_base_key()?);
+        }
+
+        if let Some((next_key_id, next_material)) = next_base_key {
             keys.dec_key = DecryptionKey::derive_from(
                 keys.dec_key.cipher_suite(),
                 next_key_id,
@@ -303,6 +327,69 @@ mod test {
         let second_secret = key_store.get_key(key_id).unwrap().clone();
 
         assert_eq!(first_secret, second_secret);
+    }
+
+    #[test]
+    fn ratchets_forward_multiple_steps_at_once() {
+        const STEPS: u64 = 3;
+        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
+        let mut step_by_step_store = RatchetingKeyStore::new(N_RATCHET_BITS);
+        let mut key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
+
+        key_store
+            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
+            .unwrap();
+        step_by_step_store
+            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
+            .unwrap();
+
+        for _ in 0..STEPS {
+            key_id.inc_ratchet_step();
+            step_by_step_store.try_ratchet(key_id).unwrap();
+        }
+
+        let ratchet_steps = key_store.try_ratchet(key_id).unwrap();
+
+        assert_eq!(ratchet_steps, STEPS);
+        let key = key_store.get_key(key_id).unwrap();
+        assert_eq!(
+            RatchetingKeyId::from_key_id(key.key_id(), N_RATCHET_BITS).ratchet_step(),
+            STEPS
+        );
+        assert_eq!(key, step_by_step_store.get_key(key_id).unwrap());
+    }
+
+    #[test]
+    fn rejects_ratcheting_beyond_the_maximum() {
+        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS).with_max_ratchet_steps(2);
+        let mut key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
+
+        key_store
+            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
+            .unwrap();
+        let key_before = key_store.get_key(key_id).unwrap().clone();
+
+        for _ in 0..3 {
+            key_id.inc_ratchet_step();
+        }
+
+        assert!(key_store.try_ratchet(key_id).is_err());
+        // the stored key must be untouched
+        assert_eq!(&key_before, key_store.get_key(key_id).unwrap());
+    }
+
+    #[test]
+    fn limits_n_ratchet_bits_to_63() {
+        let n_ratchet_bits = 255;
+        let mut key_store = RatchetingKeyStore::new(n_ratchet_bits);
+        let mut key_id = RatchetingKeyId::new(1u8, n_ratchet_bits);
+
+        key_store
+            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
+            .unwrap();
+        key_id.inc_ratchet_step();
+
+        assert!(key_store.try_ratchet(key_id).is_ok());
     }
 
     #[test]

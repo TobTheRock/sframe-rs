@@ -22,8 +22,8 @@ pub enum SframeError {
     #[error("Unable to create unbound encryption key")]
     KeyDerivationFailure,
 
-    /// Could not ratchet an decryption key with HKDF
-    #[error("Unable to create unbound encryption key")]
+    /// Could not ratchet an decryption key with HKDF, or too many ratchet steps were requested
+    #[error("Unable to ratchet the decryption key")]
     RatchetingFailure,
 
     /// The cipher suite is not supported by the current crypto backend
