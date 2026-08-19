@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.1] - 2026-08-19
+
+### Bug Fixes
+
+- Avoid unsafe code by using CipherCtx API
+- Harden decryption buffer truncation against underflow
+
+
 ## [1.4.0] - 2026-08-16
 
 ### Features
