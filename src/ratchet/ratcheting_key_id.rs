@@ -60,6 +60,8 @@ impl RatchetingKeyId {
     where
         K: Into<KeyId>,
     {
+        let n_ratchet_bits = limit_bit_len("n_ratchet_bits", n_ratchet_bits, u64::BITS as u8 - 1);
+
         Self {
             value: key_id.into(),
             n_ratchet_bits,
@@ -79,7 +81,10 @@ impl RatchetingKeyId {
     /// increments the internal Ratchet Step by 1.
     /// If it reaches its maximum (2^R), it is set to 0
     pub fn inc_ratchet_step(&mut self) {
-        let ratchet_bitmask = u64::MAX >> (u64::BITS - self.n_ratchet_bits as u32);
+        // without ratcheting bits there is nothing to increment
+        let ratchet_bitmask = u64::MAX
+            .checked_shr(u64::BITS - self.n_ratchet_bits as u32)
+            .unwrap_or(0);
         // if all ratchet bits are set we have to wrap
         if self.value & ratchet_bitmask == ratchet_bitmask {
             // clear n_ratchet_bits
@@ -177,6 +182,30 @@ mod test {
 
         key_id.inc_ratchet_step();
         assert_eq!(1, key_id.ratchet_step());
+    }
+
+    #[test]
+    fn limits_n_ratchet_bits_to_63_on_parsing() {
+        let n_ratcheting_bits = 255;
+        let mut key_id = RatchetingKeyId::from_key_id(u64::MAX, n_ratcheting_bits);
+
+        // just one bit left for the generation
+        assert_eq!(1, key_id.generation());
+        assert_eq!(u64::MAX >> 1, key_id.ratchet_step());
+
+        key_id.inc_ratchet_step();
+        assert_eq!(0, key_id.ratchet_step());
+    }
+
+    #[test]
+    fn does_not_ratchet_without_ratcheting_bits() {
+        let expected_generation = 42;
+        let mut key_id = RatchetingKeyId::new(expected_generation, 0);
+
+        key_id.inc_ratchet_step();
+
+        assert_eq!(0, key_id.ratchet_step());
+        assert_eq!(expected_generation, key_id.generation());
     }
 
     #[test]
