@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.2] - 2026-08-21
+
+### Bug Fixes
+
+- Ratchet the base key by every missed step
+- Zeroize RatchetingBaseKey
+- Limit the ratchet bits when parsing a key id
+
+
 ## [1.4.1] - 2026-08-19
 
 ### Bug Fixes
