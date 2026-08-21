@@ -1,5 +1,7 @@
 use std::{marker::PhantomData, mem::replace};
 
+use zeroize::ZeroizeOnDrop;
+
 use crate::{CipherSuite, crypto::key_derivation::Ratcheting, error::Result};
 
 use super::ratcheting_key_id::RatchetingKeyId;
@@ -12,13 +14,17 @@ use super::ratcheting_key_id::RatchetingKeyId;
 /// The original key material is not stored for security reasons.
 ///
 /// Generic over the [`Ratcheting`] implementation `D` of the crypto backend.
+#[derive(ZeroizeOnDrop)]
 pub struct RatchetingBaseKey<D>
 where
     D: Ratcheting,
 {
+    #[zeroize(skip)]
     cipher_suite: CipherSuite,
     current_material: Vec<u8>,
+    #[zeroize(skip)]
     key_id: RatchetingKeyId,
+    #[zeroize(skip)]
     _ratcheting: PhantomData<D>,
 }
 
@@ -51,7 +57,7 @@ where
     }
 
     /// ratchets forward and provides a matching [`RatchetingKeyId`] and
-    /// a new base key to be used for key expansion in the sending block (e.g. [`crate::sender::Sender`] )
+    /// a new base key to be used for key expansion in the sending block
     pub fn next_base_key(&mut self) -> Result<(RatchetingKeyId, Vec<u8>)> {
         let key_id = self.key_id;
         let key_material = self.ratchet()?;

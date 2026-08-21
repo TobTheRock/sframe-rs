@@ -67,6 +67,9 @@ where
     pub fn insert<K, M>(
         &mut self,
         cipher_suite: CipherSuite,
+        // TODO(v2): better parameter is the generation, as it is what matters. Currently it is not obvious that this
+        // replaces KeyIds with the same generation. Also a generation should always start at
+        // ratchet step 0.
         key_id: K,
         key_material: M,
     ) -> Result<()>
@@ -116,7 +119,8 @@ where
     /// Fails if more than [`RatchetingKeyStore::with_max_ratchet_steps`] steps would be needed.
     // TODO(v2): This method mustn't commit, a forged header could evict a valid key else wise. A
     // two step API is needed
-    // TODO(v2): improve the API, so it is easier to determine which was the KID ratched from
+    // TODO(v2): improve the API, so it is easier to determine which was the KID ratched from, also
+    // split the concerns
     pub fn try_ratchet<K>(&mut self, key_id: K) -> Result<u64>
     where
         K: Into<KeyId>,
