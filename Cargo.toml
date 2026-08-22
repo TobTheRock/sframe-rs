@@ -2,6 +2,7 @@
 edition = "2024"
 license = "MIT/Apache-2.0"
 name = "sframe"
+rust-version = "1.85"
 version = "1.4.2"
 
 authors = [

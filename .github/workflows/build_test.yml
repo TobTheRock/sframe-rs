@@ -35,6 +35,10 @@ jobs:
       - name: test
         run: cargo test --all-targets --no-default-features --features ${{ matrix.feature }}
 
+      # --all-targets skips doctests, which is where the crate's front page example lives
+      - name: test doc
+        run: cargo test --doc --no-default-features --features ${{ matrix.feature }}
+
       - name: clippy
         run: cargo clippy --all-targets --no-default-features --features ${{ matrix.feature }} -- -Dwarnings
 
