@@ -157,4 +157,52 @@ mod test {
 
         assert_eq!(result.unwrap_err(), SframeError::DecryptionFailure);
     }
+
+    #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]
+    #[test_case(CipherSuite::AesGcm256Sha512; "AesGcm256Sha512")]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
+    fn encrypt_decrypt_payload_shorter_than_the_auth_tag(cipher_suite: CipherSuite) {
+        const SHORT_PAYLOAD: &[u8] = b"abc";
+        assert!(SHORT_PAYLOAD.len() < cipher_suite.auth_tag_len());
+
+        let enc_key =
+            EncryptionKey::derive_from(cipher_suite, KeyId::default(), KEY_MATERIAL.as_bytes())
+                .unwrap();
+        let dec_key =
+            DecryptionKey::derive_from(cipher_suite, KeyId::default(), KEY_MATERIAL.as_bytes())
+                .unwrap();
+        let header = SframeHeader::new(0, 0);
+
+        let mut aad = Vec::from(&header);
+        let mut cipher_text = SHORT_PAYLOAD.to_vec();
+        let mut tag = vec![0u8; cipher_suite.auth_tag_len()];
+        enc_key
+            .encrypt(
+                EncryptionBufferView {
+                    aad: &mut aad,
+                    data: &mut cipher_text,
+                    tag: &mut tag,
+                },
+                header.counter(),
+            )
+            .unwrap();
+
+        cipher_text.append(&mut tag);
+        let result = dec_key.decrypt(
+            DecryptionBufferView {
+                aad: &mut aad,
+                data: &mut cipher_text,
+            },
+            header.counter(),
+        );
+
+        assert!(
+            result.is_ok(),
+            "failed to decrypt a short payload: {result:?}"
+        );
+        cipher_text.truncate(cipher_text.len() - cipher_suite.auth_tag_len());
+        assert_bytes_eq(&cipher_text, SHORT_PAYLOAD);
+    }
 }

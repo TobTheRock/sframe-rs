@@ -288,24 +288,19 @@ where
         &self,
         iv: &aead::Nonce<Self>,
         associated_data: &[u8],
-        buffer: aead::inout::InOutBuf<'_, '_, u8>,
+        encrypted: aead::inout::InOutBuf<'_, '_, u8>,
         tag: &aead::Tag<Self>,
     ) -> aead::Result<()> {
-        let buffer = buffer.into_out();
-        let tag_len = T::to_usize();
-        if buffer.len() < tag_len {
-            log::debug!("Invalid cipher text, shorter than tag");
-            return Err(aead::Error);
-        }
+        let encrypted = encrypted.into_out();
 
-        self.compute_tag(iv, associated_data, buffer)
+        self.compute_tag(iv, associated_data, encrypted)
             .verify_truncated_left(tag)
             .map_err(|err| {
                 log::debug!("AesCtr: Error decrypting: {err}");
                 aead::Error
             })?;
 
-        self.cipher(iv, buffer).map_err(|err| {
+        self.cipher(iv, encrypted).map_err(|err| {
             log::debug!("AesCtr: Error encrypting: {err}");
             aead::Error
         })
