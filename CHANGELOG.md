@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.3] - 2026-08-23
+
+### Bug Fixes
+
+- Decrypt short payloads with rust crypto (AES-CTR)
+- Warn at the correct generation overflow boundary
+- Reject a ratchet step which was already passed
+
+
 ## [1.4.2] - 2026-08-21
 
 ### Bug Fixes
