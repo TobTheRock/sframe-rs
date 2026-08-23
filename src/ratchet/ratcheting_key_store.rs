@@ -20,9 +20,9 @@ use super::{ratcheting_base_key::RatchetingBaseKey, ratcheting_key_id::Ratchetin
 /// Generic over the crypto backend used for decryption (`A`) and key derivation (`D`).
 ///
 /// As the Ratchet Step is taken from an unauthenticated header, catching up with it lets an
-/// attacker trigger key derivations with a single forged frame. By default this is only bounded by
-/// the Ratchet Step itself (`2^n_ratchet_bits - 1` steps); pick a bound matching the expected loss
-/// and re-ordering with [`RatchetingKeyStore::with_max_ratchet_steps`].
+/// attacker trigger key derivations with a single forged frame. By default this is bounded by
+/// half of the `2^n_ratchet_bits` Ratchet Steps; pick a bound matching the expected loss and
+/// re-ordering with [`RatchetingKeyStore::with_max_ratchet_steps`].
 pub struct RatchetingKeyStore<A, D>
 where
     A: AeadDecrypt<Secret = D::Secret>,
@@ -46,14 +46,17 @@ where
         Self {
             n_ratchet_bits,
             keys: Default::default(),
-            max_ratchet_steps: (1u64 << n_ratchet_bits) - 1,
+            max_ratchet_steps: max_distinguishable_steps(n_ratchet_bits),
         }
     }
 
-    /// limits how many ratchet steps [`RatchetingKeyStore::try_ratchet`] catches up with at once
+    /// limits how many ratchet steps [`RatchetingKeyStore::try_ratchet`] catches up with at once.
+    /// Capped at half of the `2^n_ratchet_bits` Ratchet Steps, so a step which was already
+    /// passed is never mistaken for a jump forward
     // TODO(v2): make this an mandatory parameter?
     pub fn with_max_ratchet_steps(mut self, max_ratchet_steps: u64) -> Self {
-        self.max_ratchet_steps = max_ratchet_steps;
+        self.max_ratchet_steps =
+            max_ratchet_steps.min(max_distinguishable_steps(self.n_ratchet_bits));
         self
     }
 
@@ -162,6 +165,15 @@ where
 
         Ok(step_diff)
     }
+}
+
+/// The No. steps [`RatchetingKeyStore::try_ratchet`] can catch up with at most (`2^(R-1)`).
+///
+/// The Ratchet Step wraps at `2^R`, so a step diff is ambiguous: a diff of `d` means either
+/// `d` steps forward or `2^R - d` steps back. Only the lower half can be told apart from a
+/// step which was already passed, e.g. carried by a re-ordered frame.
+fn max_distinguishable_steps(n_ratchet_bits: u8) -> u64 {
+    (1u64 << n_ratchet_bits) >> 1
 }
 
 /// Storage struct used by [`RatchetingKeyStore`], each associated with a [`RatchetingKeyId`]
@@ -339,6 +351,27 @@ mod test {
         let key = key_store.get_key(key_id).unwrap();
         assert_eq!(key.key_id(), KeyId::from(key_id));
         assert_eq!(key, step_by_step_store.get_key(key_id).unwrap());
+    }
+
+    #[test]
+    fn rejects_an_already_passed_ratchet_step() {
+        let (mut key_store, mut key_id) = key_store_with_key();
+
+        // follow the sender for two steps
+        key_id.inc_ratchet_step();
+        key_store.try_ratchet(key_id).unwrap();
+        key_id.inc_ratchet_step();
+        key_store.try_ratchet(key_id).unwrap();
+        let key_before = key_store.get_key(key_id).unwrap().clone();
+
+        // a re-ordered frame carrying a step we are already past. Its key is gone, and
+        // the wrapping step diff must not be mistaken for a jump forward.
+        let mut passed = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
+        passed.inc_ratchet_step();
+
+        assert!(key_store.try_ratchet(passed).is_err());
+        // the stored key must be untouched
+        assert_eq!(&key_before, key_store.get_key(key_id).unwrap());
     }
 
     #[test]
