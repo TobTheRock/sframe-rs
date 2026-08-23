@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 
-- Decrypt short payloads with rust crypto
+- Decrypt short payloads with rust crypto (AES-CTR)
 - Warn at the correct generation overflow boundary
 - Reject a ratchet step which was already passed
 
