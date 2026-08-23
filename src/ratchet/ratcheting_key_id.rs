@@ -17,7 +17,7 @@ use crate::{header::KeyId, util::limit_bit_len};
 /// - R: No. bits used for the Ratchet Step, defines a re-ordering,no more than 2^R ratchet steps can be active at a given time.  
 ///
 /// For each Key Generation a new [`RatchetingKeyId`] needs to be created, as the Key Generation is determined by the application.
-/// If the  Ratchet Steps reaches its maximum it starts anew with 0.
+/// The Ratchet Step wraps around to 0 after its maximum (2^R - 1).
 #[derive(Clone, Copy, Debug, Eq)]
 pub struct RatchetingKeyId {
     value: u64,
@@ -30,6 +30,7 @@ impl RatchetingKeyId {
     /// - `n_ratchet_bits`: the No. bits used for ratcheting (R)
     ///
     /// where the initial Ratchet Step is 0
+    // TODO(v2): fail on out of bounds generation & ratchet bits
     pub fn new<G>(generation: G, n_ratchet_bits: u8) -> Self
     where
         G: Into<u64>,
@@ -37,18 +38,18 @@ impl RatchetingKeyId {
         let generation = generation.into();
         let n_ratchet_bits = limit_bit_len("n_ratchet_bits", n_ratchet_bits, u64::BITS as u8 - 1);
 
-        // this means we start with ratchet step 0
-        let value = generation << n_ratchet_bits;
+        let ratchet_step_0 = generation << n_ratchet_bits;
 
-        let (max_generation, overflow) = 1u64.overflowing_shl(u64::BITS - n_ratchet_bits as u32);
-        if generation > max_generation && !overflow {
+        let max_generation = u64::MAX >> n_ratchet_bits;
+        if generation > max_generation {
             log::warn!(
-                "generation {generation} cannot be bigger than {max_generation}  with {n_ratchet_bits} ratcheting bits, limiting it to {value}",
+                "generation {generation} cannot be bigger than {max_generation} with {n_ratchet_bits} ratcheting bits, truncating it to {}",
+                ratchet_step_0 >> n_ratchet_bits
             );
         }
 
         Self {
-            value,
+            value: ratchet_step_0,
             n_ratchet_bits,
         }
     }
@@ -78,8 +79,8 @@ impl RatchetingKeyId {
         self.value % (1 << self.n_ratchet_bits)
     }
 
-    /// increments the internal Ratchet Step by 1.
-    /// If it reaches its maximum (2^R), it is set to 0
+    /// increments the internal Ratchet Step by 1,
+    /// wrapping around to 0 after its maximum (2^R - 1)
     pub fn inc_ratchet_step(&mut self) {
         // without ratcheting bits there is nothing to increment
         let ratchet_bitmask = u64::MAX
@@ -195,6 +196,33 @@ mod test {
 
         key_id.inc_ratchet_step();
         assert_eq!(0, key_id.ratchet_step());
+    }
+
+    #[test]
+    fn keeps_the_largest_generation_which_fits() {
+        let n_ratcheting_bits = 8;
+        let largest = u64::MAX >> n_ratcheting_bits;
+
+        let key_id = RatchetingKeyId::new(largest, n_ratcheting_bits);
+
+        assert_eq!(largest, key_id.generation());
+    }
+
+    #[test]
+    fn truncates_a_generation_which_does_not_fit() {
+        let n_ratcheting_bits = 8;
+        let one_too_big = (u64::MAX >> n_ratcheting_bits) + 1;
+
+        let key_id = RatchetingKeyId::new(one_too_big, n_ratcheting_bits);
+
+        assert_eq!(0, key_id.generation());
+    }
+
+    #[test]
+    fn keeps_any_generation_without_ratcheting_bits() {
+        let key_id = RatchetingKeyId::new(u64::MAX, 0);
+
+        assert_eq!(u64::MAX, key_id.generation());
     }
 
     #[test]
