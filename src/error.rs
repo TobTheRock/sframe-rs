@@ -6,7 +6,7 @@ pub type Result<T> = std::result::Result<T, SframeError>;
 /// Represents an error which has occured in the sframe-rs library
 ///
 /// Non-exhaustive: match with a `_` arm, new variants may be added in minor releases.
-#[derive(PartialEq, Eq, Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum SframeError {
     /// no valid decryption key has been found
@@ -35,7 +35,7 @@ pub enum SframeError {
 
     /// frame validation failed before decryption
     #[error("{0}")]
-    FrameValidationFailed(String),
+    FrameValidationFailed(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     /// buffer was too small to deserialize into/ serialize from
     #[error("buffer with size {0} is too small")]

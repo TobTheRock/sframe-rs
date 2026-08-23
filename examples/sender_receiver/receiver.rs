@@ -247,9 +247,9 @@ mod test {
         // do not set the encryption-key
         let decrypted = receiver.decrypt("foobar is unsafe", 0);
 
-        assert_eq!(
+        assert!(matches!(
             decrypted,
-            Err(SframeError::MissingDecryptionKey(KeyId::from(6u8)))
-        );
+            Err(SframeError::MissingDecryptionKey(key_id)) if key_id == KeyId::from(6u8)
+        ));
     }
 }

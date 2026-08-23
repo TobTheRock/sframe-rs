@@ -185,15 +185,16 @@ const REJECT_TOO_OLD: &str = "is too old";
 const REJECT_DUPLICATED: &str = "is duplicated";
 
 fn rejected(counter: header::Counter, reason: &str) -> SframeError {
-    SframeError::FrameValidationFailed(format!(
-        "Replay check failed, frame counter {counter} {reason}"
-    ))
+    SframeError::FrameValidationFailed(
+        format!("Replay check failed, frame counter {counter} {reason}").into(),
+    )
 }
 
 fn rejected_key_id(key_id: header::KeyId, expected: header::KeyId) -> SframeError {
-    SframeError::FrameValidationFailed(format!(
-        "Replay check failed, key id {key_id} does not match the associated {expected}"
-    ))
+    SframeError::FrameValidationFailed(
+        format!("Replay check failed, key id {key_id} does not match the associated {expected}")
+            .into(),
+    )
 }
 
 #[cfg(test)]
@@ -237,9 +238,9 @@ mod test {
 
         fn expect_rejected(&self, counter: header::Counter, reason: &str) -> &Self {
             match self.0.validate(&header(counter)) {
-                Err(SframeError::FrameValidationFailed(msg)) => assert!(
-                    msg.contains(reason),
-                    "counter {counter}: expected reason {reason:?}, got: {msg}"
+                Err(SframeError::FrameValidationFailed(err)) => assert!(
+                    err.to_string().contains(reason),
+                    "counter {counter}: expected reason {reason:?}, got: {err}"
                 ),
                 other => panic!("counter {counter}: expected rejection {reason:?}, got: {other:?}"),
             }
@@ -256,9 +257,9 @@ mod test {
 
         fn expect_inspect_rejected(&self, counter: header::Counter, reason: &str) -> &Self {
             match self.0.inspect(&header(counter)) {
-                Err(SframeError::FrameValidationFailed(msg)) => assert!(
-                    msg.contains(reason),
-                    "counter {counter}: expected reason {reason:?}, got: {msg}"
+                Err(SframeError::FrameValidationFailed(err)) => assert!(
+                    err.to_string().contains(reason),
+                    "counter {counter}: expected reason {reason:?}, got: {err}"
                 ),
                 other => panic!("counter {counter}: expected rejection {reason:?}, got: {other:?}"),
             }

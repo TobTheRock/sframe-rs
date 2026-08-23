@@ -159,6 +159,6 @@ mod test {
         // do not set the encryption-key
         let encrypted = sender.encrypt("foobar is unsafe", 0);
 
-        assert_eq!(encrypted, Err(SframeError::EncryptionFailure));
+        assert!(matches!(encrypted, Err(SframeError::EncryptionFailure)));
     }
 }

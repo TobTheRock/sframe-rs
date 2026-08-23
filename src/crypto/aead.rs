@@ -155,7 +155,10 @@ mod test {
 
         let result = dec_key.decrypt(decryption_buffer, header.counter());
 
-        assert_eq!(result.unwrap_err(), SframeError::DecryptionFailure);
+        assert!(matches!(
+            result.unwrap_err(),
+            SframeError::DecryptionFailure
+        ));
     }
 
     #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]
