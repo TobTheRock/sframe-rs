@@ -1,7 +1,7 @@
 use sframe::{
     CipherSuite,
     error::Result,
-    frame::{EncryptedFrameView, FrameValidation, ReplayAttackProtectionStore},
+    frame::{EncryptedFrameView, ReplayAttackProtectionStore},
     header::KeyId,
     ratchet::{RatchetingKeyId, RatchetingKeyStore},
 };
@@ -65,9 +65,8 @@ impl Receiver {
         let meta_data = &encrypted_frame[..skip];
         let encrypted_frame = EncryptedFrameView::try_with_meta_data(data, meta_data)?;
 
-        // The header is not authenticated yet, so only screen it here - `inspect`
-        // does not touch the replay window.
-        self.frame_validation.inspect(encrypted_frame.header())?;
+        // The header is not authenticated yet, so this only screens it - the
+        // replay window is untouched until the frame decrypted.
 
         let key_id = encrypted_frame.header().key_id();
         // TODO(v2): improve the API, so it is easier to determine which was the previous kid
@@ -78,15 +77,17 @@ impl Receiver {
             ratcheted_away_from = previous_key_id;
         }
 
-        encrypted_frame.decrypt_into(&self.keys, &mut self.buffer)?;
+        // MediaFrameView can be used to access the payload, meta data and the associated counter of the frame
+        let _media_frame = encrypted_frame.validated_decrypt_into(
+            &self.keys,
+            &mut self.buffer,
+            &mut self.frame_validation,
+        )?;
 
-        // Decryption authenticated the frame, only now the counter may be recorded.
-        // Otherwise forged frames could poison the window and suppress genuine ones.
         // Remove stale KIDs to avoid memory growth (assuming in order packet delivery)
         if let Some(key_id) = ratcheted_away_from {
             self.frame_validation.remove(key_id);
         }
-        self.frame_validation.validate(encrypted_frame.header())?;
 
         Ok(&self.buffer)
     }

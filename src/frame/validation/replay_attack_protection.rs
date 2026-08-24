@@ -1,15 +1,15 @@
 use crate::{
-    error::{Result, SframeError},
     frame::{FrameValidation, validation::sliding_window::SlidingWindow},
-    header::{self, SframeHeader},
+    header,
 };
-use std::cell::RefCell;
+
+use super::UnvalidatedFrame;
 
 /// This implementation allows to detect replay attacks by omitting frames with
 /// to old frame counters, see [RFC 9605 9.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-anti-replay).
 /// The window of allowed frame counts is given with a certain tolerance.
 pub struct ReplayAttackProtection {
-    window: RefCell<Window>,
+    window: Window,
     key_id: Option<header::KeyId>,
 }
 
@@ -25,10 +25,10 @@ impl ReplayAttackProtection {
             .try_into()
             .expect("Tolerance exceeds OS capabilities");
         ReplayAttackProtection {
-            window: RefCell::new(Window::Empty(Empty {
+            window: Window::Empty(Empty {
                 window: SlidingWindow::new(size),
                 size: size as u64,
-            })),
+            }),
             key_id: None,
         }
     }
@@ -42,38 +42,101 @@ impl ReplayAttackProtection {
         }
     }
 
-    /// Screens a header without recording it or advancing the window.
-    /// Safe on unauthenticated headers to reject invalid frames before decryption.
-    pub fn inspect(&self, header: &SframeHeader) -> Result<()> {
-        self.verify_key_id(header)?;
-
-        let counter = header.counter();
-        match &*self.window.borrow() {
-            Window::Empty(_) => Ok(()),
-            Window::Active(active) => active.inspect(counter),
-        }
-    }
-
     /// Rejects headers of another sender, if associated with a key id.
-    fn verify_key_id(&self, header: &SframeHeader) -> Result<()> {
+    fn verify_key_id(&self, key_id: header::KeyId) -> Result<(), ReplayAttackProtectionError> {
         match self.key_id {
-            Some(expected) if header.key_id() != expected => {
-                Err(rejected_key_id(header.key_id(), expected))
+            Some(expected) if key_id != expected => {
+                Err(ReplayAttackProtectionError::KeyIdMismatch { key_id, expected })
             }
             _ => Ok(()),
         }
     }
 }
 
+/// Evidence that a frame passed the replay check, carrying the screened counter
+/// so [`FrameValidation::record`] records it without re-reading an attacker
+/// controlled header.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReplayToken {
+    key_id: header::KeyId,
+    counter: header::Counter,
+}
+
+impl ReplayToken {
+    pub(super) fn new(key_id: header::KeyId, counter: header::Counter) -> Self {
+        Self { key_id, counter }
+    }
+
+    /// The sender the screened frame belongs to.
+    pub(super) fn key_id(&self) -> header::KeyId {
+        self.key_id
+    }
+}
+
+/// Why [`ReplayAttackProtection`] rejected a frame. The key id and counter are
+/// the unauthenticated ones of its header, they only identify the rejected frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum ReplayAttackProtectionError {
+    /// The frame belongs to another sender than the associated one.
+    #[error(
+        "Frame of key id {key_id} was rejected, as it does not match the associated {expected}"
+    )]
+    KeyIdMismatch {
+        /// Key id of the rejected frame.
+        key_id: header::KeyId,
+        /// Key id the protection is associated with.
+        expected: header::KeyId,
+    },
+    /// The frame counter was already recorded.
+    #[error("Frame {counter} of key id {key_id} was rejected, as it was duplicated")]
+    DuplicatedFrame {
+        /// Key id of the rejected frame.
+        key_id: header::KeyId,
+        /// Counter of the rejected frame.
+        counter: header::Counter,
+    },
+    /// The frame counter fell out of the tolerance window.
+    #[error("Frame {counter} of key id {key_id} was rejected, as its counter is too old")]
+    CounterTooOld {
+        /// Key id of the rejected frame.
+        key_id: header::KeyId,
+        /// Counter of the rejected frame.
+        counter: header::Counter,
+    },
+}
+
 impl FrameValidation for ReplayAttackProtection {
-    fn validate(&self, header: &SframeHeader) -> Result<()> {
-        self.verify_key_id(header)?;
+    type Token = ReplayToken;
 
-        let counter = header.counter();
-        let mut window = self.window.borrow_mut();
+    type Error = ReplayAttackProtectionError;
 
-        match &mut *window {
-            Window::Active(active) => active.commit(counter),
+    fn screen(&self, unvalidated: UnvalidatedFrame<'_>) -> Result<Self::Token, Self::Error> {
+        let header = unvalidated.header();
+        self.verify_key_id(header.key_id())?;
+
+        let token = ReplayToken::new(header.key_id(), header.counter());
+        if let Window::Active(active) = &self.window {
+            active.screen(&token)?;
+        }
+
+        Ok(token)
+    }
+
+    fn record(&mut self, token: Self::Token) {
+        self.window.record(token.counter);
+    }
+}
+
+enum Window {
+    Empty(Empty),
+    Active(Active),
+}
+
+impl Window {
+    /// Records `counter`, anchoring the window on the first frame.
+    fn record(&mut self, counter: header::Counter) {
+        match self {
+            Window::Active(active) => active.record(counter),
             Window::Empty(empty) => {
                 // First frame: swap the pre-allocated `Empty` out (the placeholder
                 // holds an empty, non-allocating window) and consume it to anchor.
@@ -82,17 +145,11 @@ impl FrameValidation for ReplayAttackProtection {
                     size: 0,
                 };
                 let mut active = std::mem::replace(empty, placeholder).anchor(counter);
-                let result = active.commit(counter);
-                *window = Window::Active(active);
-                result
+                active.record(counter);
+                *self = Window::Active(active);
             }
         }
     }
-}
-
-enum Window {
-    Empty(Empty),
-    Active(Active),
 }
 
 /// Window before the first frame: the buffer is already allocated, only the
@@ -122,33 +179,34 @@ struct Active {
 }
 
 impl Active {
-    /// Validates `counter`, records it, and advances the window.
-    /// Errors if the counter is too old or already seen.
-    fn commit(&mut self, counter: header::Counter) -> Result<()> {
+    /// Records `counter` and advances the window.
+    ///
+    /// Counters outside the window are dropped instead of reported: only
+    /// [`screen`](Self::screen)ed counters get here, and rejecting an already
+    /// decrypted frame is not an option.
+    fn record(&mut self, counter: header::Counter) {
         if self.is_newer(counter) {
             self.advance_to(counter);
         }
 
-        match self.window_index(counter) {
-            None => Err(rejected(counter, REJECT_TOO_OLD)),
-            Some(idx) if self.window.is_set(idx) => Err(rejected(counter, REJECT_DUPLICATED)),
-            Some(idx) => {
-                self.window.set(idx);
-                Ok(())
-            }
+        if let Some(idx) = self.window_index(counter) {
+            self.window.set(idx);
         }
     }
 
-    /// Validates `counter` without recording it or moving the window.
+    /// Screens the token's counter without recording it or moving the window.
     /// Errors if the counter is too old or already seen.
-    fn inspect(&self, counter: header::Counter) -> Result<()> {
+    fn screen(&self, token: &ReplayToken) -> Result<(), ReplayAttackProtectionError> {
+        let ReplayToken { key_id, counter } = *token;
         if self.is_newer(counter) {
             return Ok(());
         }
 
         match self.window_index(counter) {
-            None => Err(rejected(counter, REJECT_TOO_OLD)),
-            Some(idx) if self.window.is_set(idx) => Err(rejected(counter, REJECT_DUPLICATED)),
+            None => Err(ReplayAttackProtectionError::CounterTooOld { key_id, counter }),
+            Some(idx) if self.window.is_set(idx) => {
+                Err(ReplayAttackProtectionError::DuplicatedFrame { key_id, counter })
+            }
             Some(_) => Ok(()),
         }
     }
@@ -181,29 +239,13 @@ impl Active {
     }
 }
 
-const REJECT_TOO_OLD: &str = "is too old";
-const REJECT_DUPLICATED: &str = "is duplicated";
-
-fn rejected(counter: header::Counter, reason: &str) -> SframeError {
-    SframeError::FrameValidationFailed(
-        format!("Replay check failed, frame counter {counter} {reason}").into(),
-    )
-}
-
-fn rejected_key_id(key_id: header::KeyId, expected: header::KeyId) -> SframeError {
-    SframeError::FrameValidationFailed(
-        format!("Replay check failed, key id {key_id} does not match the associated {expected}")
-            .into(),
-    )
-}
-
 #[cfg(test)]
 mod test {
-    use crate::header;
-
     use super::*;
+    use crate::frame::validation::test::{screen, screen_and_record};
+    use ReplayAttackProtectionError::*;
 
-    const KID: u64 = 23456789;
+    const KID: header::KeyId = 23456789;
     const TOLERANCE: u64 = 128;
 
     // A reference window `[WINDOW_OLDEST, NEWEST]`, spanning TOLERANCE counters.
@@ -217,137 +259,126 @@ mod test {
     const NEWER_DROPS_OLDER: u64 = NEWEST + 60;
     const FULL_WINDOW_JUMP: u64 = NEWEST + TOLERANCE; // shift >= size, wipes all marks
 
+    const OTHER_KID: header::KeyId = KID + 1;
+
     fn validator() -> Fixture {
         Fixture(ReplayAttackProtection::with_tolerance(TOLERANCE))
-    }
-
-    fn header(counter: header::Counter) -> SframeHeader {
-        SframeHeader::new(KID, counter)
     }
 
     struct Fixture(ReplayAttackProtection);
 
     impl Fixture {
-        fn expect_accepted(&self, counter: header::Counter) -> &Self {
+        /// Screens and records the counter, as a frame which decrypted.
+        fn expect_accepted(&mut self, counter: header::Counter) -> &mut Self {
             assert!(
-                self.0.validate(&header(counter)).is_ok(),
+                screen_and_record(&mut self.0, KID, counter).is_ok(),
                 "counter {counter} should be accepted"
             );
             self
         }
 
-        fn expect_rejected(&self, counter: header::Counter, reason: &str) -> &Self {
-            match self.0.validate(&header(counter)) {
-                Err(SframeError::FrameValidationFailed(err)) => assert!(
-                    err.to_string().contains(reason),
-                    "counter {counter}: expected reason {reason:?}, got: {err}"
-                ),
-                other => panic!("counter {counter}: expected rejection {reason:?}, got: {other:?}"),
-            }
-            self
-        }
-
-        fn expect_inspected(&self, counter: header::Counter) -> &Self {
+        /// Screens the counter without recording it, as a frame which is only
+        /// inspected or which failed to decrypt.
+        fn expect_screened(&mut self, counter: header::Counter) -> &mut Self {
             assert!(
-                self.0.inspect(&header(counter)).is_ok(),
-                "counter {counter} should pass inspection"
+                screen(&self.0, KID, counter).is_ok(),
+                "counter {counter} should pass screening"
             );
             self
         }
 
-        fn expect_inspect_rejected(&self, counter: header::Counter, reason: &str) -> &Self {
-            match self.0.inspect(&header(counter)) {
-                Err(SframeError::FrameValidationFailed(err)) => assert!(
-                    err.to_string().contains(reason),
-                    "counter {counter}: expected reason {reason:?}, got: {err}"
-                ),
-                other => panic!("counter {counter}: expected rejection {reason:?}, got: {other:?}"),
-            }
+        fn expect_duplicated(&mut self, counter: header::Counter) -> &mut Self {
+            let err = self.expect_rejected(counter);
+            assert!(
+                matches!(err, DuplicatedFrame { .. }),
+                "counter {counter}: expected a duplicate, got {err}"
+            );
             self
+        }
+
+        fn expect_too_old(&mut self, counter: header::Counter) -> &mut Self {
+            let err = self.expect_rejected(counter);
+            assert!(
+                matches!(err, CounterTooOld { .. }),
+                "counter {counter}: expected a too old counter, got {err}"
+            );
+            self
+        }
+
+        fn expect_rejected(&mut self, counter: header::Counter) -> ReplayAttackProtectionError {
+            screen(&self.0, KID, counter)
+                .expect_err(&format!("counter {counter} should be rejected"))
         }
     }
 
     #[test]
-    fn inspect_does_not_record_the_counter() {
-        // Inspecting must not mutate state: the same counter can be inspected
-        // repeatedly and is still accepted by a later validate.
+    fn screening_does_not_record_the_counter() {
+        // Screening must not mutate state: the same counter can be screened
+        // repeatedly and is still accepted afterwards.
         validator()
             .expect_accepted(OLDER)
-            .expect_inspected(NEWEST)
-            .expect_inspected(NEWEST)
+            .expect_screened(NEWEST)
+            .expect_screened(NEWEST)
             .expect_accepted(NEWEST);
     }
 
     #[test]
-    fn inspect_rejects_already_recorded_counter() {
-        validator()
-            .expect_accepted(NEWEST)
-            .expect_inspect_rejected(NEWEST, REJECT_DUPLICATED);
-    }
-
-    #[test]
-    fn inspect_rejects_too_old_counter() {
-        validator()
-            .expect_accepted(NEWEST)
-            .expect_inspect_rejected(TOO_OLD, REJECT_TOO_OLD);
-    }
-
-    #[test]
-    fn inspect_accepts_future_counter_without_advancing() {
-        // A future counter passes inspection but must not advance the window,
+    fn screening_accepts_future_counter_without_advancing() {
+        // A future counter passes screening but must not advance the window,
         // so an in-window counter it would have dropped is still accepted.
         validator()
             .expect_accepted(NEWEST)
-            .expect_inspected(NEWER_DROPS_OLDER)
+            .expect_screened(NEWER_DROPS_OLDER)
             .expect_accepted(OLDER);
     }
 
     #[test]
-    fn inspect_on_empty_window_accepts_anything() {
-        validator().expect_inspected(NEWEST);
-    }
-
-    const OTHER_KID: header::KeyId = KID + 1;
-
-    fn header_of(key_id: header::KeyId, counter: header::Counter) -> SframeHeader {
-        SframeHeader::new(key_id, counter)
+    fn screening_on_empty_window_accepts_anything() {
+        validator().expect_screened(NEWEST);
     }
 
     #[test]
     fn accepts_the_associated_key_id() {
-        let validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
+        let mut validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
 
-        assert!(validator.inspect(&header_of(KID, NEWEST)).is_ok());
-        assert!(validator.validate(&header_of(KID, NEWEST)).is_ok());
+        assert!(screen_and_record(&mut validator, KID, NEWEST).is_ok());
     }
 
     #[test]
     fn rejects_another_key_id() {
         let validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
 
-        assert!(validator.inspect(&header_of(OTHER_KID, NEWEST)).is_err());
-        assert!(validator.validate(&header_of(OTHER_KID, NEWEST)).is_err());
+        assert_eq!(
+            screen(&validator, OTHER_KID, NEWEST),
+            Err(KeyIdMismatch {
+                key_id: OTHER_KID,
+                expected: KID
+            })
+        );
     }
 
     #[test]
     fn another_key_id_does_not_record_the_counter() {
-        let validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
+        let mut validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
 
-        let _ = validator.validate(&header_of(OTHER_KID, NEWEST));
+        let _ = screen(&validator, OTHER_KID, NEWEST);
 
         // A foreign sender must not be able to consume counters of the associated one.
-        assert!(validator.validate(&header_of(KID, NEWEST)).is_ok());
+        assert!(screen_and_record(&mut validator, KID, NEWEST).is_ok());
     }
 
     #[test]
     fn without_an_associated_key_id_every_sender_shares_the_window() {
-        let validator = ReplayAttackProtection::with_tolerance(TOLERANCE);
+        let mut validator = ReplayAttackProtection::with_tolerance(TOLERANCE);
 
-        assert!(validator.validate(&header_of(KID, NEWEST)).is_ok());
-        assert!(
-            validator
-                .validate(&header_of(OTHER_KID, NEWEST + 1))
-                .is_ok()
+        assert!(screen_and_record(&mut validator, KID, NEWEST).is_ok());
+        assert_eq!(
+            screen(&validator, OTHER_KID, NEWEST),
+            Err(DuplicatedFrame {
+                key_id: OTHER_KID,
+                counter: NEWEST
+            }),
+            "the counter is shared, no matter the sender"
         );
     }
 
@@ -363,9 +394,7 @@ mod test {
 
     #[test]
     fn reject_too_old_headers() {
-        validator()
-            .expect_accepted(NEWEST)
-            .expect_rejected(TOO_OLD, REJECT_TOO_OLD);
+        validator().expect_accepted(NEWEST).expect_too_old(TOO_OLD);
     }
 
     #[test]
@@ -373,14 +402,14 @@ mod test {
         validator()
             .expect_accepted(NEWEST)
             .expect_accepted(WINDOW_OLDEST)
-            .expect_rejected(TOO_OLD, REJECT_TOO_OLD);
+            .expect_too_old(TOO_OLD);
     }
 
     #[test]
     fn rejects_header_with_duplicate_frame_counts() {
         validator()
             .expect_accepted(NEWEST)
-            .expect_rejected(NEWEST, REJECT_DUPLICATED);
+            .expect_duplicated(NEWEST);
     }
 
     #[test]
@@ -388,7 +417,7 @@ mod test {
         validator()
             .expect_accepted(NEWEST)
             .expect_accepted(OLDER)
-            .expect_rejected(OLDER, REJECT_DUPLICATED);
+            .expect_duplicated(OLDER);
     }
 
     #[test]
@@ -396,7 +425,7 @@ mod test {
         validator()
             .expect_accepted(header::Counter::MAX)
             .expect_accepted(0)
-            .expect_rejected(0, REJECT_DUPLICATED);
+            .expect_duplicated(0);
     }
 
     #[test]
@@ -404,7 +433,7 @@ mod test {
         validator()
             .expect_accepted(0)
             .expect_accepted(header::Counter::MAX)
-            .expect_rejected(header::Counter::MAX, REJECT_DUPLICATED);
+            .expect_duplicated(header::Counter::MAX);
     }
 
     #[test]
@@ -413,7 +442,7 @@ mod test {
             .expect_accepted(NEWEST)
             .expect_accepted(OLDER)
             .expect_accepted(NEWER_KEEPS_OLDER)
-            .expect_rejected(OLDER, REJECT_DUPLICATED);
+            .expect_duplicated(OLDER);
     }
 
     #[test]
@@ -422,12 +451,12 @@ mod test {
             .expect_accepted(NEWEST)
             .expect_accepted(OLDER)
             .expect_accepted(NEWER_DROPS_OLDER)
-            .expect_rejected(OLDER, REJECT_TOO_OLD);
+            .expect_too_old(OLDER);
     }
 
     #[test]
     fn jump_beyond_window_clears_all_marks() {
-        let validator = validator();
+        let mut validator = validator();
         validator.expect_accepted(NEWEST);
         for counter in WINDOW_OLDEST..NEWEST {
             validator.expect_accepted(counter);
@@ -445,7 +474,7 @@ mod test {
     #[test]
     fn handle_overflowing_counters() {
         let start = header::Counter::MAX - 3;
-        let validator = validator();
+        let mut validator = validator();
         validator.expect_accepted(start);
 
         for step in 1..10 {

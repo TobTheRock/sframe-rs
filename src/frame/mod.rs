@@ -53,6 +53,7 @@ mod frame_counter;
 mod media_frame;
 mod validation;
 
+// TODO(v2): reexports?
 pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView};
 pub use frame_buffer::{FrameBuffer, Truncate};
 pub use frame_counter::*;
@@ -64,7 +65,10 @@ mod test {
     use super::media_frame::MediaFrameView;
     use crate::{
         CipherSuite,
-        frame::{MonotonicCounter, encrypted_frame::EncryptedFrameView, media_frame::MediaFrame},
+        frame::{
+            MonotonicCounter, NoValidation, encrypted_frame::EncryptedFrameView,
+            media_frame::MediaFrame,
+        },
         key::{DecryptionKey, EncryptionKey},
         util::test::assert_bytes_eq,
     };
@@ -97,6 +101,28 @@ mod test {
         let decrypted_media_frame = encrypted_frame
             .decrypt_into(&dec_key, &mut decrypt_buffer)
             .unwrap();
+
+        assert_eq!(decrypted_media_frame, media_frame);
+    }
+
+    #[test]
+    fn validate_decrypt_frame_view() {
+        let (enc_key, dec_key) = expand_keys();
+        let mut encrypt_buffer = Vec::new();
+        let mut decrypt_buffer = Vec::new();
+        let mut counter = MonotonicCounter::default();
+
+        let media_frame = MediaFrameView::new(&mut counter, PAYLOAD);
+        media_frame
+            .encrypt_into(&enc_key, &mut encrypt_buffer)
+            .unwrap();
+
+        // `NoValidation` accepts everything - RFC 9605 leaves anti-replay to the receiver.
+        let mut validator = NoValidation;
+        let encrypted_frame = EncryptedFrameView::try_new(&encrypt_buffer).unwrap();
+        let decrypted_media_frame = encrypted_frame
+            .validated_decrypt_into(&dec_key, &mut decrypt_buffer, &mut validator)
+            .expect("Expected to decrypt and validate");
 
         assert_eq!(decrypted_media_frame, media_frame);
     }
