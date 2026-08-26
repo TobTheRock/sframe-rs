@@ -89,6 +89,7 @@ impl FrameValidation for ReplayAttackProtectionStore {
         Ok(ReplayStoreToken(screened))
     }
 
+    // TODO(perf): avoid allocs in the hot path
     fn record(&mut self, ReplayStoreToken(screened): Self::Token) {
         let tolerance = self.tolerance;
         let (key_id, token) = match screened {
@@ -217,4 +218,3 @@ mod test {
         ));
     }
 }
-

@@ -26,10 +26,7 @@ impl ReplayAttackProtection {
     pub fn new(key_id: header::KeyId, tolerance: usize) -> Self {
         assert_tolerance(tolerance);
         ReplayAttackProtection {
-            window: Window::Empty(Empty {
-                window: SlidingWindow::new(tolerance),
-                size: tolerance as u64,
-            }),
+            window: Window::new(tolerance),
             key_id,
         }
     }
@@ -91,9 +88,7 @@ impl FrameValidation for ReplayAttackProtection {
             key_id: header.key_id(),
             counter: header.counter(),
         };
-        if let Window::Active(active) = &self.window {
-            active.screen(&token)?;
-        }
+        self.window.screen(&token)?;
 
         Ok(token)
     }
@@ -103,59 +98,25 @@ impl FrameValidation for ReplayAttackProtection {
     }
 }
 
-enum Window {
-    Empty(Empty),
-    Active(Active),
+struct Window {
+    window: SlidingWindow,
+    size: u64,
+    /// Counter mapped to the lowest window index (0). `None` until the first
+    /// recorded frame anchors it, a header alone must not.
+    oldest: Option<header::Counter>,
 }
 
 impl Window {
-    /// Records `counter`, anchoring the window on the first frame.
-    fn record(&mut self, counter: header::Counter) {
-        match self {
-            Window::Active(active) => active.record(counter),
-            Window::Empty(empty) => {
-                // First frame: swap the pre-allocated `Empty` out (the placeholder
-                // holds an empty, non-allocating window) and consume it to anchor.
-                let placeholder = Empty {
-                    window: SlidingWindow::new(0),
-                    size: 0,
-                };
-                let mut active = std::mem::replace(empty, placeholder).anchor(counter);
-                active.record(counter);
-                *self = Window::Active(active);
-            }
+    /// Allocates the ring buffer up front, so recording a frame never does.
+    fn new(tolerance: usize) -> Self {
+        Window {
+            window: SlidingWindow::new(tolerance),
+            size: tolerance as u64,
+            oldest: None,
         }
     }
-}
 
-/// Window before the first frame: the buffer is already allocated, only the
-/// anchor counter is still unknown.
-struct Empty {
-    window: SlidingWindow,
-    size: u64,
-}
-
-impl Empty {
-    /// Consumes the pre-allocated window, anchoring it so `counter` sits in the
-    /// newest slot.
-    fn anchor(self, counter: header::Counter) -> Active {
-        Active {
-            window: self.window,
-            size: self.size,
-            oldest: counter.wrapping_sub(self.size - 1),
-        }
-    }
-}
-
-struct Active {
-    window: SlidingWindow,
-    size: u64,
-    /// Counter mapped to the lowest window index (0).
-    oldest: header::Counter,
-}
-
-impl Active {
-    /// Records `counter` and advances the window.
+    /// Records `counter` and advances the window, anchoring it on the first frame.
     ///
     /// Counters outside the window are dropped instead of reported: only
     /// [`screen`](Self::screen)ed counters get here, and rejecting an already
@@ -187,26 +148,34 @@ impl Active {
         }
     }
 
-    /// The newest accepted counter.
-    fn newest(&self) -> header::Counter {
-        self.oldest.wrapping_add(self.size - 1)
+    /// The newest accepted counter, once the window is anchored.
+    fn newest(&self) -> Option<header::Counter> {
+        Some(self.oldest?.wrapping_add(self.size - 1))
     }
 
     fn is_newer(&self, counter: header::Counter) -> bool {
-        let forward = counter.wrapping_sub(self.newest());
+        // An unanchored window has accepted nothing, so anything is newer.
+        let Some(newest) = self.newest() else {
+            return true;
+        };
+
+        let forward = counter.wrapping_sub(newest);
         forward != 0 && forward <= header::Counter::MAX / 2
     }
 
     fn advance_to(&mut self, counter: header::Counter) {
-        let shift = counter.wrapping_sub(self.newest()).min(self.size);
-        self.window.shift_right(shift as usize);
-        self.oldest = counter.wrapping_sub(self.size - 1);
+        if let Some(newest) = self.newest() {
+            let shift = counter.wrapping_sub(newest).min(self.size);
+            self.window.shift_right(shift as usize);
+        }
+
+        self.oldest = Some(counter.wrapping_sub(self.size - 1));
     }
 
     /// Ring buffer index of `counter` (oldest -> 0), or `None` when it falls
     /// outside the window `[oldest, oldest + size)`.
     fn window_index(&self, counter: header::Counter) -> Option<usize> {
-        let index = counter.wrapping_sub(self.oldest);
+        let index = counter.wrapping_sub(self.oldest?);
         if index < self.size {
             Some(index as usize)
         } else {
