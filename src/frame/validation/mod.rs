@@ -2,12 +2,13 @@ use crate::header::SframeHeader;
 
 mod replay_attack_protection;
 mod replay_attack_protection_store;
+mod replay_token;
 mod sliding_window;
+mod util;
 
-pub use replay_attack_protection::{
-    ReplayAttackProtection, ReplayAttackProtectionError, ReplayToken,
-};
-pub use replay_attack_protection_store::ReplayAttackProtectionStore;
+pub use replay_attack_protection::{ReplayAttackProtection, ReplayAttackProtectionError};
+pub use replay_attack_protection_store::{ReplayAttackProtectionStore, ReplayStoreToken};
+pub use replay_token::ReplayToken;
 
 /// Screens frames before decryption, records them after.
 ///
@@ -81,32 +82,5 @@ impl<'frame> UnvalidatedFrame<'frame> {
     /// The AAD supplied by the caller, e.g. an RTP header.
     pub fn meta_data(&self) -> &'frame [u8] {
         self.meta_data
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::header::{Counter, KeyId};
-
-    /// Screens a frame of `key_id`, without recording it.
-    pub fn screen<V: FrameValidation>(
-        validator: &V,
-        key_id: KeyId,
-        counter: Counter,
-    ) -> Result<V::Token, V::Error> {
-        let header = SframeHeader::new(key_id, counter);
-        validator.screen(UnvalidatedFrame::new(&header, &[]))
-    }
-
-    /// Screens a frame of `key_id` and records it, as a frame which decrypted.
-    pub fn screen_and_record<V: FrameValidation>(
-        validator: &mut V,
-        key_id: KeyId,
-        counter: Counter,
-    ) -> Result<(), V::Error> {
-        let token = screen(validator, key_id, counter)?;
-        validator.record(token);
-        Ok(())
     }
 }

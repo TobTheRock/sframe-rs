@@ -3,73 +3,46 @@ use crate::{
     header,
 };
 
-use super::UnvalidatedFrame;
+use super::{ReplayToken, UnvalidatedFrame, util::assert_tolerance};
 
 /// This implementation allows to detect replay attacks by omitting frames with
 /// to old frame counters, see [RFC 9605 9.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-anti-replay).
 /// The window of allowed frame counts is given with a certain tolerance.
+///
+/// Protects a single sender, rejecting frames of any other key id. Use
+/// [`ReplayAttackProtectionStore`](super::ReplayAttackProtectionStore) to track
+/// several senders.
 pub struct ReplayAttackProtection {
     window: Window,
-    key_id: Option<header::KeyId>,
+    key_id: header::KeyId,
 }
 
 impl ReplayAttackProtection {
-    /// creates a [`ReplayAttackProtection`] with a given tolerance for the frame count
+    /// Creates a [`ReplayAttackProtection`] for the sender `key_id`, with a given
+    /// tolerance for the frame count.
     ///
     /// # Panics
-    /// Panics if `tolerance` is `0` or exceeds the platform's `usize` range.
-    // TODO(v2): Tolerance should be usize
-    pub fn with_tolerance(tolerance: u64) -> Self {
-        assert!(tolerance > 0, "Tolerance must be greater than 0");
-        let size: usize = tolerance
-            .try_into()
-            .expect("Tolerance exceeds OS capabilities");
+    /// Panics if `tolerance` is `0` or exceeds `header::Counter::MAX / 2`.
+    pub fn new(key_id: header::KeyId, tolerance: usize) -> Self {
+        assert_tolerance(tolerance);
         ReplayAttackProtection {
             window: Window::Empty(Empty {
-                window: SlidingWindow::new(size),
-                size: size as u64,
+                window: SlidingWindow::new(tolerance),
+                size: tolerance as u64,
             }),
-            key_id: None,
+            key_id,
         }
     }
 
-    /// Associates the protection with a single sender.
-    /// Headers with a different key id are then rejected, leaving the window untouched.
-    pub fn for_key_id(self, key_id: header::KeyId) -> Self {
-        ReplayAttackProtection {
-            key_id: Some(key_id),
-            ..self
-        }
-    }
-
-    /// Rejects headers of another sender, if associated with a key id.
+    /// Rejects headers of another sender, leaving the window untouched.
     fn verify_key_id(&self, key_id: header::KeyId) -> Result<(), ReplayAttackProtectionError> {
-        match self.key_id {
-            Some(expected) if key_id != expected => {
-                Err(ReplayAttackProtectionError::KeyIdMismatch { key_id, expected })
-            }
-            _ => Ok(()),
+        if key_id != self.key_id {
+            return Err(ReplayAttackProtectionError::KeyIdMismatch {
+                key_id,
+                expected: self.key_id,
+            });
         }
-    }
-}
-
-/// Evidence that a frame passed the replay check, carrying the screened counter
-/// so [`FrameValidation::record`] records it without re-reading an attacker
-/// controlled header.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ReplayToken {
-    key_id: header::KeyId,
-    counter: header::Counter,
-}
-
-impl ReplayToken {
-    pub(super) fn new(key_id: header::KeyId, counter: header::Counter) -> Self {
-        Self { key_id, counter }
-    }
-
-    /// The sender the screened frame belongs to.
-    pub(super) fn key_id(&self) -> header::KeyId {
-        self.key_id
+        Ok(())
     }
 }
 
@@ -114,7 +87,10 @@ impl FrameValidation for ReplayAttackProtection {
         let header = unvalidated.header();
         self.verify_key_id(header.key_id())?;
 
-        let token = ReplayToken::new(header.key_id(), header.counter());
+        let token = ReplayToken {
+            key_id: header.key_id(),
+            counter: header.counter(),
+        };
         if let Window::Active(active) = &self.window {
             active.screen(&token)?;
         }
@@ -242,27 +218,28 @@ impl Active {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::frame::validation::test::{screen, screen_and_record};
+    use crate::frame::validation::util::test::{screen, screen_and_record};
     use ReplayAttackProtectionError::*;
 
     const KID: header::KeyId = 23456789;
-    const TOLERANCE: u64 = 128;
+    const TOLERANCE: usize = 128;
+    const SPAN: u64 = TOLERANCE as u64; // the tolerance, as a counter distance
 
     // A reference window `[WINDOW_OLDEST, NEWEST]`, spanning TOLERANCE counters.
     const NEWEST: u64 = 2480;
-    const WINDOW_OLDEST: u64 = NEWEST - (TOLERANCE - 1);
-    const TOO_OLD: u64 = NEWEST - TOLERANCE; // one counter past the oldest edge
+    const WINDOW_OLDEST: u64 = NEWEST - (SPAN - 1);
+    const TOO_OLD: u64 = NEWEST - SPAN; // one counter past the oldest edge
     const OLDER: u64 = NEWEST - 80; // an arbitrary counter well inside the window
 
     // Newer frames that advance the window, named by their effect on OLDER.
     const NEWER_KEEPS_OLDER: u64 = NEWEST + 20;
     const NEWER_DROPS_OLDER: u64 = NEWEST + 60;
-    const FULL_WINDOW_JUMP: u64 = NEWEST + TOLERANCE; // shift >= size, wipes all marks
+    const FULL_WINDOW_JUMP: u64 = NEWEST + SPAN; // shift >= size, wipes all marks
 
     const OTHER_KID: header::KeyId = KID + 1;
 
     fn validator() -> Fixture {
-        Fixture(ReplayAttackProtection::with_tolerance(TOLERANCE))
+        Fixture(ReplayAttackProtection::new(KID, TOLERANCE))
     }
 
     struct Fixture(ReplayAttackProtection);
@@ -339,14 +316,14 @@ mod test {
 
     #[test]
     fn accepts_the_associated_key_id() {
-        let mut validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
+        let mut validator = ReplayAttackProtection::new(KID, TOLERANCE);
 
         assert!(screen_and_record(&mut validator, KID, NEWEST).is_ok());
     }
 
     #[test]
     fn rejects_another_key_id() {
-        let validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
+        let validator = ReplayAttackProtection::new(KID, TOLERANCE);
 
         assert_eq!(
             screen(&validator, OTHER_KID, NEWEST),
@@ -359,27 +336,12 @@ mod test {
 
     #[test]
     fn another_key_id_does_not_record_the_counter() {
-        let mut validator = ReplayAttackProtection::with_tolerance(TOLERANCE).for_key_id(KID);
+        let mut validator = ReplayAttackProtection::new(KID, TOLERANCE);
 
         let _ = screen(&validator, OTHER_KID, NEWEST);
 
         // A foreign sender must not be able to consume counters of the associated one.
         assert!(screen_and_record(&mut validator, KID, NEWEST).is_ok());
-    }
-
-    #[test]
-    fn without_an_associated_key_id_every_sender_shares_the_window() {
-        let mut validator = ReplayAttackProtection::with_tolerance(TOLERANCE);
-
-        assert!(screen_and_record(&mut validator, KID, NEWEST).is_ok());
-        assert_eq!(
-            screen(&validator, OTHER_KID, NEWEST),
-            Err(DuplicatedFrame {
-                key_id: OTHER_KID,
-                counter: NEWEST
-            }),
-            "the counter is shared, no matter the sender"
-        );
     }
 
     #[test]

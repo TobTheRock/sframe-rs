@@ -30,7 +30,7 @@ impl Default for ReceiverOptions {
     fn default() -> Self {
         Self {
             cipher_suite: CipherSuite::AesGcm256Sha512,
-            frame_validation: ReplayAttackProtectionStore::with_tolerance(128),
+            frame_validation: ReplayAttackProtectionStore::new(128),
             n_ratchet_bits: N_RATCHET_BITS,
         }
     }

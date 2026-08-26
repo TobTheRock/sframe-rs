@@ -4,7 +4,7 @@ use crate::{
 };
 use std::collections::HashMap;
 
-use super::{ReplayAttackProtectionError, ReplayToken, UnvalidatedFrame};
+use super::{ReplayAttackProtectionError, ReplayToken, UnvalidatedFrame, util::assert_tolerance};
 
 /// Tracks replay protection per key id, keeping a [`ReplayAttackProtection`] for
 /// each of them, see [RFC 9605 9.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-anti-replay).
@@ -14,7 +14,7 @@ use super::{ReplayAttackProtectionError, ReplayToken, UnvalidatedFrame};
 /// note that a sender may use a set of key ids, e.g. when ratcheting.
 pub struct ReplayAttackProtectionStore {
     validators: HashMap<header::KeyId, ReplayAttackProtection>,
-    tolerance: u64,
+    tolerance: usize,
 }
 
 impl ReplayAttackProtectionStore {
@@ -22,13 +22,10 @@ impl ReplayAttackProtectionStore {
     /// frame count.
     ///
     /// # Panics
-    /// Panics if `tolerance` is `0` or exceeds the platform's `usize` range.
-    // TODO(v2): tolerance should be usize or generic
-    pub fn with_tolerance(tolerance: u64) -> Self {
-        assert!(tolerance > 0, "Tolerance must be greater than 0");
-        let _: usize = tolerance
-            .try_into()
-            .expect("Tolerance exceeds OS capabilities");
+    /// Panics if `tolerance` is `0` or exceeds `header::Counter::MAX / 2`.
+    pub fn new(tolerance: usize) -> Self {
+        // Up front, so a bad tolerance does not panic on the first recorded frame.
+        assert_tolerance(tolerance);
 
         ReplayAttackProtectionStore {
             validators: HashMap::new(),
@@ -44,8 +41,7 @@ impl ReplayAttackProtectionStore {
         self.validators.remove(&key_id.into()).is_some()
     }
 
-    /// Stops tracking every key id which does not match the predicate, e.g. to
-    /// drop all ratchet steps belonging to one key generation.
+    /// Stops tracking every key id which does not match the predicate
     pub fn retain<F>(&mut self, mut keep: F)
     where
         F: FnMut(header::KeyId) -> bool,
@@ -54,8 +50,26 @@ impl ReplayAttackProtectionStore {
     }
 }
 
+/// Evidence that a frame passed the store's replay check, recordable only by a
+/// [`ReplayAttackProtectionStore`]. Drop it to discard the screened frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReplayStoreToken(Screened);
+
+/// What screening found: a key id either has a window which accepted the frame,
+/// or none to screen it against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Screened {
+    /// Accepted by the window of a tracked key id.
+    Tracked(ReplayToken),
+    /// The key id has no window yet, so nothing was screened.
+    Untracked {
+        key_id: header::KeyId,
+        counter: header::Counter,
+    },
+}
+
 impl FrameValidation for ReplayAttackProtectionStore {
-    type Token = ReplayToken;
+    type Token = ReplayStoreToken;
 
     type Error = ReplayAttackProtectionError;
 
@@ -64,17 +78,27 @@ impl FrameValidation for ReplayAttackProtectionStore {
     /// anyone could grow the store with forged headers.
     fn screen(&self, unvalidated: UnvalidatedFrame<'_>) -> Result<Self::Token, Self::Error> {
         let header = unvalidated.header();
-        match self.validators.get(&header.key_id()) {
-            Some(validator) => validator.screen(unvalidated),
-            None => Ok(ReplayToken::new(header.key_id(), header.counter())),
-        }
+        let screened = match self.validators.get(&header.key_id()) {
+            Some(validator) => Screened::Tracked(validator.screen(unvalidated)?),
+            None => Screened::Untracked {
+                key_id: header.key_id(),
+                counter: header.counter(),
+            },
+        };
+
+        Ok(ReplayStoreToken(screened))
     }
 
-    fn record(&mut self, token: Self::Token) {
+    fn record(&mut self, ReplayStoreToken(screened): Self::Token) {
         let tolerance = self.tolerance;
+        let (key_id, token) = match screened {
+            Screened::Tracked(token) => (token.key_id, token),
+            Screened::Untracked { key_id, counter } => (key_id, ReplayToken { key_id, counter }),
+        };
+
         self.validators
-            .entry(token.key_id())
-            .or_insert_with(|| ReplayAttackProtection::with_tolerance(tolerance))
+            .entry(key_id)
+            .or_insert_with(|| ReplayAttackProtection::new(key_id, tolerance))
             .record(token);
     }
 }
@@ -82,16 +106,16 @@ impl FrameValidation for ReplayAttackProtectionStore {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::frame::validation::test::{screen, screen_and_record};
+    use crate::frame::validation::util::test::{screen, screen_and_record};
     use ReplayAttackProtectionError::DuplicatedFrame;
 
-    const TOLERANCE: u64 = 128;
+    const TOLERANCE: usize = 128;
     const KID_A: header::KeyId = 1;
     const KID_B: header::KeyId = 2;
     const COUNTER: header::Counter = 2480;
 
     fn store() -> ReplayAttackProtectionStore {
-        ReplayAttackProtectionStore::with_tolerance(TOLERANCE)
+        ReplayAttackProtectionStore::new(TOLERANCE)
     }
 
     #[test]
@@ -193,3 +217,4 @@ mod test {
         ));
     }
 }
+
