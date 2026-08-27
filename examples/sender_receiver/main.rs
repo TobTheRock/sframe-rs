@@ -96,11 +96,19 @@ fn main() {
         let encrypted = sender.encrypt(line, 0).unwrap();
         display_encrypted(encrypted);
 
-        let decrypted = receiver.decrypt(encrypted, 0).unwrap();
-        println!("- Decrypted {}", bin2string(decrypted));
+        decrypt_and_display(&mut receiver, encrypted);
+        // just to demonstrate the replay protection, the very same frame is fed in again
+        decrypt_and_display(&mut receiver, encrypted);
 
         print_before_input();
     });
+}
+
+fn decrypt_and_display(receiver: &mut Receiver, encrypted: &[u8]) {
+    match receiver.decrypt(encrypted, 0).unwrap() {
+        Some(decrypted) => println!("- Decrypted {}", bin2string(decrypted)),
+        None => println!("- Dropped replayed frame"),
+    }
 }
 
 fn display_encrypted(encrypted: &[u8]) {

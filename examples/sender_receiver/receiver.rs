@@ -1,7 +1,7 @@
 use sframe::{
     CipherSuite,
     error::Result,
-    frame::{EncryptedFrameView, ReplayAttackProtectionStore},
+    frame::{EncryptedFrameView, ReplayAttackProtectionError, ReplayAttackProtectionStore},
     header::KeyId,
     ratchet::{RatchetingKeyId, RatchetingKeyStore},
 };
@@ -50,12 +50,14 @@ pub struct Receiver {
 impl Receiver {
     /// Tries to decrypt an incoming encrypted frame, returning a slice to the decrypted data on success.
     /// The first `skip` bytes are assumed to be not encrypted (e.g. another header) and are only used as AAD for authentification
+    ///
+    /// Returns [`None`] if the frame was dropped as a replay.
     /// May fail with
     /// - [`SframeError::MissingDecryptionKey`]
     /// - [`SframeError::DecryptionFailure`]
     /// - [`SframeError::FrameValidationFailed`]
     /// - [`SframeError::InvalidBuffer`]
-    pub fn decrypt<F>(&mut self, encrypted_frame: F, skip: usize) -> Result<&[u8]>
+    pub fn decrypt<F>(&mut self, encrypted_frame: F, skip: usize) -> Result<Option<&[u8]>>
     where
         F: AsRef<[u8]>,
     {
@@ -77,19 +79,44 @@ impl Receiver {
             ratcheted_away_from = previous_key_id;
         }
 
-        // MediaFrameView can be used to access the payload, meta data and the associated counter of the frame
-        let _media_frame = encrypted_frame.validated_decrypt_into(
-            &self.keys,
-            &mut self.buffer,
-            &mut self.frame_validation,
-        )?;
+        // MediaFrameView can be used to access the payload, meta data and the associated counter of
+        // the frame - it borrows the buffer, which is read back below instead
+        let decrypted = encrypted_frame
+            .validated_decrypt_into(&self.keys, &mut self.buffer, &mut self.frame_validation)
+            .map(|_media_frame| ());
 
-        // Remove stale KIDs to avoid memory growth (assuming in order packet delivery)
-        if let Some(key_id) = ratcheted_away_from {
-            self.frame_validation.remove(key_id);
+        let error = match decrypted {
+            Ok(()) => {
+                // Remove stale KIDs to avoid memory growth (assuming in order packet delivery).
+                // Only once a frame of the new KID decrypted, an unauthenticated header must not
+                // drop the window of the previous one.
+                if let Some(key_id) = ratcheted_away_from {
+                    self.frame_validation.remove(key_id);
+                }
+
+                return Ok(Some(&self.buffer));
+            }
+            Err(error) => error,
+        };
+
+        // The validator reports through an error type of its own choice, which SframeError
+        // boxes - name it again to get the rejection back
+        match error.source_as::<ReplayAttackProtectionError>().copied() {
+            // A duplicate is normal traffic on a lossy transport, dropping it keeps the session
+            Some(ReplayAttackProtectionError::DuplicatedFrame { key_id, counter }) => {
+                log::debug!("[receiver] Dropping duplicated frame {counter} of key id {key_id}");
+                Ok(None)
+            }
+            // Too old to tell apart from a duplicate, so it is dropped just the same
+            Some(ReplayAttackProtectionError::CounterTooOld { key_id, counter }) => {
+                log::debug!("[receiver] Dropping outdated frame {counter} of key id {key_id}");
+                Ok(None)
+            }
+            // The store screens per key id, so its validators never see a foreign one
+            Some(ReplayAttackProtectionError::KeyIdMismatch { .. }) => Err(error),
+            // Not a rejection: no key, no valid buffer, or the frame did not authenticate
+            None => Err(error),
         }
-
-        Ok(&self.buffer)
     }
 
     /// Tries to expand (HKDF) the necessary encryptions key using the key id and the key material,
