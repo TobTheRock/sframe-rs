@@ -1,7 +1,10 @@
 use sframe::{
     CipherSuite,
     error::Result,
-    frame::{EncryptedFrameView, ReplayAttackProtectionError, ReplayAttackProtectionStore},
+    frame::{
+        EncryptedFrameView,
+        validation::{ReplayAttackProtectionError, ReplayAttackProtectionStore},
+    },
     header::KeyId,
     ratchet::{RatchetingKeyId, RatchetingKeyStore},
 };

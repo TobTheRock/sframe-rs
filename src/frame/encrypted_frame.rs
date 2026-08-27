@@ -5,14 +5,14 @@ use crate::{
         key_derivation::KeyDerivation,
     },
     error::{Result, SframeError},
-    frame::UnvalidatedFrame,
     header::SframeHeader,
     key::KeyStore,
 };
 
 use super::{
-    FrameBuffer, FrameValidation,
+    FrameBuffer,
     media_frame::{MediaFrame, MediaFrameView},
+    validation::{FrameValidation, UnvalidatedFrame},
 };
 /// A view on a buffer which contains an encrypted frame in the format as of [RFC 9605 4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.2).
 /// The frame is assumed to be stored in the buffer as follows:

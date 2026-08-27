@@ -51,14 +51,15 @@ mod encrypted_frame;
 mod frame_buffer;
 mod frame_counter;
 mod media_frame;
-mod validation;
 
-// TODO(v2): reexports?
+/// Screening frames before decryption and recording them after, e.g. to protect
+/// against replay attacks.
+pub mod validation;
+
 pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView};
 pub use frame_buffer::{FrameBuffer, Truncate};
-pub use frame_counter::*;
+pub use frame_counter::{FrameCounter, MonotonicCounter};
 pub use media_frame::{MediaFrame, MediaFrameView};
-pub use validation::*;
 
 #[cfg(all(test, crypto_backend))]
 mod test {
@@ -66,8 +67,8 @@ mod test {
     use crate::{
         CipherSuite,
         frame::{
-            MonotonicCounter, NoValidation, encrypted_frame::EncryptedFrameView,
-            media_frame::MediaFrame,
+            MonotonicCounter, encrypted_frame::EncryptedFrameView, media_frame::MediaFrame,
+            validation::NoValidation,
         },
         key::{DecryptionKey, EncryptionKey},
         util::test::assert_bytes_eq,

@@ -1,9 +1,9 @@
-use crate::{
-    frame::{FrameValidation, validation::sliding_window::SlidingWindow},
-    header,
-};
+use crate::header;
 
-use super::{ReplayToken, UnvalidatedFrame, util::assert_tolerance};
+use super::{
+    FrameValidation, ReplayToken, UnvalidatedFrame, sliding_window::SlidingWindow,
+    util::assert_tolerance,
+};
 
 /// This implementation allows to detect replay attacks by omitting frames with
 /// to old frame counters, see [RFC 9605 9.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-anti-replay).

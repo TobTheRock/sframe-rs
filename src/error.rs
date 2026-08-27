@@ -48,7 +48,7 @@ pub enum SframeError {
 
 impl SframeError {
     /// Recovers the error of a custom component, e.g. the rejection of a
-    /// [`FrameValidation`](crate::frame::FrameValidation).
+    /// [`FrameValidation`](crate::frame::validation::FrameValidation).
     ///
     /// Name the type you installed to get its error back, [`None`] if this error
     /// came from elsewhere.
