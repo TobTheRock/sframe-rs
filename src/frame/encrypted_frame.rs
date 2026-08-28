@@ -135,21 +135,6 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         self.validated(validator, || self.decrypt(key_store))
     }
 
-    /// Screens the frame, decrypts it and records it only if that succeeded.
-    fn validated<V, T>(&self, validator: &mut V, decrypt: impl FnOnce() -> Result<T>) -> Result<T>
-    where
-        V: FrameValidation,
-    {
-        log::trace!("Validating EncryptedFrame # {}", self.header.counter());
-        let token = validator
-            .screen(UnvalidatedFrame::from(self))
-            .map_err(validation_failed)?;
-        let decrypted = decrypt()?;
-        validator.record(token);
-
-        Ok(decrypted)
-    }
-
     /// Tries to decrypt the encrypted frame with a key from the provided key store and stores the result
     /// into the provided buffer. On success an [`MediaFrameView`] on the buffer is returned.
     /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
@@ -210,6 +195,21 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         V: FrameValidation,
     {
         self.validated(validator, || self.decrypt_into(key_store, buffer))
+    }
+
+    /// Screens the frame, decrypts it and records it only if that succeeded.
+    fn validated<V, T>(&self, validator: &mut V, decrypt: impl FnOnce() -> Result<T>) -> Result<T>
+    where
+        V: FrameValidation,
+    {
+        log::trace!("Validating EncryptedFrame # {}", self.header.counter());
+        let token = validator
+            .screen(UnvalidatedFrame::from(self))
+            .map_err(validation_failed)?;
+        let decrypted = decrypt()?;
+        validator.record(token);
+
+        Ok(decrypted)
     }
 }
 
