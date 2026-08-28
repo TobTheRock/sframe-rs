@@ -5,6 +5,7 @@ use std::{
     io::{self, BufRead, Write as _},
 };
 
+mod channel;
 mod receiver;
 mod sender;
 
@@ -14,6 +15,7 @@ mod sender;
 /// next key generation after 16 steps, so a short session already shows a rollover.
 pub const N_RATCHET_BITS: u8 = 4;
 
+use channel::{Disturbance, UnreliableChannel};
 use clap::{Parser, ValueEnum};
 use receiver::{Receiver, ReceiverOptions};
 use sender::{Sender, SenderOptions};
@@ -31,6 +33,7 @@ fn main() {
         max_counter,
         secret,
         n_ratchet_bits,
+        disturbance,
     } = Args::parse();
 
     println!("- Using cipher suite {cipher_suite:?}, key id {key_id}, secret {secret}");
@@ -65,6 +68,12 @@ fn main() {
     let mut receiver = Receiver::from(receiver_options);
     receiver.set_encryption_key(key_id, &secret).unwrap();
 
+    println!(
+        "- Dropping {}%, duplicating {}% and delaying {}% of the packets",
+        disturbance.drop, disturbance.duplicate, disturbance.delay
+    );
+    let mut channel = UnreliableChannel::new(disturbance);
+
     let print_before_input = || {
         println!("--------------------------------------------------------------------------");
         println!("- Enter a phrase to be encrypted, confirm with [ENTER], abort with [CTRL+C]");
@@ -96,18 +105,23 @@ fn main() {
         let encrypted = sender.encrypt(line, 0).unwrap();
         display_encrypted(encrypted);
 
-        decrypt_and_display(&mut receiver, encrypted);
-        // just to demonstrate the replay protection, the very same frame is fed in again
-        decrypt_and_display(&mut receiver, encrypted);
+        let (transmission, arriving) = channel.transmit(encrypted);
+        println!("- Transmitting over an unreliable channel: {transmission:?}");
+
+        for packet in arriving {
+            decrypt_and_display(&mut receiver, &packet);
+        }
 
         print_before_input();
     });
 }
 
 fn decrypt_and_display(receiver: &mut Receiver, encrypted: &[u8]) {
-    match receiver.decrypt(encrypted, 0).unwrap() {
-        Some(decrypted) => println!("- Decrypted {}", bin2string(decrypted)),
-        None => println!("- Dropped replayed frame"),
+    match receiver.decrypt(encrypted, 0) {
+        Ok(Some(decrypted)) => println!("- Decrypted {}", bin2string(decrypted)),
+        Ok(None) => println!("- Dropped a replayed frame"),
+        // e.g. a delayed frame outliving the key it was encrypted with
+        Err(error) => println!("- Could not decrypt: {error}"),
     }
 }
 
@@ -142,6 +156,8 @@ struct Args {
     secret: String,
     #[arg(short, long, default_value_t = N_RATCHET_BITS)]
     n_ratchet_bits: u8,
+    #[command(flatten)]
+    disturbance: Disturbance,
 }
 
 // We need to redeclare here, as we need to derive ValueEnum to use it with clap...
