@@ -15,6 +15,7 @@ mod sender;
 /// next key generation after 16 steps, so a short session already shows a rollover.
 pub const N_RATCHET_BITS: u8 = 4;
 
+use cgisf_lib::{SentenceConfigBuilder, gen_sentence};
 use channel::{Disturbance, UnreliableChannel};
 use clap::{Parser, ValueEnum};
 use receiver::{Receiver, ReceiverOptions};
@@ -34,6 +35,7 @@ fn main() {
         secret,
         n_ratchet_bits,
         disturbance,
+        auto,
     } = Args::parse();
 
     println!("- Using cipher suite {cipher_suite:?}, key id {key_id}, secret {secret}");
@@ -74,8 +76,11 @@ fn main() {
     );
     let mut channel = UnreliableChannel::new(disturbance);
 
-    let print_before_input = || {
+    let print_before_input = move || {
         println!("--------------------------------------------------------------------------");
+        if auto.is_some() {
+            return;
+        }
         println!("- Enter a phrase to be encrypted, confirm with [ENTER], abort with [CTRL+C]");
         print!("- To be encrypted:  ");
         std::io::stdout().flush().unwrap();
@@ -83,12 +88,20 @@ fn main() {
 
     print_before_input();
 
-    let stdin = io::stdin();
-    let lines = stdin
-        .lock()
-        .lines()
-        .take_while(Result::is_ok)
-        .map(Result::unwrap);
+    let lines: Box<dyn Iterator<Item = String>> = match auto {
+        Some(n_frames) => Box::new((0..n_frames).map(|_| {
+            let sentence = gen_sentence(SentenceConfigBuilder::random().build());
+            println!("- Generated \"{sentence}\"");
+            sentence
+        })),
+        None => Box::new(
+            io::stdin()
+                .lock()
+                .lines()
+                .take_while(Result::is_ok)
+                .map(Result::unwrap),
+        ),
+    };
 
     lines.for_each(|line| {
         // just to demonstrate the functionality, ratcheting should only take place if a new receiver joins
@@ -158,6 +171,9 @@ struct Args {
     n_ratchet_bits: u8,
     #[command(flatten)]
     disturbance: Disturbance,
+    /// Encrypt that many generated sentences instead of reading from stdin
+    #[arg(short, long, value_name = "N_FRAMES")]
+    auto: Option<usize>,
 }
 
 // We need to redeclare here, as we need to derive ValueEnum to use it with clap...
