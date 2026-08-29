@@ -5,9 +5,18 @@ use std::{
     io::{self, BufRead, Write as _},
 };
 
+mod channel;
 mod receiver;
 mod sender;
 
+/// Bits of the key id which hold the ratchet step, see [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1).
+///
+/// Four leaves the ratchet step in the low nibble of the key id and wraps into the
+/// next key generation after 16 steps, so a short session already shows a rollover.
+pub const N_RATCHET_BITS: u8 = 4;
+
+use cgisf_lib::{SentenceConfigBuilder, gen_sentence};
+use channel::{Disturbance, UnreliableChannel};
 use clap::{Parser, ValueEnum};
 use receiver::{Receiver, ReceiverOptions};
 use sender::{Sender, SenderOptions};
@@ -25,6 +34,8 @@ fn main() {
         max_counter,
         secret,
         n_ratchet_bits,
+        disturbance,
+        auto,
     } = Args::parse();
 
     println!("- Using cipher suite {cipher_suite:?}, key id {key_id}, secret {secret}");
@@ -36,18 +47,12 @@ fn main() {
 
     let cipher_suite = cipher_suite.into();
 
-    let (mut base_key, key_id) = if let Some(n_ratchet_bits) = n_ratchet_bits {
-        // just to demonstrate the functionality, ratcheting should only take place if a new receiver joins
-        println!("- Using {n_ratchet_bits} bits for the ratcheting step");
-
-        let r = RatchetingKeyId::new(key_id, n_ratchet_bits);
-        let base_key =
-            RatchetingBaseKey::ratchet_forward(r, secret.as_bytes(), cipher_suite).unwrap();
-
-        (Some(base_key), r.into())
-    } else {
-        (None, key_id)
-    };
+    println!("- Using {n_ratchet_bits} bits for the ratcheting step");
+    let ratcheting_key_id = RatchetingKeyId::new(key_id, n_ratchet_bits);
+    let mut base_key =
+        RatchetingBaseKey::ratchet_forward(ratcheting_key_id, secret.as_bytes(), cipher_suite)
+            .unwrap();
+    let key_id = ratcheting_key_id.into();
 
     let sender_options = SenderOptions {
         key_id,
@@ -59,14 +64,23 @@ fn main() {
 
     let receiver_options = ReceiverOptions {
         cipher_suite,
-        frame_validation: None,
         n_ratchet_bits,
+        ..Default::default()
     };
     let mut receiver = Receiver::from(receiver_options);
     receiver.set_encryption_key(key_id, &secret).unwrap();
 
-    let print_before_input = || {
+    println!(
+        "- Dropping {}%, duplicating {}% and delaying {}% of the packets",
+        disturbance.drop, disturbance.duplicate, disturbance.delay
+    );
+    let mut channel = UnreliableChannel::new(disturbance);
+
+    let print_before_input = move || {
         println!("--------------------------------------------------------------------------");
+        if auto.is_some() {
+            return;
+        }
         println!("- Enter a phrase to be encrypted, confirm with [ENTER], abort with [CTRL+C]");
         print!("- To be encrypted:  ");
         std::io::stdout().flush().unwrap();
@@ -74,35 +88,54 @@ fn main() {
 
     print_before_input();
 
-    let stdin = io::stdin();
-    let lines = stdin
-        .lock()
-        .lines()
-        .take_while(Result::is_ok)
-        .map(Result::unwrap);
+    let lines: Box<dyn Iterator<Item = String>> = match auto {
+        Some(n_frames) => Box::new((0..n_frames).map(|_| {
+            let sentence = gen_sentence(SentenceConfigBuilder::random().build());
+            println!("- Generated \"{sentence}\"");
+            sentence
+        })),
+        None => Box::new(
+            io::stdin()
+                .lock()
+                .lines()
+                .take_while(Result::is_ok)
+                .map(Result::unwrap),
+        ),
+    };
 
     lines.for_each(|line| {
-        if n_ratchet_bits.is_some() {
-            let base_key = base_key.as_mut().unwrap();
-            let (new_key_id, key_material) = base_key.next_base_key().unwrap();
-            println!(
-                "- Ratcheting sender key, ratcheting step: {}",
-                new_key_id.ratchet_step()
-            );
-            sender
-                .ratchet_encryption_key(new_key_id, &key_material)
-                .unwrap();
-        }
+        // just to demonstrate the functionality, ratcheting should only take place if a new receiver joins
+        let (new_key_id, key_material) = base_key.next_base_key().unwrap();
+        println!(
+            "- Ratcheting sender key, ratcheting step: {}",
+            new_key_id.ratchet_step()
+        );
+        sender
+            .ratchet_encryption_key(new_key_id, &key_material)
+            .unwrap();
 
         println!("- Encrypting {}", bin2string(line.as_bytes()));
         let encrypted = sender.encrypt(line, 0).unwrap();
         display_encrypted(encrypted);
 
-        let decrypted = receiver.decrypt(encrypted, 0).unwrap();
-        println!("- Decrypted {}", bin2string(decrypted));
+        let (transmission, arriving) = channel.transmit(encrypted);
+        println!("- Transmitting over an unreliable channel: {transmission:?}");
+
+        for packet in arriving {
+            decrypt_and_display(&mut receiver, &packet);
+        }
 
         print_before_input();
     });
+}
+
+fn decrypt_and_display(receiver: &mut Receiver, encrypted: &[u8]) {
+    match receiver.decrypt(encrypted, 0) {
+        Ok(Some(decrypted)) => println!("- Decrypted {}", bin2string(decrypted)),
+        Ok(None) => println!("- Dropped a replayed frame"),
+        // e.g. a delayed frame outliving the key it was encrypted with
+        Err(error) => println!("- Could not decrypt: {error}"),
+    }
 }
 
 fn display_encrypted(encrypted: &[u8]) {
@@ -134,8 +167,13 @@ struct Args {
     max_counter: u64,
     #[arg(short, long, default_value = "SUPER_SECRET")]
     secret: String,
-    #[arg(short, long)]
-    n_ratchet_bits: Option<u8>,
+    #[arg(short, long, default_value_t = N_RATCHET_BITS)]
+    n_ratchet_bits: u8,
+    #[command(flatten)]
+    disturbance: Disturbance,
+    /// Encrypt that many generated sentences instead of reading from stdin
+    #[arg(short, long, value_name = "N_FRAMES")]
+    auto: Option<usize>,
 }
 
 // We need to redeclare here, as we need to derive ValueEnum to use it with clap...

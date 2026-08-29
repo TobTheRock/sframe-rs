@@ -1,14 +1,15 @@
-use std::collections::HashMap;
-
 use sframe::{
     CipherSuite,
-    crypto::{Aead, Kdf},
-    error::Result,
-    frame::{EncryptedFrameView, FrameValidation, ReplayAttackProtectionStore},
+    error::{Result, SframeError},
+    frame::{
+        EncryptedFrameView,
+        validation::{ReplayAttackProtectionError, ReplayAttackProtectionStore},
+    },
     header::KeyId,
-    key::{DecryptionKey, KeyStore},
     ratchet::{RatchetingKeyId, RatchetingKeyStore},
 };
+
+use crate::N_RATCHET_BITS;
 
 /// options for the decryption block,
 /// allows to create a [Receiver] object using [Into]/[From]
@@ -17,23 +18,23 @@ pub struct ReceiverOptions {
     ///
     /// default: [`CipherSuite::AesGcm256Sha512`]
     pub cipher_suite: CipherSuite,
-    /// optional replay protection, screening frames before and recording them after decryption
+    /// replay protection, screening frames before and recording them after decryption
     ///
     /// default: [`ReplayAttackProtectionStore`] with tolerance `128`
-    pub frame_validation: Option<ReplayAttackProtectionStore>,
-    /// optional ratcheting support as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1),
+    pub frame_validation: ReplayAttackProtectionStore,
+    /// ratcheting as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1),
     /// using `n_ratchet_bits` to depict the Ratchet Step
     ///
-    /// default: [None]
-    pub n_ratchet_bits: Option<u8>,
+    /// default: [`N_RATCHET_BITS`]
+    pub n_ratchet_bits: u8,
 }
 
 impl Default for ReceiverOptions {
     fn default() -> Self {
         Self {
             cipher_suite: CipherSuite::AesGcm256Sha512,
-            frame_validation: Some(ReplayAttackProtectionStore::with_tolerance(128)),
-            n_ratchet_bits: None,
+            frame_validation: ReplayAttackProtectionStore::new(128),
+            n_ratchet_bits: N_RATCHET_BITS,
         }
     }
 }
@@ -41,23 +42,25 @@ impl Default for ReceiverOptions {
 /// Models the sframe decryption block in the receiver path, see [RFC 9605 4.1](https://www.rfc-editor.org/rfc/rfc9605.html#name-application-context), by
 /// - internally storing a map of encryption keys each associated with a key id ([`KeyId`])
 /// - decrypting incoming `SFrame` frames using an internal buffer and the stored keys
-/// - performing optional frame validation and ratcheting
+/// - performing frame validation and ratcheting
 pub struct Receiver {
-    keys: ReceiverKeyStore,
+    keys: RatchetingKeyStore,
     cipher_suite: CipherSuite,
-    frame_validation: Option<ReplayAttackProtectionStore>,
+    frame_validation: ReplayAttackProtectionStore,
     buffer: Vec<u8>,
 }
 
 impl Receiver {
     /// Tries to decrypt an incoming encrypted frame, returning a slice to the decrypted data on success.
     /// The first `skip` bytes are assumed to be not encrypted (e.g. another header) and are only used as AAD for authentification
+    ///
+    /// Returns [`None`] if the frame was dropped as a replay.
     /// May fail with
     /// - [`SframeError::MissingDecryptionKey`]
     /// - [`SframeError::DecryptionFailure`]
     /// - [`SframeError::FrameValidationFailed`]
     /// - [`SframeError::InvalidBuffer`]
-    pub fn decrypt<F>(&mut self, encrypted_frame: F, skip: usize) -> Result<&[u8]>
+    pub fn decrypt<F>(&mut self, encrypted_frame: F, skip: usize) -> Result<Option<&[u8]>>
     where
         F: AsRef<[u8]>,
     {
@@ -67,37 +70,39 @@ impl Receiver {
         let meta_data = &encrypted_frame[..skip];
         let encrypted_frame = EncryptedFrameView::try_with_meta_data(data, meta_data)?;
 
-        // The header is not authenticated yet, so only screen it here - `inspect`
-        // does not touch the replay window.
-        if let Some(validator) = &self.frame_validation {
-            validator.inspect(encrypted_frame.header())?;
-        }
+        let key_id = encrypted_frame.header().key_id();
+        // TODO(v2): improve the API, so it is easier to determine which was the previous kid
+        let previous_key_id = self.keys.get(key_id).map(|keys| keys.dec_key.key_id());
 
         let mut ratcheted_away_from = None;
-        if let ReceiverKeyStore::Ratcheting(keys) = &mut self.keys {
-            let key_id = encrypted_frame.header().key_id();
-            // TODO(v2): improve the API, so it is easier to determine which was the previous kid
-            let previous_key_id = keys.get(key_id).map(|keys| keys.dec_key.key_id());
-
-            let did_ratchet = keys.try_ratchet(key_id)? > 0;
-            if did_ratchet {
-                ratcheted_away_from = previous_key_id;
-            }
+        if self.keys.try_ratchet(key_id)? > 0 {
+            ratcheted_away_from = previous_key_id;
         }
 
-        encrypted_frame.decrypt_into(&self.keys, &mut self.buffer)?;
+        // A MediaFrameView gives access to the payload, meta data and counter of the frame
+        let media_frame = match encrypted_frame.validated_decrypt_into(
+            &self.keys,
+            &mut self.buffer,
+            &mut self.frame_validation,
+        ) {
+            Ok(media_frame) => media_frame,
+            Err(error) => return drop_if_replayed(error),
+        };
 
-        // Decryption authenticated the frame, only now the counter may be recorded.
-        // Otherwise forged frames could poison the window and suppress genuine ones.
-        if let Some(validator) = &mut self.frame_validation {
-            // Remove stale KIDs to avoid memory growth (assuming in order packet delivery)
-            if let Some(key_id) = ratcheted_away_from {
-                validator.remove(key_id);
-            }
-            validator.validate(encrypted_frame.header())?;
+        log::debug!(
+            "[receiver] Decrypted frame # {} of key id {key_id}",
+            media_frame.counter()
+        );
+        let payload = media_frame.payload();
+
+        // Remove stale KIDs to avoid memory growth (assuming in order packet delivery).
+        // Only once a frame of the new KID decrypted, an unauthenticated header must not
+        // drop the window of the previous one.
+        if let Some(key_id) = ratcheted_away_from {
+            self.frame_validation.remove(key_id);
         }
 
-        Ok(&self.buffer)
+        Ok(Some(payload))
     }
 
     /// Tries to expand (HKDF) the necessary encryptions key using the key id and the key material,
@@ -109,20 +114,8 @@ impl Receiver {
         K: Into<KeyId>,
         M: AsRef<[u8]>,
     {
-        let key_id = key_id.into();
-        match &mut self.keys {
-            ReceiverKeyStore::Standard(key_store) => {
-                key_store.insert(
-                    key_id,
-                    DecryptionKey::derive_from(self.cipher_suite, key_id, key_material)?,
-                );
-            }
-            ReceiverKeyStore::Ratcheting(key_store) => {
-                key_store.insert(self.cipher_suite, key_id, key_material)?;
-            }
-        };
-
-        Ok(())
+        self.keys
+            .insert(self.cipher_suite, key_id.into(), key_material)
     }
 
     /// creates a [Receiver] with the given cipher suite variant and the default parameters
@@ -145,40 +138,44 @@ impl Receiver {
     {
         let key_id = key_id.into();
 
-        match &mut self.keys {
-            ReceiverKeyStore::Standard(key_store) => {
-                if let Some(validation) = &mut self.frame_validation {
-                    validation.remove(key_id);
-                }
-                key_store.remove(&key_id).is_some()
-            }
-            ReceiverKeyStore::Ratcheting(key_store) => {
-                // A whole key generation of KIDs is dropped here
-                let n_ratchet_bits = key_store.n_ratchet_bits();
-                let removed = RatchetingKeyId::from_key_id(key_id, n_ratchet_bits);
-                if let Some(validation) = &mut self.frame_validation {
-                    validation.retain(|tracked| {
-                        RatchetingKeyId::from_key_id(tracked, n_ratchet_bits) != removed
-                    });
-                }
-                key_store.remove(key_id)
-            }
+        // A whole key generation of KIDs is dropped here
+        let n_ratchet_bits = self.keys.n_ratchet_bits();
+        let removed = RatchetingKeyId::from_key_id(key_id, n_ratchet_bits);
+        self.frame_validation
+            .retain(|tracked| RatchetingKeyId::from_key_id(tracked, n_ratchet_bits) != removed);
+
+        self.keys.remove(key_id)
+    }
+}
+
+/// Drops a frame which the validator rejected as a replay, on a lossy transport a duplicated
+/// or an outdated frame is normal traffic and no reason to fail the session.
+///
+/// The validator reports through an error type of its own choice, which [`SframeError`] boxes -
+/// name it again to get the rejection back.
+fn drop_if_replayed(error: SframeError) -> Result<Option<&'static [u8]>> {
+    match error.source_as::<ReplayAttackProtectionError>().copied() {
+        Some(ReplayAttackProtectionError::DuplicatedFrame { key_id, counter }) => {
+            log::debug!("[receiver] Dropping duplicated frame {counter} of key id {key_id}");
+            Ok(None)
         }
+        Some(ReplayAttackProtectionError::CounterTooOld { key_id, counter }) => {
+            log::debug!("[receiver] Dropping outdated frame {counter} of key id {key_id}");
+            Ok(None)
+        }
+        // The store screens per key id, so its validators never see a foreign one
+        Some(ReplayAttackProtectionError::KeyIdMismatch { .. }) => Err(error),
+        // Not a rejection: no key, no valid buffer, or the frame did not authenticate
+        None => Err(error),
     }
 }
 
 impl From<ReceiverOptions> for Receiver {
     fn from(options: ReceiverOptions) -> Self {
-        let keys = match options.n_ratchet_bits {
-            Some(n_ratchet_bits) => {
-                ReceiverKeyStore::Ratcheting(RatchetingKeyStore::new(n_ratchet_bits))
-            }
-            None => ReceiverKeyStore::default(),
-        };
         Self {
             frame_validation: options.frame_validation,
             cipher_suite: options.cipher_suite,
-            keys,
+            keys: RatchetingKeyStore::new(options.n_ratchet_bits),
             buffer: Default::default(),
         }
     }
@@ -191,34 +188,9 @@ impl Default for Receiver {
     }
 }
 
-enum ReceiverKeyStore {
-    Standard(HashMap<KeyId, DecryptionKey>),
-    Ratcheting(RatchetingKeyStore),
-}
-
-impl Default for ReceiverKeyStore {
-    fn default() -> Self {
-        ReceiverKeyStore::Standard(Default::default())
-    }
-}
-
-impl KeyStore<Aead, Kdf> for ReceiverKeyStore {
-    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey>
-    where
-        K: Into<KeyId>,
-    {
-        let key_id = key_id.into();
-        match self {
-            ReceiverKeyStore::Standard(keys) => keys.get_key(key_id),
-            ReceiverKeyStore::Ratcheting(keys) => keys.get_key(key_id),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use pretty_assertions::assert_eq;
-    use sframe::{error::SframeError, ratchet::RatchetingBaseKey};
+    use sframe::error::SframeError;
 
     use super::*;
 
@@ -247,9 +219,9 @@ mod test {
         // do not set the encryption-key
         let decrypted = receiver.decrypt("foobar is unsafe", 0);
 
-        assert_eq!(
+        assert!(matches!(
             decrypted,
-            Err(SframeError::MissingDecryptionKey(KeyId::from(6u8)))
-        );
+            Err(SframeError::MissingDecryptionKey(key_id)) if key_id == KeyId::from(6u8)
+        ));
     }
 }

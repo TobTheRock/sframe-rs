@@ -70,12 +70,12 @@ impl<'ibuf> MediaFrameView<'ibuf> {
     }
 
     /// Meta data associated with this media frame
-    pub fn meta_data(&self) -> &[u8] {
+    pub fn meta_data(&self) -> &'ibuf [u8] {
         self.meta_data
     }
 
     /// Payload of this media frame
-    pub fn payload(&self) -> &[u8] {
+    pub fn payload(&self) -> &'ibuf [u8] {
         self.payload
     }
 

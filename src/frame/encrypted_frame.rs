@@ -10,8 +10,9 @@ use crate::{
 };
 
 use super::{
-    FrameBuffer, FrameValidation,
+    FrameBuffer,
     media_frame::{MediaFrame, MediaFrameView},
+    validation::{FrameValidation, UnvalidatedFrame},
 };
 /// A view on a buffer which contains an encrypted frame in the format as of [RFC 9605 4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.2).
 /// The frame is assumed to be stored in the buffer as follows:
@@ -90,21 +91,8 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         self.cipher_text
     }
 
-    /// Validates the header of the encrypted frame
-    /// Semantic sugar to allow chaining the validation with decryption
-    /// returns an [`crate::error::SframeError`] when validation fails
-    pub fn validate<V>(self, validator: &V) -> Result<Self>
-    where
-        V: FrameValidation + ?Sized,
-    {
-        log::trace!("Validating EncryptedFrame # {}", self.header.counter());
-        validator.validate(&self.header)?;
-
-        Ok(self)
-    }
-
     /// Tries to decrypt the encrypted frame with a key from the provided key store.
-    /// As [`DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// Dynamically allocates memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
@@ -123,9 +111,33 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         ))
     }
 
+    /// Tries to validate the encrypted frame with the provided [`FrameValidation`] and to decrypt
+    /// it with a key from the provided key store.
+    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// Dynamically allocates memory for the resulting [`MediaFrame`]
+    ///
+    /// The frame is screened BEFORE it is decrypted and only recorded once decryption
+    /// authenticated it, see [`FrameValidation`] on why this is split in two steps.
+    /// A frame which does not decrypt is not recorded, thus it may be received again.
+    ///
+    /// returns an [`crate::error::SframeError::FrameValidationFailed`] if the validator rejected
+    /// the frame, or the errors of [`decrypt`](Self::decrypt) if the decryption has failed.
+    pub fn validated_decrypt<A, D, V>(
+        &self,
+        key_store: &impl KeyStore<A, D>,
+        validator: &mut V,
+    ) -> Result<MediaFrame>
+    where
+        A: AeadDecrypt<Secret = D::Secret>,
+        D: KeyDerivation,
+        V: FrameValidation,
+    {
+        self.validated(validator, || self.decrypt(key_store))
+    }
+
     /// Tries to decrypt the encrypted frame with a key from the provided key store and stores the result
     /// into the provided buffer. On success an [`MediaFrameView`] on the buffer is returned.
-    /// As [`DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf, A, D>(
@@ -159,6 +171,46 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let media_frame = MediaFrameView::with_meta_data_and_ctr(counter, payload, meta_data);
         Ok(media_frame)
     }
+
+    /// Tries to validate the encrypted frame with the provided [`FrameValidation`] and to decrypt
+    /// it with a key from the provided key store, storing the result into the provided buffer.
+    /// On success an [`MediaFrameView`] on the buffer is returned.
+    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    ///
+    /// The frame is screened BEFORE it is decrypted and only recorded once decryption
+    /// authenticated it, see [`FrameValidation`] on why this is split in two steps.
+    /// A frame which does not decrypt is not recorded, thus it may be received again.
+    ///
+    /// returns an [`crate::error::SframeError::FrameValidationFailed`] if the validator rejected
+    /// the frame, or the errors of [`decrypt_into`](Self::decrypt_into) if the decryption has failed.
+    pub fn validated_decrypt_into<'obuf, A, D, V>(
+        &self,
+        key_store: &impl KeyStore<A, D>,
+        buffer: &'obuf mut impl FrameBuffer,
+        validator: &mut V,
+    ) -> Result<MediaFrameView<'obuf>>
+    where
+        A: AeadDecrypt<Secret = D::Secret>,
+        D: KeyDerivation,
+        V: FrameValidation,
+    {
+        self.validated(validator, || self.decrypt_into(key_store, buffer))
+    }
+
+    /// Screens the frame, decrypts it and records it only if that succeeded.
+    fn validated<V, T>(&self, validator: &mut V, decrypt: impl FnOnce() -> Result<T>) -> Result<T>
+    where
+        V: FrameValidation,
+    {
+        log::trace!("Validating EncryptedFrame # {}", self.header.counter());
+        let token = validator
+            .screen(UnvalidatedFrame::from(self))
+            .map_err(validation_failed)?;
+        let decrypted = decrypt()?;
+        validator.record(token);
+
+        Ok(decrypted)
+    }
 }
 
 impl AadData for EncryptedFrameView<'_> {
@@ -189,6 +241,13 @@ impl<'buf> TryFrom<&'buf Vec<u8>> for EncryptedFrameView<'buf> {
         EncryptedFrameView::try_new(data)
     }
 }
+
+impl<'frame> From<&'frame EncryptedFrameView<'_>> for UnvalidatedFrame<'frame> {
+    fn from(frame: &'frame EncryptedFrameView<'_>) -> Self {
+        Self::new(frame.header(), frame.meta_data())
+    }
+}
+
 /// An abstraction of an encrypted frame in the format as of [RFC 9605 4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.2),
 /// owing an internal buffer containing the cipher text and optionally associated meta data (e.g. be a media header).
 pub struct EncryptedFrame {
@@ -258,22 +317,8 @@ impl EncryptedFrame {
         &self.buffer[self.meta_len + self.header.len()..]
     }
 
-    /// Validates the header of the encrypted frame
-    /// Semantic sugar to allow chaining the validation with decryption
-    /// returns an [`crate::error::SframeError`] when validation fails
-    // TODO(v2): validator  should be mutable
-    pub fn validate<V>(self, validator: &V) -> Result<Self>
-    where
-        V: FrameValidation + ?Sized,
-    {
-        log::trace!("Validating EncryptedFrame # {}", self.header.counter());
-        validator.validate(&self.header)?;
-
-        Ok(self)
-    }
-
     /// Tries to decrypt the encrypted frame with a key from the provided key store.
-    /// As [`DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// Dynamically allocats memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
@@ -282,18 +327,38 @@ impl EncryptedFrame {
         A: AeadDecrypt<Secret = D::Secret>,
         D: KeyDerivation,
     {
-        let view = EncryptedFrameView::with_header(
-            self.header,
-            &self.buffer[self.meta_len..],
-            self.meta_data(),
-        );
-
+        let view = EncryptedFrameView::from(self);
         view.decrypt(key_store)
+    }
+
+    /// Tries to validate the encrypted frame with the provided [`FrameValidation`] and to decrypt
+    /// it with a key from the provided key store.
+    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// Dynamically allocates memory for the resulting [`MediaFrame`]
+    ///
+    /// The frame is screened BEFORE it is decrypted and only recorded once decryption
+    /// authenticated it, see [`FrameValidation`] on why this is split in two steps.
+    /// A frame which does not decrypt is not recorded, thus it may be received again.
+    ///
+    /// returns an [`crate::error::SframeError::FrameValidationFailed`] if the validator rejected
+    /// the frame, or the errors of [`decrypt`](Self::decrypt) if the decryption has failed.
+    pub fn validated_decrypt<A, D, V>(
+        &self,
+        key_store: &impl KeyStore<A, D>,
+        validator: &mut V,
+    ) -> Result<MediaFrame>
+    where
+        A: AeadDecrypt<Secret = D::Secret>,
+        D: KeyDerivation,
+        V: FrameValidation,
+    {
+        let view = EncryptedFrameView::from(self);
+        view.validated_decrypt(key_store, validator)
     }
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store and stores the result
     /// into the provided buffer. On success an [`MediaFrameView`] on the buffer is returned.
-    /// As [`DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf, A, D>(
@@ -305,13 +370,44 @@ impl EncryptedFrame {
         A: AeadDecrypt<Secret = D::Secret>,
         D: KeyDerivation,
     {
-        let view = EncryptedFrameView::with_header(
-            self.header,
-            &self.buffer[self.meta_len..],
-            self.meta_data(),
-        );
-
+        let view = EncryptedFrameView::from(self);
         view.decrypt_into(key_store, buffer)
+    }
+
+    /// Tries to validate the encrypted frame with the provided [`FrameValidation`] and to decrypt
+    /// it with a key from the provided key store, storing the result into the provided buffer.
+    /// On success an [`MediaFrameView`] on the buffer is returned.
+    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    ///
+    /// The frame is screened BEFORE it is decrypted and only recorded once decryption
+    /// authenticated it, see [`FrameValidation`] on why this is split in two steps.
+    /// A frame which does not decrypt is not recorded, thus it may be received again.
+    ///
+    /// returns an [`crate::error::SframeError::FrameValidationFailed`] if the validator rejected
+    /// the frame, or the errors of [`decrypt_into`](Self::decrypt_into) if the decryption has failed.
+    pub fn validated_decrypt_into<'obuf, A, D, V>(
+        &self,
+        key_store: &impl KeyStore<A, D>,
+        buffer: &'obuf mut impl FrameBuffer,
+        validator: &mut V,
+    ) -> Result<MediaFrameView<'obuf>>
+    where
+        A: AeadDecrypt<Secret = D::Secret>,
+        D: KeyDerivation,
+        V: FrameValidation,
+    {
+        let view = EncryptedFrameView::from(self);
+        view.validated_decrypt_into(key_store, buffer, validator)
+    }
+}
+
+impl<'buf> From<&'buf EncryptedFrame> for EncryptedFrameView<'buf> {
+    fn from(frame: &'buf EncryptedFrame) -> Self {
+        EncryptedFrameView::with_header(
+            frame.header,
+            &frame.buffer[frame.meta_len..],
+            frame.meta_data(),
+        )
     }
 }
 
@@ -335,6 +431,13 @@ impl TryFrom<&Vec<u8>> for EncryptedFrame {
     fn try_from(data: &Vec<u8>) -> Result<Self> {
         EncryptedFrame::try_new(data)
     }
+}
+
+fn validation_failed<E>(err: E) -> SframeError
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    SframeError::FrameValidationFailed(Box::new(err))
 }
 
 #[cfg(test)]
