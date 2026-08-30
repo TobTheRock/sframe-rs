@@ -67,7 +67,7 @@ which needs to be derived from a shared and secret key material.
 ```mermaid
 flowchart TD
     subgraph Sender
-        A[MediaFrame<br/>Payload + Metadata] -->|new/with_metadata| B[MediaFrame/MediaFrameView]
+        A[MediaFrame<br/>Payload + Metadata] -->|try_new/try_with_meta_data| B[MediaFrame/MediaFrameView]
         B --> EncryptJunction(( ))
         EncryptJunction -->|encrypt/encrypt_into| C[EncryptedFrame/EncryptedFrameView]
         FC[FrameCounter] --> EncryptJunction
@@ -111,7 +111,7 @@ let payload = "Something secret";
 
 let mut encrypt_buffer = Vec::new();
 let mut decrypt_buffer = Vec::new();
-let media_frame = MediaFrameView::new(&mut counter, payload);
+let media_frame = MediaFrameView::try_new(&mut counter, payload).unwrap();
 
 let encrypted_frame = media_frame.encrypt_into(&enc_key, &mut encrypt_buffer).unwrap();
 

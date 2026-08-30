@@ -6,7 +6,7 @@ use criterion::{BatchSize, Bencher, BenchmarkId, Criterion, criterion_group};
 use rand::{RngExt, rng};
 use sframe::{
     CipherSuite,
-    frame::{EncryptedFrame, FrameCounter, MediaFrame, MediaFrameView, MonotonicCounter},
+    frame::{EncryptedFrame, FrameCounter, MediaFrame, MediaFrameView, PanickingMonotonicCounter},
     header::Counter,
     key::{DecryptionKey, EncryptionKey},
 };
@@ -26,7 +26,7 @@ fn payload_sizes() -> &'static [usize] {
 }
 
 struct CryptoBenches {
-    counter: MonotonicCounter,
+    counter: PanickingMonotonicCounter,
 
     crypt_buffer: Vec<u8>,
     enc_key: EncryptionKey,
@@ -37,7 +37,7 @@ struct CryptoBenches {
 
 impl From<CipherSuite> for CryptoBenches {
     fn from(cipher_suite: CipherSuite) -> Self {
-        let counter = MonotonicCounter::with_start_value(rand::random(), u64::MAX);
+        let counter = PanickingMonotonicCounter::with_start_value(rand::random(), u64::MAX);
 
         let enc_key = EncryptionKey::derive_from(cipher_suite, KEY_ID, KEY_MATERIAL).unwrap();
         let dec_key = DecryptionKey::derive_from(cipher_suite, KEY_ID, KEY_MATERIAL).unwrap();
@@ -121,13 +121,13 @@ where
 fn create_random_media_frame(size: usize) -> MediaFrame {
     let mut unencrypted_payload = vec![0; size];
     rng().fill(unencrypted_payload.as_mut_slice());
-    let mut counter = MonotonicCounter::new(rng().random::<Counter>());
+    let mut counter = PanickingMonotonicCounter::new(rng().random::<Counter>());
     MediaFrame::new(&mut counter, unencrypted_payload)
 }
 
 fn encrypt_random_frame(
     size: usize,
-    counter: &mut impl FrameCounter,
+    counter: &mut impl FrameCounter<Error = std::convert::Infallible>,
     enc_key: &EncryptionKey,
 ) -> EncryptedFrame {
     let unencrypted_payload = create_random_media_frame(size);

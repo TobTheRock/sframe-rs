@@ -146,7 +146,7 @@ fn main() -> Result<()> {
     println!("Original: {:?}", original_data);
 
     let mut counter = MonotonicCounter::default();
-    let media_frame = MediaFrame::new(&mut counter, original_data);
+    let media_frame = MediaFrame::try_new(&mut counter, original_data)?;
 
     let encrypted_frame = media_frame.encrypt(&enc_key)?;
     println!(

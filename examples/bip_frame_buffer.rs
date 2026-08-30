@@ -7,7 +7,7 @@ use rand::{RngExt, rng};
 use sframe::{
     CipherSuite,
     error::SframeError,
-    frame::{EncryptedFrameView, FrameBuffer, MediaFrameView, MonotonicCounter, Truncate},
+    frame::{EncryptedFrameView, FrameBuffer, MediaFrameView, PanickingMonotonicCounter, Truncate},
     key::{DecryptionKey, EncryptionKey},
 };
 use std::{thread, time::Duration};
@@ -82,7 +82,7 @@ fn sleep(name: &str) {
 
 fn producer_task(producer: FramedProducer<&'static Churrasco<BUF_SIZE>>) {
     let key = EncryptionKey::derive_from(CIPHER_SUITE, KEY_ID, SECRET).unwrap();
-    let mut counter = MonotonicCounter::default();
+    let mut counter = PanickingMonotonicCounter::default();
     let mut buffer = ProducerBuffer {
         producer,
         samples_to_commit: 0,

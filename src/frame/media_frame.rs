@@ -4,7 +4,7 @@ use crate::{
         buffer::{AadData, encryption::EncryptionBuffer},
         key_derivation::KeyDerivation,
     },
-    error::Result,
+    error::{Result, SframeError},
     header::{Counter, SframeHeader},
     key::crypto_key::EncryptionKey,
 };
@@ -13,6 +13,13 @@ use super::{
     FrameBuffer, FrameCounter,
     encrypted_frame::{EncryptedFrame, EncryptedFrameView},
 };
+use std::convert::Infallible;
+
+fn next_counter(frame_counter: &mut impl FrameCounter) -> Result<Counter> {
+    frame_counter
+        .try_next()
+        .map_err(|err| SframeError::CounterCreationFailed(Box::new(err)))
+}
 
 /// A view on a buffer (as a continuous slice of memory), representing a media frame.
 /// Can optionally have meta data (e.g. a header) associated to it, which is considered for authentication.
@@ -24,26 +31,58 @@ pub struct MediaFrameView<'buf> {
 }
 
 impl<'ibuf> MediaFrameView<'ibuf> {
-    /// Creates a new view on a payload buffer and assigns it the next counter (CTR)  value.
-    pub fn new<P>(frame_counter: &mut impl FrameCounter, payload: &'ibuf P) -> Self
+    /// Creates a new view on a payload buffer and assigns it the next counter (CTR) value.
+    /// Only available for a [`FrameCounter`] which cannot fail.
+    pub fn new<C, P>(frame_counter: &mut C, payload: &'ibuf P) -> Self
     where
+        C: FrameCounter<Error = Infallible>,
         P: AsRef<[u8]> + ?Sized,
     {
         Self::with_meta_data(frame_counter, payload, &[])
     }
 
-    /// Creates a new view on a payload buffer, assigns it the given frame count and associates it with the meta data
-    pub fn with_meta_data<P, M>(
-        frame_counter: &mut impl FrameCounter,
+    /// Creates a new view on a payload buffer, assigns it the next counter (CTR) value and associates it with the meta data.
+    /// Only available for a [`FrameCounter`] which cannot fail.
+    pub fn with_meta_data<C, P, M>(
+        frame_counter: &mut C,
         payload: &'ibuf P,
         meta_data: &'ibuf M,
     ) -> Self
     where
+        C: FrameCounter<Error = Infallible>,
         P: AsRef<[u8]> + ?Sized,
         M: AsRef<[u8]> + ?Sized,
     {
-        let counter = frame_counter.next();
+        let Ok(counter) = frame_counter.try_next();
         Self::with_meta_data_and_ctr(counter, payload, meta_data)
+    }
+
+    /// Creates a new view on a payload buffer and assigns it the next counter (CTR) value.
+    /// Returns an [`SframeError::CounterCreationFailed`] wrapping the error of the
+    /// [`FrameCounter`] if no counter value could be created.
+    pub fn try_new<C, P>(frame_counter: &mut C, payload: &'ibuf P) -> Result<Self>
+    where
+        C: FrameCounter,
+        P: AsRef<[u8]> + ?Sized,
+    {
+        Self::try_with_meta_data(frame_counter, payload, &[])
+    }
+
+    /// Creates a new view on a payload buffer, assigns it the next counter (CTR) value and associates it with the meta data.
+    /// Returns an [`SframeError::CounterCreationFailed`] wrapping the error of the
+    /// [`FrameCounter`] if no counter value could be created.
+    pub fn try_with_meta_data<C, P, M>(
+        frame_counter: &mut C,
+        payload: &'ibuf P,
+        meta_data: &'ibuf M,
+    ) -> Result<Self>
+    where
+        C: FrameCounter,
+        P: AsRef<[u8]> + ?Sized,
+        M: AsRef<[u8]> + ?Sized,
+    {
+        let counter = next_counter(frame_counter)?;
+        Ok(Self::with_meta_data_and_ctr(counter, payload, meta_data))
     }
 
     pub(super) fn with_meta_data_and_ctr<P, M>(
@@ -172,27 +211,56 @@ pub struct MediaFrame {
 }
 
 impl MediaFrame {
-    /// Creates a new media frame by copying the data of a payload buffer and assigning it the given frame count.
-    pub fn new<P>(frame_counter: &mut impl FrameCounter, payload: P) -> Self
+    /// Creates a new media frame by copying the data of a payload buffer and assigning it the next counter (CTR) value.
+    /// Only available for a [`FrameCounter`] which cannot fail.
+    pub fn new<C, P>(frame_counter: &mut C, payload: P) -> Self
     where
+        C: FrameCounter<Error = Infallible>,
         P: AsRef<[u8]>,
     {
         Self::with_meta_data(frame_counter, payload, [])
     }
 
-    /// Creates a new media frame and assigns it the given frame count.
+    /// Creates a new media frame and assigns it the next counter (CTR) value.
     /// Payload and meta data are copied into an internal buffer.
-    pub fn with_meta_data<P, M>(
-        frame_counter: &mut impl FrameCounter,
-        payload: P,
-        meta_data: M,
-    ) -> Self
+    /// Only available for a [`FrameCounter`] which cannot fail.
+    pub fn with_meta_data<C, P, M>(frame_counter: &mut C, payload: P, meta_data: M) -> Self
     where
+        C: FrameCounter<Error = Infallible>,
         P: AsRef<[u8]>,
         M: AsRef<[u8]>,
     {
-        let counter = frame_counter.next();
+        let Ok(counter) = frame_counter.try_next();
         Self::with_meta_data_and_ctr(counter, payload, meta_data)
+    }
+
+    /// Creates a new media frame by copying the data of a payload buffer and assigning it the next counter (CTR) value.
+    /// Returns an [`SframeError::CounterCreationFailed`] wrapping the error of the
+    /// [`FrameCounter`] if no counter value could be created.
+    pub fn try_new<C, P>(frame_counter: &mut C, payload: P) -> Result<Self>
+    where
+        C: FrameCounter,
+        P: AsRef<[u8]>,
+    {
+        Self::try_with_meta_data(frame_counter, payload, [])
+    }
+
+    /// Creates a new media frame and assigns it the next counter (CTR) value.
+    /// Payload and meta data are copied into an internal buffer.
+    /// Returns an [`SframeError::CounterCreationFailed`] wrapping the error of the
+    /// [`FrameCounter`] if no counter value could be created.
+    pub fn try_with_meta_data<C, P, M>(
+        frame_counter: &mut C,
+        payload: P,
+        meta_data: M,
+    ) -> Result<Self>
+    where
+        C: FrameCounter,
+        P: AsRef<[u8]>,
+        M: AsRef<[u8]>,
+    {
+        let counter = next_counter(frame_counter)?;
+        Ok(Self::with_meta_data_and_ctr(counter, payload, meta_data))
     }
 
     pub(super) fn with_meta_data_and_ctr<P, M>(counter: Counter, payload: P, meta_data: M) -> Self
@@ -285,16 +353,71 @@ impl AsRef<[u8]> for MediaFrame {
 mod test {
     use crate::{
         CipherSuite,
-        frame::media_frame::{MediaFrame, MediaFrameView},
+        frame::{
+            FrameCounter,
+            media_frame::{MediaFrame, MediaFrameView},
+        },
+        header::Counter,
         key::EncryptionKey,
         util::test::assert_bytes_eq,
     };
     use pretty_assertions::assert_eq;
+    use std::convert::Infallible;
 
     const COUNTER: u64 = 42;
     const PAYLOAD: &[u8] = &[6, 6, 6, 6, 6, 6];
     const KEY_ID: u64 = 666;
     const META_DATA: &[u8] = b"META";
+
+    /// A counter which cannot fail, so that the infallible API can be used
+    struct InfallibleCounter;
+    impl FrameCounter for InfallibleCounter {
+        type Error = Infallible;
+        fn try_next(&mut self) -> Result<Counter, Self::Error> {
+            Ok(COUNTER)
+        }
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("no counter left")]
+    struct NoCounter;
+
+    /// A counter which always fails, to observe how its error is propagated
+    struct FailingCounter;
+    impl FrameCounter for FailingCounter {
+        type Error = NoCounter;
+        fn try_next(&mut self) -> Result<Counter, Self::Error> {
+            Err(NoCounter)
+        }
+    }
+
+    #[test]
+    fn create_media_frame_view_with_an_infallible_counter() {
+        let frame_view = MediaFrameView::new(&mut InfallibleCounter, &PAYLOAD);
+
+        assert_eq!(frame_view.counter(), COUNTER);
+    }
+
+    #[test]
+    fn create_media_frame_with_an_infallible_counter() {
+        let frame = MediaFrame::new(&mut InfallibleCounter, PAYLOAD);
+
+        assert_eq!(frame.counter(), COUNTER);
+    }
+
+    #[test]
+    fn propagate_the_counter_error_creating_a_media_frame_view() {
+        let error = MediaFrameView::try_new(&mut FailingCounter, &PAYLOAD).unwrap_err();
+
+        assert!(error.source_as::<NoCounter>().is_some());
+    }
+
+    #[test]
+    fn propagate_the_counter_error_creating_a_media_frame() {
+        let error = MediaFrame::try_new(&mut FailingCounter, PAYLOAD).unwrap_err();
+
+        assert!(error.source_as::<NoCounter>().is_some());
+    }
 
     #[test]
     fn create_media_frame_with_meta_data() {

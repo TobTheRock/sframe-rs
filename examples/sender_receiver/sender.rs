@@ -76,7 +76,7 @@ impl Sender {
     /// The first `skip` bytes are not going to be encrypted (e.g. for another header), but are used as AAD for authentification
     /// May fail with
     /// - [`SframeError::EncryptionFailure`]
-    /// - [`SframeError::EncryptionFailure`]
+    /// - [`SframeError::CounterCreationFailed`]
     pub fn encrypt<F>(&mut self, unencrypted_frame: F, skip: usize) -> Result<&[u8]>
     where
         F: AsRef<[u8]>,
@@ -86,7 +86,8 @@ impl Sender {
 
             let payload = &unencrypted_frame[skip..];
             let meta_data = &unencrypted_frame[..skip];
-            let media_frame = MediaFrameView::with_meta_data(&mut self.counter, payload, meta_data);
+            let media_frame =
+                MediaFrameView::try_with_meta_data(&mut self.counter, payload, meta_data)?;
 
             media_frame.encrypt_into(enc_key, &mut self.buffer)?;
 
