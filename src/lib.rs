@@ -59,3 +59,8 @@ pub use crypto::cipher_suite::CipherSuite;
 #[cfg(test)]
 #[allow(clippy::all)]
 pub mod test_vectors;
+
+/// Compiles the README's code examples as doctests, so they cannot rot.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
