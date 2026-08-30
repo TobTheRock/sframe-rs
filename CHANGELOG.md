@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-08-30
+
+### Features
+
+- [**breaking**] Mark SframeError as non exhaustive
+
+> **BREAKING CHANGE:** `match` on `SframeError` no longer compiles without a
+> wildcard arm. Add `_ => ...` to any exhaustive match over the enum.
+> Struct-like construction from outside the crate is unaffected, all
+> variants stay public.
+- [**breaking**] Box any error type in FrameValidationFailed
+
+> **BREAKING CHANGE:** `SframeError` no longer implements `PartialEq`/`Eq`.
+> Replace `assert_eq!(err, SframeError::X)` with
+> `assert!(matches!(err, SframeError::X))`.
+> `FrameValidationFailed` now holds `Box<dyn Error + Send + Sync>` instead
+> of `String`: construct it with `format!(..).into()` or
+- [**breaking**] Screen frames before decryption, record them after
+
+> **BREAKING CHANGE:** `FrameValidation::validate` is replaced by `screen` and
+> `record`, along with the associated types `Token` and `Error`. Implement
+> `fn screen(&self, UnvalidatedFrame<'_>) -> Result<Self::Token, Self::Error>`
+> and `fn record(&mut self, Self::Token)`, reading the header via
+- [**breaking**] Protect a single KID per ReplayAttackProtection
+- Recover a custom component error from SframeError
+- [**breaking**] Let the frame counter fail ([#96](https://github.com/TobTheRock/sframe-rs/issues/96))
+
+> **BREAKING CHANGE:** `FrameCounter::next` is replaced by `try_next` returning
+> a `Result`. `MediaFrame::new`, `MediaFrameView::new` and their
+> `with_meta_data` variants now require a counter which cannot fail, use
+> `try_new`/`try_with_meta_data` or a `PanickingMonotonicCounter` instead.
+
+### Refactor
+
+- [**breaking**] Remove FrameValidationBox
+
+> **BREAKING CHANGE:** `FrameValidationBox` is gone. Replace it with
+> `Box<dyn FrameValidation>` and pass it as `frame.validate(&*boxed)`.
+- Anchor the replay window with an Option
+- [**breaking**] Keep the validation types in their own namespace
+- Keep the public frame fns on top
+
+
 ## [1.4.3] - 2026-08-23
 
 ### Bug Fixes
