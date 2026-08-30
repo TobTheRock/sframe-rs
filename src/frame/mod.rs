@@ -31,7 +31,7 @@
 //!
 //! let mut encrypt_buffer = Vec::new();
 //! let mut decrypt_buffer = Vec::new();
-//! let media_frame = MediaFrameView::new(&mut counter, payload);
+//! let media_frame = MediaFrameView::try_new(&mut counter, payload).unwrap();
 //!
 //! let encrypted_frame = media_frame.encrypt_into(&enc_key, &mut encrypt_buffer).unwrap();
 //!
@@ -58,7 +58,9 @@ pub mod validation;
 
 pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView};
 pub use frame_buffer::{FrameBuffer, Truncate};
-pub use frame_counter::{FrameCounter, MonotonicCounter};
+pub use frame_counter::{
+    CounterExhausted, FrameCounter, MonotonicCounter, PanickingMonotonicCounter,
+};
 pub use media_frame::{MediaFrame, MediaFrameView};
 
 #[cfg(all(test, crypto_backend))]
@@ -93,7 +95,7 @@ mod test {
         let mut decrypt_buffer = Vec::new();
         let mut counter = MonotonicCounter::default();
 
-        let media_frame = MediaFrameView::new(&mut counter, PAYLOAD);
+        let media_frame = MediaFrameView::try_new(&mut counter, PAYLOAD).unwrap();
         media_frame
             .encrypt_into(&enc_key, &mut encrypt_buffer)
             .unwrap();
@@ -113,7 +115,7 @@ mod test {
         let mut decrypt_buffer = Vec::new();
         let mut counter = MonotonicCounter::default();
 
-        let media_frame = MediaFrameView::new(&mut counter, PAYLOAD);
+        let media_frame = MediaFrameView::try_new(&mut counter, PAYLOAD).unwrap();
         media_frame
             .encrypt_into(&enc_key, &mut encrypt_buffer)
             .unwrap();
@@ -135,7 +137,8 @@ mod test {
         let mut decrypt_buffer = Vec::new();
         let mut counter = MonotonicCounter::default();
 
-        let media_frame = MediaFrameView::with_meta_data(&mut counter, PAYLOAD, META_DATA);
+        let media_frame =
+            MediaFrameView::try_with_meta_data(&mut counter, PAYLOAD, META_DATA).unwrap();
         media_frame
             .encrypt_into(&enc_key, &mut encrypt_buffer)
             .unwrap();
@@ -156,7 +159,7 @@ mod test {
         let (enc_key, dec_key) = expand_keys();
         let mut counter = MonotonicCounter::default();
 
-        let media_frame = MediaFrame::with_meta_data(&mut counter, PAYLOAD, META_DATA);
+        let media_frame = MediaFrame::try_with_meta_data(&mut counter, PAYLOAD, META_DATA).unwrap();
         let encrypted = media_frame.encrypt(&enc_key).unwrap();
 
         assert_bytes_eq(encrypted.meta_data(), META_DATA);

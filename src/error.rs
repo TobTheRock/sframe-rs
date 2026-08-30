@@ -37,6 +37,10 @@ pub enum SframeError {
     #[error("{0}")]
     FrameValidationFailed(#[source] Box<dyn std::error::Error + Send + Sync>),
 
+    /// creating the next counter value for a media frame failed
+    #[error("{0}")]
+    CounterCreationFailed(#[source] Box<dyn std::error::Error + Send + Sync>),
+
     /// buffer was too small to deserialize into/ serialize from
     #[error("buffer with size {0} is too small")]
     InvalidBuffer(usize),
