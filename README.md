@@ -7,7 +7,7 @@
 [![documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/sframe/)
 ![maintenance](https://img.shields.io/maintenance/yes/2026)
 
-This library is an implementation of [Sframe  (RFC 9605)](https://www.rfc-editor.org/rfc/rfc9605.html) and provides and end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
+This library is an implementation of [Sframe (RFC 9605)](https://www.rfc-editor.org/rfc/rfc9605.html) and provides an end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
 It was forked from the original [goto-opensource/secure-frame-rs](https://github.com/goto-opensource/secure-frame-rs) and is continued here.
 
 ## Supported crypto libraries
@@ -61,17 +61,22 @@ There is also a variant which allocates the necessary memory and owns the buffer
 - `MediaFrame` for unencrypted data
 - `EncryptedFrame` for encrypted data
 
-To convert between `MediaFrame(View)` and `EncryptedFrame(View)` , an `EncryptionKey` or `DecryptionKey` is needed,
+To convert between `MediaFrame(View)` and `EncryptedFrame(View)`, an `EncryptionKey` or `DecryptionKey` is needed,
 which needs to be derived from a shared and secret key material.
+
+The diagram below follows the borrowing views. The owning `MediaFrame`/`EncryptedFrame` offer the
+same conversions via `encrypt`/`decrypt`, which allocate instead of writing into a supplied buffer.
 
 ```mermaid
 flowchart TD
     subgraph Sender
-        A[MediaFrame<br/>Payload + Metadata] -->|try_new/try_with_meta_data| B[MediaFrame/MediaFrameView]
+        A[Payload + Metadata] --> NewJunction(( ))
+        FC[FrameCounter] --> NewJunction
+        NewJunction -->|try_new/try_with_meta_data| B[MediaFrameView]
         B --> EncryptJunction(( ))
-        EncryptJunction -->|encrypt/encrypt_into| C[EncryptedFrame/EncryptedFrameView]
-        FC[FrameCounter] --> EncryptJunction
+        OBE["Output Buffer<br/>FrameBuffer"] --> EncryptJunction
         EK[EncryptionKey] --> EncryptJunction
+        EncryptJunction -->|encrypt_into| C[EncryptedFrameView]
     end
     
     Shared[Key Material<br/>CipherSuite]
@@ -79,27 +84,43 @@ flowchart TD
     Shared -->|derive_from| DK
     
     subgraph Receiver
-        D[Incoming Frame Buffer] -->|try_new/try_with_meta_data| E[EncryptedFrame/EncryptedFrameView]
+        D[Incoming Frame Buffer] -->|try_new/try_with_meta_data| E[EncryptedFrameView]
         E --> DecryptJunction(( ))
-        DecryptJunction -->|decrypt/decrypt_into| F[MediaFrame/MediaFrameView]
-        DK[DecryptionKey] --> KS[KeyStore]
-        KS --> DecryptJunction
+        OBD["Output Buffer<br/>FrameBuffer"] --> DecryptJunction
+        FV[FrameValidation<br/>ReplayAttackProtection] -.->|optional| DecryptJunction
+        DK[DecryptionKey<br/>as KeyStore] --> DecryptJunction
+        DecryptJunction -->|"decrypt_into/validated_decrypt_into"| F[MediaFrameView]
+        E ~~~ F
     end
     
     C -.->|Network| D
     
     classDef sframe fill:#6366f1,stroke:#a5b4fc,stroke-width:1px,color:#fff
-    class Shared,B,C,E,F,EK,DK,FC,KS sframe
+    class Shared,B,C,E,F,EK,DK,FC,FV sframe
+    style NewJunction fill:transparent,stroke:#888
     style EncryptJunction fill:transparent,stroke:#888
     style DecryptJunction fill:transparent,stroke:#888
 ```
 
-For example:
+A `FrameValidation` screens a frame before decryption and is only updated once
+decryption authenticated it, so a forged header cannot poison it:
+
+```text
+screen(frame)? -> Token -> decrypt()? -> record(token)
+```
+
+Additionally the library provides:
+
+- Ratchet support as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
+- Sframe MLS definitions as of [RFC 9605 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#name-mls)
+
+## Examples
+
+Encrypting and decrypting a frame with caller supplied buffers:
 
 ```rust
-
 use sframe::{
-    frame::{EncryptedFrameView, MediaFrameView, MonotonicCounter},
+    frame::{MediaFrameView, MonotonicCounter},
     key::{DecryptionKey, EncryptionKey},
     CipherSuite,
 };
@@ -123,19 +144,14 @@ let decrypted_media_frame = encrypted_frame
 assert_eq!(decrypted_media_frame, media_frame);
 ```
 
-Additionally the library provides:
-
-- Ratchet support as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
-- Sframe MLS definitions as of [RFC 9605 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#name-mls)
-
-## Examples
+Runnable examples:
 
 - [sender_receiver](https://github.com/TobTheRock/sframe-rs/blob/main/examples/sender_receiver)
   - Demonstrates how the API can be used in an application to encrypt and decrypt frames between two parties.
-  - Implements a `Sender` which encrypts frames  `Receiver` which decrypts them.
-  - Shows how to use the ratchet mechanism and the frame validation (Reply Protection).
+  - Implements a `Sender` which encrypts frames and a `Receiver` which decrypts them.
+  - Shows how to use the ratchet mechanism and the frame validation (replay protection).
 - [bip_frame_buffer](https://github.com/TobTheRock/sframe-rs/blob/main/examples/bip_frame_buffer.rs)
-  - Demonstrates how to use the API with an arbitrary buffer implemetation with the `FrameBuffer` trait.
+  - Demonstrates how to use the API with an arbitrary buffer implementation with the `FrameBuffer` trait.
 - [generate_headers](https://github.com/TobTheRock/sframe-rs/blob/main/examples/generate_headers.rs)
   - Serialize/Deserialize the plain SFrame headers.
 - [caesar_cipher](https://github.com/TobTheRock/sframe-rs/blob/main/examples/caesar_cipher.rs)
@@ -145,13 +161,13 @@ Additionally the library provides:
 
 ## Benchmarks
 
-The `criterion` benchmarks located at [./benches](https://github.com/TobTheRock/sframe-rs/tree/feat/low-level-api/benches) currently test
+The `criterion` benchmarks located at [./benches](https://github.com/TobTheRock/sframe-rs/tree/main/benches) currently test
 
 - encryption/decryption with all available cipher suites and different frame size
 - key derivation with all available cipher suites
 - header (de)serialization
 
-They are tracked continously with a [Bencher Perf Page](https://bencher.dev/perf/sframe-rs?back=L2NvbnNvbGUvb3JnYW5pemF0aW9ucy90b2J0aGVyb2NrL3Byb2plY3RzP3Blcl9wYWdlPTgmcGFnZT0x&key=true&reports_per_page=4&branches_per_page=8&testbeds_per_page=8&benchmarks_per_page=8&reports_page=1&branches_page=1&testbeds_page=1&benchmarks_page=1):
+They are tracked continuously with a [Bencher Perf Page](https://bencher.dev/perf/sframe-rs?back=L2NvbnNvbGUvb3JnYW5pemF0aW9ucy90b2J0aGVyb2NrL3Byb2plY3RzP3Blcl9wYWdlPTgmcGFnZT0x&key=true&reports_per_page=4&branches_per_page=8&testbeds_per_page=8&benchmarks_per_page=8&reports_page=1&branches_page=1&testbeds_page=1&benchmarks_page=1):
 
 |                        |                  |
 |------------------------|------------------|
