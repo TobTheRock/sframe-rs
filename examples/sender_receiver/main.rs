@@ -23,7 +23,7 @@ use sender::{Sender, SenderOptions};
 use sframe::{
     CipherSuite,
     header::SframeHeader,
-    ratchet::{RatchetingBaseKey, RatchetingKeyId},
+    ratchet::{RatchetBits, RatchetingBaseKey, RatchetingKeyId},
 };
 
 fn main() {
@@ -48,6 +48,7 @@ fn main() {
     let cipher_suite = cipher_suite.into();
 
     println!("- Using {n_ratchet_bits} bits for the ratcheting step");
+    let n_ratchet_bits = RatchetBits::new(n_ratchet_bits);
     let ratcheting_key_id = RatchetingKeyId::new(key_id, n_ratchet_bits);
     let mut base_key =
         RatchetingBaseKey::ratchet_forward(ratcheting_key_id, secret.as_bytes(), cipher_suite)

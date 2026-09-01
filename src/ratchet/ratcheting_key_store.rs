@@ -9,10 +9,12 @@ use crate::{
     error::{Result, SframeError},
     header::KeyId,
     key::{KeyStore, crypto_key::DecryptionKey},
-    util::limit_bit_len,
 };
 
-use super::{ratcheting_base_key::RatchetingBaseKey, ratcheting_key_id::RatchetingKeyId};
+use super::{
+    ratcheting_base_key::RatchetingBaseKey,
+    ratcheting_key_id::{RatchetBits, RatchetingKeyId},
+};
 
 /// Utility class to store multiple encryption keys and base keys ([`RatchetingBaseKey`]) each associated with a [`KeyId`].
 /// Allows to automatically ratchet forward an encryption key if necessary.
@@ -29,7 +31,7 @@ where
     D: KeyDerivation + Ratcheting,
 {
     keys: HashMap<RatchetingKeyId, RatchetingKeys<A, D>>,
-    n_ratchet_bits: u8,
+    n_ratchet_bits: RatchetBits,
     max_ratchet_steps: u64,
 }
 
@@ -39,14 +41,12 @@ where
     D: KeyDerivation + Ratcheting,
 {
     /// creates a new [`RatchetingKeyStore`] which uses `n_ratchet_bits` to determine the Ratchet
-    /// Step, limited to 63 bits as in [`RatchetingKeyId`]
-    pub fn new(n_ratchet_bits: u8) -> Self {
-        let n_ratchet_bits = limit_bit_len("n_ratchet_bits", n_ratchet_bits, u64::BITS as u8 - 1);
-
+    /// Step, as in [`RatchetingKeyId`]
+    pub fn new(n_ratchet_bits: RatchetBits) -> Self {
         Self {
             n_ratchet_bits,
             keys: Default::default(),
-            max_ratchet_steps: max_distinguishable_steps(n_ratchet_bits),
+            max_ratchet_steps: n_ratchet_bits.max_distinguishable_steps(),
         }
     }
 
@@ -56,12 +56,12 @@ where
     // TODO(v2): make this an mandatory parameter?
     pub fn with_max_ratchet_steps(mut self, max_ratchet_steps: u64) -> Self {
         self.max_ratchet_steps =
-            max_ratchet_steps.min(max_distinguishable_steps(self.n_ratchet_bits));
+            max_ratchet_steps.min(self.n_ratchet_bits.max_distinguishable_steps());
         self
     }
 
     /// returns the No. bits used to determine the Ratchet Step
-    pub fn n_ratchet_bits(&self) -> u8 {
+    pub fn n_ratchet_bits(&self) -> RatchetBits {
         self.n_ratchet_bits
     }
 
@@ -139,12 +139,9 @@ where
         key_id.inc_ratchet_step();
 
         let current_ratchet_step = keys.base_key.key_id().ratchet_step();
-        let max_ratchet_value = 1 << self.n_ratchet_bits;
-        let step_diff = (key_id
-            .ratchet_step()
-            .overflowing_sub(current_ratchet_step)
-            .0)
-            % max_ratchet_value;
+        let step_diff = self
+            .n_ratchet_bits
+            .wrap_step(key_id.ratchet_step().wrapping_sub(current_ratchet_step));
 
         if step_diff > self.max_ratchet_steps {
             return Err(SframeError::RatchetingFailure);
@@ -165,15 +162,6 @@ where
 
         Ok(step_diff)
     }
-}
-
-/// The No. steps [`RatchetingKeyStore::try_ratchet`] can catch up with at most (`2^(R-1)`).
-///
-/// The Ratchet Step wraps at `2^R`, so a step diff is ambiguous: a diff of `d` means either
-/// `d` steps forward or `2^R - d` steps back. Only the lower half can be told apart from a
-/// step which was already passed, e.g. carried by a re-ordered frame.
-fn max_distinguishable_steps(n_ratchet_bits: u8) -> u64 {
-    (1u64 << n_ratchet_bits) >> 1
 }
 
 /// Storage struct used by [`RatchetingKeyStore`], each associated with a [`RatchetingKeyId`]
@@ -209,26 +197,32 @@ mod test {
         crypto::{Aead, Kdf},
         header::KeyId,
         key::KeyStore,
-        ratchet::ratcheting_key_id::RatchetingKeyId,
+        ratchet::ratcheting_key_id::{RatchetBits, RatchetingKeyId},
     };
     use pretty_assertions::assert_eq;
 
     // Exercise the generic key store with the default crypto backend.
     type RatchetingKeyStore = super::RatchetingKeyStore<Aead, Kdf>;
 
-    const N_RATCHET_BITS: u8 = 8;
     const KEY_MATERIAL: &[u8] = b"SECRET";
     const GENERATION: u64 = 42;
     const CIPHER_SUITE: CipherSuite = CipherSuite::AesGcm256Sha512;
 
+    fn n_ratchet_bits() -> RatchetBits {
+        RatchetBits::new(8)
+    }
+
     fn key_store_with_key() -> (RatchetingKeyStore, RatchetingKeyId) {
-        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
-        let key_id = insert_key(&mut key_store, N_RATCHET_BITS);
+        let mut key_store = RatchetingKeyStore::new(n_ratchet_bits());
+        let key_id = insert_key(&mut key_store, n_ratchet_bits());
 
         (key_store, key_id)
     }
 
-    fn insert_key(key_store: &mut RatchetingKeyStore, n_ratchet_bits: u8) -> RatchetingKeyId {
+    fn insert_key(
+        key_store: &mut RatchetingKeyStore,
+        n_ratchet_bits: RatchetBits,
+    ) -> RatchetingKeyId {
         let key_id = RatchetingKeyId::new(GENERATION, n_ratchet_bits);
         key_store
             .insert(CIPHER_SUITE, key_id, KEY_MATERIAL)
@@ -251,7 +245,7 @@ mod test {
         assert_eq!(keys.base_key.key_id().ratchet_step(), 1);
 
         // the  sframe key should have no ratcheting step
-        let key_id_without_ratcheting_step = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
+        let key_id_without_ratcheting_step = RatchetingKeyId::new(GENERATION, n_ratchet_bits());
         assert_eq!(
             KeyId::from(key_id_without_ratcheting_step),
             keys.dec_key.key_id()
@@ -260,8 +254,8 @@ mod test {
 
     #[test]
     fn returns_none_for_unknown_key_on_get() {
-        let key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
-        let key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
+        let key_store = RatchetingKeyStore::new(n_ratchet_bits());
+        let key_id = RatchetingKeyId::new(GENERATION, n_ratchet_bits());
 
         let keys = key_store.get(key_id);
 
@@ -281,8 +275,8 @@ mod test {
 
     #[test]
     fn returns_err_for_unknown_key_on_ratcheting_get() {
-        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS);
-        let key_id = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
+        let mut key_store = RatchetingKeyStore::new(n_ratchet_bits());
+        let key_id = RatchetingKeyId::new(GENERATION, n_ratchet_bits());
 
         let keys = key_store.try_ratchet(key_id);
 
@@ -366,7 +360,7 @@ mod test {
 
         // a re-ordered frame carrying a step we are already past. Its key is gone, and
         // the wrapping step diff must not be mistaken for a jump forward.
-        let mut passed = RatchetingKeyId::new(GENERATION, N_RATCHET_BITS);
+        let mut passed = RatchetingKeyId::new(GENERATION, n_ratchet_bits());
         passed.inc_ratchet_step();
 
         assert!(key_store.try_ratchet(passed).is_err());
@@ -376,8 +370,8 @@ mod test {
 
     #[test]
     fn rejects_ratcheting_beyond_the_maximum() {
-        let mut key_store = RatchetingKeyStore::new(N_RATCHET_BITS).with_max_ratchet_steps(2);
-        let mut key_id = insert_key(&mut key_store, N_RATCHET_BITS);
+        let mut key_store = RatchetingKeyStore::new(n_ratchet_bits()).with_max_ratchet_steps(2);
+        let mut key_id = insert_key(&mut key_store, n_ratchet_bits());
         let key_before = key_store.get_key(key_id).unwrap().clone();
 
         for _ in 0..3 {
@@ -390,8 +384,8 @@ mod test {
     }
 
     #[test]
-    fn limits_n_ratchet_bits_to_63() {
-        let n_ratchet_bits = 255;
+    fn works_with_the_maximum_of_ratchet_bits() {
+        let n_ratchet_bits = RatchetBits::new(RatchetBits::MAX);
         let mut key_store = RatchetingKeyStore::new(n_ratchet_bits);
         let mut key_id = RatchetingKeyId::new(1u8, n_ratchet_bits);
 
@@ -405,7 +399,7 @@ mod test {
 
     #[test]
     fn ratchets_on_ratcheting_step_overflow() {
-        let n_ratchet_bits = 1;
+        let n_ratchet_bits = RatchetBits::new(1);
         let mut key_store = RatchetingKeyStore::new(n_ratchet_bits);
         let mut key_id = insert_key(&mut key_store, n_ratchet_bits);
 

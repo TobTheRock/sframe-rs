@@ -90,7 +90,7 @@ mod test {
     #[test]
     fn derive_key_from_mls() {
         let exporter = TestMlsExporter { fail: false };
-        let key_id = MlsKeyId::new(0u64, 3u64, 5u64, MlsKeyIdBitRange::new(4, 4));
+        let key_id = MlsKeyId::try_new(0u64, 3u64, 5u64, MlsKeyIdBitRange::new(4, 4)).unwrap();
 
         let _key =
             EncryptionKey::derive_from_mls(crate::CipherSuite::AesGcm256Sha512, &exporter, key_id)
@@ -100,7 +100,7 @@ mod test {
     #[test]
     fn derive_key_from_mls_failed_export() {
         let exporter = TestMlsExporter { fail: true };
-        let key_id = MlsKeyId::new(0u64, 3u64, 5u64, MlsKeyIdBitRange::new(4, 4));
+        let key_id = MlsKeyId::try_new(0u64, 3u64, 5u64, MlsKeyIdBitRange::new(4, 4)).unwrap();
 
         let result =
             EncryptionKey::derive_from_mls(crate::CipherSuite::AesGcm256Sha512, &exporter, key_id);

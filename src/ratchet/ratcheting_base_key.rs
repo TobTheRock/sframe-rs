@@ -81,7 +81,7 @@ where
 #[cfg(all(test, crypto_backend))]
 mod test {
     use crate::crypto::Kdf;
-    use crate::ratchet::ratcheting_key_id::RatchetingKeyId;
+    use crate::ratchet::ratcheting_key_id::{RatchetBits, RatchetingKeyId};
     use pretty_assertions::assert_eq;
 
     // Exercise the generic base key with the default crypto backend.
@@ -89,8 +89,7 @@ mod test {
 
     #[test]
     fn should_ratchet_forward() {
-        const N_RATCHET_BITS: u8 = 8;
-        let expected_key_id = RatchetingKeyId::new(42u8, N_RATCHET_BITS);
+        let expected_key_id = RatchetingKeyId::new(42u8, RatchetBits::new(8));
         let secret = b"SuperSecret";
         let mut base_key = RatchetingBaseKey::ratchet_forward(
             expected_key_id,

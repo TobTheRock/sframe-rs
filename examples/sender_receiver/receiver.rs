@@ -6,7 +6,7 @@ use sframe::{
         validation::{ReplayAttackProtectionError, ReplayAttackProtectionStore},
     },
     header::KeyId,
-    ratchet::{RatchetingKeyId, RatchetingKeyStore},
+    ratchet::{RatchetBits, RatchetingKeyId, RatchetingKeyStore},
 };
 
 use crate::N_RATCHET_BITS;
@@ -26,7 +26,7 @@ pub struct ReceiverOptions {
     /// using `n_ratchet_bits` to depict the Ratchet Step
     ///
     /// default: [`N_RATCHET_BITS`]
-    pub n_ratchet_bits: u8,
+    pub n_ratchet_bits: RatchetBits,
 }
 
 impl Default for ReceiverOptions {
@@ -34,7 +34,7 @@ impl Default for ReceiverOptions {
         Self {
             cipher_suite: CipherSuite::AesGcm256Sha512,
             frame_validation: ReplayAttackProtectionStore::new(128),
-            n_ratchet_bits: N_RATCHET_BITS,
+            n_ratchet_bits: RatchetBits::new(N_RATCHET_BITS),
         }
     }
 }
