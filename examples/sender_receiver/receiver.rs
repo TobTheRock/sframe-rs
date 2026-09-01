@@ -140,9 +140,10 @@ impl Receiver {
 
         // A whole key generation of KIDs is dropped here
         let n_ratchet_bits = self.keys.n_ratchet_bits();
-        let removed = RatchetingKeyId::from_key_id(key_id, n_ratchet_bits);
-        self.frame_validation
-            .retain(|tracked| RatchetingKeyId::from_key_id(tracked, n_ratchet_bits) != removed);
+        let removed = RatchetingKeyId::from_key_id(key_id, n_ratchet_bits).generation();
+        self.frame_validation.retain(|tracked| {
+            RatchetingKeyId::from_key_id(tracked, n_ratchet_bits).generation() != removed
+        });
 
         self.keys.remove(key_id)
     }

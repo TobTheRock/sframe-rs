@@ -6,7 +6,7 @@ mod ratcheting_key_id;
 /// Generic ratcheting key store implementation, usable with any crypto backend.
 pub mod ratcheting_key_store;
 
-pub use ratcheting_key_id::{RatchetBits, RatchetingKeyId};
+pub use ratcheting_key_id::{Generation, RatchetBits, RatchetStep, RatchetingKeyId};
 
 // Default-backend aliases. When no backend feature is enabled only the generic types in the
 // submodules are exposed, so a custom crypto backend can be plugged in.

@@ -13,10 +13,12 @@ use crate::{
 
 use super::{
     ratcheting_base_key::RatchetingBaseKey,
-    ratcheting_key_id::{RatchetBits, RatchetingKeyId},
+    ratcheting_key_id::{Generation, RatchetBits, RatchetingKeyId},
 };
 
-/// Utility class to store multiple encryption keys and base keys ([`RatchetingBaseKey`]) each associated with a [`KeyId`].
+/// Utility class to store one encryption key and base key ([`RatchetingBaseKey`]) per Key
+/// Generation ([`Generation`]). A [`KeyId`] selects them by its Key Generation alone, its
+/// Ratchet Step says how far the stored key has to be ratcheted forward.
 /// Allows to automatically ratchet forward an encryption key if necessary.
 ///
 /// Generic over the crypto backend used for decryption (`A`) and key derivation (`D`).
@@ -30,7 +32,7 @@ where
     A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
-    keys: HashMap<RatchetingKeyId, RatchetingKeys<A, D>>,
+    keys: HashMap<Generation, RatchetingKeys<A, D>>,
     n_ratchet_bits: RatchetBits,
     max_ratchet_steps: u64,
 }
@@ -86,7 +88,7 @@ where
         let base_key = RatchetingBaseKey::ratchet_forward(key_id, key_material, cipher_suite)?;
 
         self.keys.insert(
-            key_id,
+            key_id.generation(),
             RatchetingKeys {
                 base_key,
                 dec_key: sframe_key,
@@ -102,7 +104,7 @@ where
         K: Into<KeyId>,
     {
         let key_id = RatchetingKeyId::from_key_id(key_id.into(), self.n_ratchet_bits);
-        self.keys.remove(&key_id).is_some()
+        self.keys.remove(&key_id.generation()).is_some()
     }
 
     /// returns the encryption key and [`RatchetingBaseKey`] associated with the key id
@@ -111,7 +113,7 @@ where
         K: Into<KeyId>,
     {
         let key_id = RatchetingKeyId::from_key_id(key_id.into(), self.n_ratchet_bits);
-        self.keys.get(&key_id)
+        self.keys.get(&key_id.generation())
     }
 
     /// Tries to ratchet a stored [`RatchetingBaseKey`].
@@ -131,7 +133,7 @@ where
         let mut key_id = RatchetingKeyId::from_key_id(key_id, self.n_ratchet_bits);
         let keys = self
             .keys
-            .get_mut(&key_id)
+            .get_mut(&key_id.generation())
             .ok_or(SframeError::MissingDecryptionKey(key_id.into()))?;
 
         // The base_key is already ratcheted, so we are one step ahead.
@@ -141,7 +143,7 @@ where
         let current_ratchet_step = keys.base_key.key_id().ratchet_step();
         let step_diff = self
             .n_ratchet_bits
-            .wrap_step(key_id.ratchet_step().wrapping_sub(current_ratchet_step));
+            .steps_between(current_ratchet_step, key_id.ratchet_step());
 
         if step_diff > self.max_ratchet_steps {
             return Err(SframeError::RatchetingFailure);
@@ -164,7 +166,7 @@ where
     }
 }
 
-/// Storage struct used by [`RatchetingKeyStore`], each associated with a [`RatchetingKeyId`]
+/// Storage struct used by [`RatchetingKeyStore`], each associated with a [`Generation`]
 pub struct RatchetingKeys<A, D>
 where
     A: AeadDecrypt<Secret = D::Secret>,
@@ -186,7 +188,7 @@ where
         K: Into<KeyId>,
     {
         let key_id = RatchetingKeyId::from_key_id(key_id, self.n_ratchet_bits);
-        self.keys.get(&key_id).map(|key| &key.dec_key)
+        self.keys.get(&key_id.generation()).map(|key| &key.dec_key)
     }
 }
 
@@ -197,7 +199,7 @@ mod test {
         crypto::{Aead, Kdf},
         header::KeyId,
         key::KeyStore,
-        ratchet::ratcheting_key_id::{RatchetBits, RatchetingKeyId},
+        ratchet::ratcheting_key_id::{Generation, RatchetBits, RatchetStep, RatchetingKeyId},
     };
     use pretty_assertions::assert_eq;
 
@@ -240,9 +242,12 @@ mod test {
         assert!(keys.is_some());
         let keys = keys.unwrap();
 
-        assert_eq!(keys.base_key.key_id().generation(), GENERATION);
+        assert_eq!(
+            keys.base_key.key_id().generation(),
+            Generation::from(GENERATION)
+        );
         // should have ratcheted forward already for the base key
-        assert_eq!(keys.base_key.key_id().ratchet_step(), 1);
+        assert_eq!(keys.base_key.key_id().ratchet_step(), RatchetStep::from(1));
 
         // the  sframe key should have no ratcheting step
         let key_id_without_ratcheting_step = RatchetingKeyId::new(GENERATION, n_ratchet_bits());

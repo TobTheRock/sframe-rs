@@ -81,7 +81,7 @@ where
 #[cfg(all(test, crypto_backend))]
 mod test {
     use crate::crypto::Kdf;
-    use crate::ratchet::ratcheting_key_id::{RatchetBits, RatchetingKeyId};
+    use crate::ratchet::ratcheting_key_id::{RatchetBits, RatchetStep, RatchetingKeyId};
     use pretty_assertions::assert_eq;
 
     // Exercise the generic base key with the default crypto backend.
@@ -102,12 +102,12 @@ mod test {
         let (first_key_id, first_material) = base_key.next_base_key().unwrap();
 
         assert_eq!(expected_key_id.generation(), first_key_id.generation());
-        assert_eq!(first_key_id.ratchet_step(), 1);
+        assert_eq!(first_key_id.ratchet_step(), RatchetStep::from(1));
         assert_ne!(secret, first_material.as_slice());
 
         let (second_key_id, second_material) = base_key.next_base_key().unwrap();
         // second call returns the first ratcheting step
-        assert_eq!(second_key_id.ratchet_step(), 2);
+        assert_eq!(second_key_id.ratchet_step(), RatchetStep::from(2));
         assert_ne!(secret, second_material.as_slice());
     }
 }

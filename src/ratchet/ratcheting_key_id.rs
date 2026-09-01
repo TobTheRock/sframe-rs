@@ -1,10 +1,55 @@
-use std::hash::Hash;
+use std::fmt::Display;
 
 use crate::{
     error::{Result, SframeError},
     header::KeyId,
     util::{fit_into, get_n_lsb_bits},
 };
+
+/// The Key Generation of a [`RatchetingKeyId`], incremented by the application each time it
+/// distributes a new key. All Ratchet Steps of a Key Generation share its key material.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Generation(u64);
+
+impl From<u64> for Generation {
+    fn from(generation: u64) -> Self {
+        Self(generation)
+    }
+}
+
+impl From<Generation> for u64 {
+    fn from(generation: Generation) -> Self {
+        generation.0
+    }
+}
+
+impl Display for Generation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+/// One Ratchet Step of a [`RatchetingKeyId`], wrapping around to 0 after its maximum (`2^R - 1`)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RatchetStep(u64);
+
+impl From<u64> for RatchetStep {
+    fn from(step: u64) -> Self {
+        Self(step)
+    }
+}
+
+impl From<RatchetStep> for u64 {
+    fn from(step: RatchetStep) -> Self {
+        step.0
+    }
+}
+
+impl Display for RatchetStep {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 /// The No. bits (R) of a [`KeyId`] used for the Ratchet Step, see [`RatchetingKeyId`].
 ///
@@ -40,13 +85,18 @@ impl RatchetBits {
     }
 
     /// the largest Ratchet Step which fits into R bits (`2^R - 1`)
-    pub fn max_step(self) -> u64 {
-        get_n_lsb_bits(u64::MAX, self.0)
+    pub fn max_step(self) -> RatchetStep {
+        self.wrap_step(u64::MAX)
     }
 
     /// wraps a Ratchet Step into the `2^R` steps which R bits can hold
-    pub fn wrap_step(self, step: u64) -> u64 {
-        get_n_lsb_bits(step, self.0)
+    pub fn wrap_step(self, step: u64) -> RatchetStep {
+        RatchetStep(get_n_lsb_bits(step, self.0))
+    }
+
+    /// The No. steps needed to get from one Ratchet Step to another, wrapping at `2^R`
+    pub fn steps_between(self, from: RatchetStep, to: RatchetStep) -> u64 {
+        self.wrap_step(to.0.wrapping_sub(from.0)).0
     }
 
     /// The No. steps which can be told apart from a step which was already passed (`2^(R-1)`).
@@ -81,7 +131,7 @@ impl From<RatchetBits> for u8 {
 ///
 /// For each Key Generation a new [`RatchetingKeyId`] needs to be created, as the Key Generation is determined by the application.
 /// The Ratchet Step wraps around to 0 after its maximum (2^R - 1).
-#[derive(Clone, Copy, Debug, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RatchetingKeyId {
     value: u64,
     n_ratchet_bits: RatchetBits,
@@ -138,12 +188,12 @@ impl RatchetingKeyId {
     }
 
     /// returns the associated Key Generation
-    pub fn generation(&self) -> u64 {
-        self.value >> u8::from(self.n_ratchet_bits)
+    pub fn generation(&self) -> Generation {
+        Generation(self.value >> u8::from(self.n_ratchet_bits))
     }
 
     /// returns the associated Ratchet Step
-    pub fn ratchet_step(&self) -> u64 {
+    pub fn ratchet_step(&self) -> RatchetStep {
         self.n_ratchet_bits.wrap_step(self.value)
     }
 
@@ -155,7 +205,7 @@ impl RatchetingKeyId {
 
         if self.ratchet_step() == max_step {
             // clear the ratchet bits to wrap around
-            self.value ^= max_step;
+            self.value ^= u64::from(max_step);
             return;
         }
 
@@ -163,11 +213,6 @@ impl RatchetingKeyId {
     }
 }
 
-impl PartialEq for RatchetingKeyId {
-    fn eq(&self, other: &Self) -> bool {
-        self.generation() == other.generation()
-    }
-}
 impl PartialEq<KeyId> for RatchetingKeyId {
     fn eq(&self, other: &u64) -> bool {
         self.value == *other
@@ -186,28 +231,29 @@ impl From<RatchetingKeyId> for KeyId {
     }
 }
 
-impl Hash for RatchetingKeyId {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.generation().hash(state);
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crate::{
         header::KeyId,
-        ratchet::ratcheting_key_id::{RatchetBits, RatchetingKeyId},
+        ratchet::ratcheting_key_id::{Generation, RatchetBits, RatchetStep, RatchetingKeyId},
     };
     use pretty_assertions::assert_eq;
-    use std::collections::HashMap;
+
+    fn generation(generation: u64) -> Generation {
+        Generation::from(generation)
+    }
+
+    fn step(step: u64) -> RatchetStep {
+        RatchetStep::from(step)
+    }
 
     #[test]
     fn returns_correct_ratcheting_params() {
         let expected_generation: u64 = 0xFF;
         let key_id = RatchetingKeyId::new(expected_generation, RatchetBits::new(8));
 
-        assert_eq!(expected_generation, key_id.generation());
-        assert_eq!(0, key_id.ratchet_step());
+        assert_eq!(generation(expected_generation), key_id.generation());
+        assert_eq!(step(0), key_id.ratchet_step());
 
         let expected_on_wire: KeyId = 0x0000_FF00;
         assert_eq!(expected_on_wire, KeyId::from(key_id));
@@ -218,8 +264,8 @@ mod test {
         let expected_generation = 42;
         let key_id = RatchetingKeyId::new(expected_generation, RatchetBits::new(0));
 
-        assert_eq!(expected_generation, key_id.generation());
-        assert_eq!(0, key_id.ratchet_step());
+        assert_eq!(generation(expected_generation), key_id.generation());
+        assert_eq!(step(0), key_id.ratchet_step());
         assert_eq!(expected_generation, key_id);
     }
 
@@ -231,13 +277,13 @@ mod test {
         let mut key_id = RatchetingKeyId::new(expected_generation, n_ratcheting_bits);
 
         for i in 0..n_ratcheting_steps {
-            assert_eq!(i, key_id.ratchet_step());
-            assert_eq!(expected_generation, key_id.generation());
+            assert_eq!(step(i), key_id.ratchet_step());
+            assert_eq!(generation(expected_generation), key_id.generation());
             key_id.inc_ratchet_step();
         }
         // last inc should have wrapped around the ratchet step
-        assert_eq!(0, key_id.ratchet_step());
-        assert_eq!(expected_generation, key_id.generation());
+        assert_eq!(step(0), key_id.ratchet_step());
+        assert_eq!(generation(expected_generation), key_id.generation());
     }
 
     #[test]
@@ -253,11 +299,11 @@ mod test {
         let mut key_id = RatchetingKeyId::from_key_id(u64::MAX, n_ratcheting_bits);
 
         // just one bit left for the generation
-        assert_eq!(1, key_id.generation());
-        assert_eq!(u64::MAX >> 1, key_id.ratchet_step());
+        assert_eq!(generation(1), key_id.generation());
+        assert_eq!(step(u64::MAX >> 1), key_id.ratchet_step());
 
         key_id.inc_ratchet_step();
-        assert_eq!(0, key_id.ratchet_step());
+        assert_eq!(step(0), key_id.ratchet_step());
     }
 
     #[test]
@@ -267,7 +313,7 @@ mod test {
 
         let key_id = RatchetingKeyId::new(largest, n_ratcheting_bits);
 
-        assert_eq!(largest, key_id.generation());
+        assert_eq!(generation(largest), key_id.generation());
     }
 
     #[test]
@@ -284,7 +330,7 @@ mod test {
     fn keeps_any_generation_without_ratcheting_bits() {
         let key_id = RatchetingKeyId::new(u64::MAX, RatchetBits::new(0));
 
-        assert_eq!(u64::MAX, key_id.generation());
+        assert_eq!(generation(u64::MAX), key_id.generation());
     }
 
     #[test]
@@ -294,34 +340,30 @@ mod test {
 
         key_id.inc_ratchet_step();
 
-        assert_eq!(0, key_id.ratchet_step());
-        assert_eq!(expected_generation, key_id.generation());
+        assert_eq!(step(0), key_id.ratchet_step());
+        assert_eq!(generation(expected_generation), key_id.generation());
     }
 
     #[test]
-    fn compares_only_generations() {
+    fn separates_the_generation_from_the_ratchet_step() {
         let n_ratcheting_bits = RatchetBits::new(1);
         let mut key_id = RatchetingKeyId::new(42u64, n_ratcheting_bits);
         let key_id2 = RatchetingKeyId::new(42u64, n_ratcheting_bits);
 
         key_id.inc_ratchet_step();
 
-        assert_eq!(key_id, key_id2);
+        // both are of the same Key Generation, but are different key ids
+        assert_eq!(key_id.generation(), key_id2.generation());
+        assert_ne!(key_id, key_id2);
     }
 
     #[test]
-    fn works_with_hash_maps() {
-        let mut map = HashMap::new();
+    fn counts_the_steps_between_two_ratchet_steps() {
+        let n_ratcheting_bits = RatchetBits::new(2);
 
-        let generation: u32 = 42;
-        let mut key_id = RatchetingKeyId::new(generation, RatchetBits::new(8));
-        let value = "test_value";
-
-        map.insert(key_id, value);
-
-        key_id.inc_ratchet_step();
-
-        // should still be the same generation
-        assert!(map.contains_key(&key_id));
+        assert_eq!(1, n_ratcheting_bits.steps_between(step(2), step(3)));
+        // wraps at 2^R
+        assert_eq!(3, n_ratcheting_bits.steps_between(step(3), step(2)));
+        assert_eq!(0, n_ratcheting_bits.steps_between(step(1), step(1)));
     }
 }
