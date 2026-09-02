@@ -23,13 +23,13 @@ use sender::{Sender, SenderOptions};
 use sframe::{
     CipherSuite,
     header::SframeHeader,
-    ratchet::{RatchetBits, RatchetingBaseKey, RatchetingKeyId},
+    ratchet::{Generation, RatchetBits, RatchetingBaseKey, RatchetingKeyId},
 };
 
 fn main() {
     let Args {
         cipher_suite,
-        key_id,
+        generation,
         log_level,
         max_counter,
         secret,
@@ -38,7 +38,7 @@ fn main() {
         auto,
     } = Args::parse();
 
-    println!("- Using cipher suite {cipher_suite:?}, key id {key_id}, secret {secret}");
+    println!("- Using cipher suite {cipher_suite:?}, key generation {generation}, secret {secret}");
 
     if let Some(log_level) = log_level {
         println!("- Using log level {log_level}");
@@ -49,14 +49,15 @@ fn main() {
 
     println!("- Using {n_ratchet_bits} bits for the ratcheting step");
     let n_ratchet_bits = RatchetBits::new(n_ratchet_bits);
-    let ratcheting_key_id = RatchetingKeyId::new(key_id, n_ratchet_bits);
+    let generation = Generation::from(generation);
+    let ratcheting_key_id = RatchetingKeyId::new(generation, n_ratchet_bits);
     let mut base_key =
         RatchetingBaseKey::ratchet_forward(ratcheting_key_id, secret.as_bytes(), cipher_suite)
             .unwrap();
-    let key_id = ratcheting_key_id.into();
 
     let sender_options = SenderOptions {
-        key_id,
+        generation,
+        n_ratchet_bits,
         cipher_suite,
         max_counter,
     };
@@ -69,7 +70,7 @@ fn main() {
         ..Default::default()
     };
     let mut receiver = Receiver::from(receiver_options);
-    receiver.set_encryption_key(key_id, &secret).unwrap();
+    receiver.set_encryption_key(generation, &secret).unwrap();
 
     println!(
         "- Dropping {}%, duplicating {}% and delaying {}% of the packets",
@@ -160,8 +161,9 @@ fn bin2string(bin: &[u8]) -> String {
 struct Args {
     #[arg(value_enum, short, long, default_value_t = ArgCipherSuiteVariant::AesGcm128Sha256)]
     cipher_suite: ArgCipherSuiteVariant,
+    /// Key Generation to start with, the sender ratchets forward from its Ratchet Step 0
     #[arg(short, long, default_value_t = 3)]
-    key_id: u64,
+    generation: u64,
     #[arg(short, long)]
     log_level: Option<log::Level>,
     #[arg(short, long, default_value_t = u64::MAX)]

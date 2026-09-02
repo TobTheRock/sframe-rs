@@ -6,7 +6,7 @@ use sframe::{
         validation::{ReplayAttackProtectionError, ReplayAttackProtectionStore},
     },
     header::KeyId,
-    ratchet::{RatchetBits, RatchetingKeyId, RatchetingKeyStore},
+    ratchet::{Generation, RatchetBits, RatchetingKeyId, RatchetingKeyStore},
 };
 
 use crate::N_RATCHET_BITS;
@@ -72,7 +72,10 @@ impl Receiver {
 
         let key_id = encrypted_frame.header().key_id();
         // TODO(v2): improve the API, so it is easier to determine which was the previous kid
-        let previous_key_id = self.keys.get(key_id).map(|keys| keys.dec_key.key_id());
+        let previous_key_id = self
+            .keys
+            .get(self.generation_of(key_id))
+            .map(|keys| keys.dec_key.key_id());
 
         let mut ratcheted_away_from = None;
         if self.keys.try_ratchet(key_id)? > 0 {
@@ -105,17 +108,21 @@ impl Receiver {
         Ok(Some(payload))
     }
 
-    /// Tries to expand (HKDF) the necessary encryptions key using the key id and the key material,
-    /// which is then stored internally, to be used for decryption later on.
+    /// Tries to expand (HKDF) the necessary encryptions key for a Key Generation using the given
+    /// key material, which is then stored internally, to be used for decryption later on.
     /// May fail with
     /// - [`SframeError::KeyDerivation`]
-    pub fn set_encryption_key<K, M>(&mut self, key_id: K, key_material: M) -> Result<()>
+    pub fn set_encryption_key<M>(&mut self, generation: Generation, key_material: M) -> Result<()>
     where
-        K: Into<KeyId>,
         M: AsRef<[u8]>,
     {
         self.keys
-            .insert(self.cipher_suite, key_id.into(), key_material)
+            .insert(self.cipher_suite, generation, key_material)
+    }
+
+    /// The Key Generation a key id belongs to, all its Ratchet Steps share one stored key
+    fn generation_of(&self, key_id: KeyId) -> Generation {
+        RatchetingKeyId::from_key_id(key_id, self.keys.n_ratchet_bits()).generation()
     }
 
     /// creates a [Receiver] with the given cipher suite variant and the default parameters
@@ -130,22 +137,16 @@ impl Receiver {
         options.into()
     }
 
-    /// removes an encryption key associated with the key id, which was stored internally,
+    /// removes the encryption key of a Key Generation, which was stored internally,
     /// returns `true` if a key was present
-    pub fn remove_encryption_key<K>(&mut self, key_id: K) -> bool
-    where
-        K: Into<KeyId>,
-    {
-        let key_id = key_id.into();
-
+    pub fn remove_encryption_key(&mut self, generation: Generation) -> bool {
         // A whole key generation of KIDs is dropped here
         let n_ratchet_bits = self.keys.n_ratchet_bits();
-        let removed = RatchetingKeyId::from_key_id(key_id, n_ratchet_bits).generation();
         self.frame_validation.retain(|tracked| {
-            RatchetingKeyId::from_key_id(tracked, n_ratchet_bits).generation() != removed
+            RatchetingKeyId::from_key_id(tracked, n_ratchet_bits).generation() != generation
         });
 
-        self.keys.remove(key_id)
+        self.keys.remove(generation)
     }
 }
 
@@ -198,20 +199,20 @@ mod test {
     #[test]
     fn remove_key() {
         let mut receiver = Receiver::default();
-        assert!(!receiver.remove_encryption_key(1234_u64));
+        assert!(!receiver.remove_encryption_key(Generation::from(1234)));
 
         receiver
-            .set_encryption_key(4223_u64, "hendrikswaytoshortpassword")
+            .set_encryption_key(Generation::from(4223), "hendrikswaytoshortpassword")
             .unwrap();
         receiver
-            .set_encryption_key(4711_u64, "tobismuchbetterpassword;)")
+            .set_encryption_key(Generation::from(4711), "tobismuchbetterpassword;)")
             .unwrap();
 
-        assert!(receiver.remove_encryption_key(4223_u64));
-        assert!(!receiver.remove_encryption_key(4223_u64));
+        assert!(receiver.remove_encryption_key(Generation::from(4223)));
+        assert!(!receiver.remove_encryption_key(Generation::from(4223)));
 
-        assert!(receiver.remove_encryption_key(4711_u64));
-        assert!(!receiver.remove_encryption_key(4711_u64));
+        assert!(receiver.remove_encryption_key(Generation::from(4711)));
+        assert!(!receiver.remove_encryption_key(Generation::from(4711)));
     }
 
     #[test]

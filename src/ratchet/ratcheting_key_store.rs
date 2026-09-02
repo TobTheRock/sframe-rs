@@ -67,28 +67,25 @@ where
         self.n_ratchet_bits
     }
 
-    /// inserts a new key associated with a key id
-    /// expands the key and ratchets the original key material to not store for security reasons
-    pub fn insert<K, M>(
+    /// inserts a new key for a Key Generation, replacing the one stored for it.
+    /// The key starts at Ratchet Step 0.
+    /// Expands the key and ratchets the original key material to not store for security reasons
+    pub fn insert<M>(
         &mut self,
         cipher_suite: CipherSuite,
-        // TODO(v2): better parameter is the generation, as it is what matters. Currently it is not obvious that this
-        // replaces KeyIds with the same generation. Also a generation should always start at
-        // ratchet step 0.
-        key_id: K,
+        generation: Generation,
         key_material: M,
     ) -> Result<()>
     where
-        K: Into<KeyId>,
         M: AsRef<[u8]>,
     {
-        let key_id = RatchetingKeyId::from_key_id(key_id.into(), self.n_ratchet_bits);
+        let key_id = RatchetingKeyId::try_new(generation, self.n_ratchet_bits)?;
 
         let sframe_key = DecryptionKey::derive_from(cipher_suite, key_id, &key_material)?;
         let base_key = RatchetingBaseKey::ratchet_forward(key_id, key_material, cipher_suite)?;
 
         self.keys.insert(
-            key_id.generation(),
+            generation,
             RatchetingKeys {
                 base_key,
                 dec_key: sframe_key,
@@ -98,22 +95,14 @@ where
         Ok(())
     }
 
-    /// removes a key associated with the key id
-    pub fn remove<K>(&mut self, key_id: K) -> bool
-    where
-        K: Into<KeyId>,
-    {
-        let key_id = RatchetingKeyId::from_key_id(key_id.into(), self.n_ratchet_bits);
-        self.keys.remove(&key_id.generation()).is_some()
+    /// removes the key stored for a Key Generation
+    pub fn remove(&mut self, generation: Generation) -> bool {
+        self.keys.remove(&generation).is_some()
     }
 
-    /// returns the encryption key and [`RatchetingBaseKey`] associated with the key id
-    pub fn get<K>(&self, key_id: K) -> Option<&RatchetingKeys<A, D>>
-    where
-        K: Into<KeyId>,
-    {
-        let key_id = RatchetingKeyId::from_key_id(key_id.into(), self.n_ratchet_bits);
-        self.keys.get(&key_id.generation())
+    /// returns the encryption key and [`RatchetingBaseKey`] stored for a Key Generation
+    pub fn get(&self, generation: Generation) -> Option<&RatchetingKeys<A, D>> {
+        self.keys.get(&generation)
     }
 
     /// Tries to ratchet a stored [`RatchetingBaseKey`].
@@ -227,7 +216,7 @@ mod test {
     ) -> RatchetingKeyId {
         let key_id = RatchetingKeyId::new(GENERATION, n_ratchet_bits);
         key_store
-            .insert(CIPHER_SUITE, key_id, KEY_MATERIAL)
+            .insert(CIPHER_SUITE, key_id.generation(), KEY_MATERIAL)
             .unwrap();
 
         key_id
@@ -237,7 +226,7 @@ mod test {
     fn expands_and_ratchets_forward_on_insert() {
         let (key_store, key_id) = key_store_with_key();
 
-        let keys = key_store.get(key_id);
+        let keys = key_store.get(key_id.generation());
 
         assert!(keys.is_some());
         let keys = keys.unwrap();
@@ -262,7 +251,7 @@ mod test {
         let key_store = RatchetingKeyStore::new(n_ratchet_bits());
         let key_id = RatchetingKeyId::new(GENERATION, n_ratchet_bits());
 
-        let keys = key_store.get(key_id);
+        let keys = key_store.get(key_id.generation());
 
         assert!(keys.is_none());
     }
@@ -271,8 +260,8 @@ mod test {
     fn removes_key() {
         let (mut key_store, key_id) = key_store_with_key();
 
-        let was_removed = key_store.remove(key_id);
-        let keys = key_store.get(key_id);
+        let was_removed = key_store.remove(key_id.generation());
+        let keys = key_store.get(key_id.generation());
 
         assert!(was_removed);
         assert!(keys.is_none());
@@ -395,7 +384,11 @@ mod test {
         let mut key_id = RatchetingKeyId::new(1u8, n_ratchet_bits);
 
         key_store
-            .insert(CipherSuite::AesGcm256Sha512, key_id, KEY_MATERIAL)
+            .insert(
+                CipherSuite::AesGcm256Sha512,
+                key_id.generation(),
+                KEY_MATERIAL,
+            )
             .unwrap();
         key_id.inc_ratchet_step();
 
