@@ -2,11 +2,14 @@ use sframe::{
     CipherSuite,
     error::{Result, SframeError},
     frame::{
-        EncryptedFrameView,
+        EncryptedFrameView, MediaFrameView,
         validation::{ReplayAttackProtectionError, ReplayAttackProtectionStore},
     },
     header::KeyId,
-    ratchet::{Generation, RatchetBits, RatchetingKeyId, RatchetingKeyStore},
+    ratchet::{
+        Generation, RatchetBits, RatchetStepDiff, RatchetingDecryptionKey, RatchetingKeyId,
+        RatchetingKeyStore,
+    },
 };
 
 use crate::N_RATCHET_BITS;
@@ -27,6 +30,11 @@ pub struct ReceiverOptions {
     ///
     /// default: [`N_RATCHET_BITS`]
     pub n_ratchet_bits: RatchetBits,
+    /// the No. Ratchet Steps a single frame may catch up with, matching the loss and re-ordering
+    /// to be expected - each step costs a key derivation an attacker can trigger
+    ///
+    /// default: `2`, the sender of this example ratchets once per frame
+    pub max_ratchet_steps: RatchetStepDiff,
 }
 
 impl Default for ReceiverOptions {
@@ -35,6 +43,7 @@ impl Default for ReceiverOptions {
             cipher_suite: CipherSuite::AesGcm256Sha512,
             frame_validation: ReplayAttackProtectionStore::new(128),
             n_ratchet_bits: RatchetBits::new(N_RATCHET_BITS),
+            max_ratchet_steps: RatchetStepDiff::from(2),
         }
     }
 }
@@ -48,6 +57,9 @@ pub struct Receiver {
     cipher_suite: CipherSuite,
     frame_validation: ReplayAttackProtectionStore,
     buffer: Vec<u8>,
+    /// the No. bits used to depict the Ratchet Step is agreed on for the session, the store
+    /// takes it from the key ids it is given
+    n_ratchet_bits: RatchetBits,
 }
 
 impl Receiver {
@@ -70,42 +82,30 @@ impl Receiver {
         let meta_data = &encrypted_frame[..skip];
         let encrypted_frame = EncryptedFrameView::try_with_meta_data(data, meta_data)?;
 
-        let key_id = encrypted_frame.header().key_id();
-        // TODO(v2): improve the API, so it is easier to determine which was the previous kid
-        let previous_key_id = self
-            .keys
-            .get(self.generation_of(key_id))
-            .map(|keys| keys.dec_key.key_id());
+        let key_id =
+            RatchetingKeyId::from_key_id(encrypted_frame.header().key_id(), self.n_ratchet_bits);
 
-        let mut ratcheted_away_from = None;
-        if self.keys.try_ratchet(key_id)? > 0 {
-            ratcheted_away_from = previous_key_id;
-        }
-
-        // A MediaFrameView gives access to the payload, meta data and counter of the frame
-        let media_frame = match encrypted_frame.validated_decrypt_into(
-            &self.keys,
-            &mut self.buffer,
-            &mut self.frame_validation,
-        ) {
+        // The store ratchets the key forward to the Ratchet Step of the key id, but keeps it
+        // only if the frame decrypted - a forged header must not evict a valid key.
+        let media_frame = match self.keys.with_ratcheted_key(key_id, |key| {
+            decrypt_and_record(
+                &encrypted_frame,
+                key,
+                &mut self.buffer,
+                &mut self.frame_validation,
+            )
+        }) {
             Ok(media_frame) => media_frame,
             Err(error) => return drop_if_replayed(error),
         };
 
         log::debug!(
-            "[receiver] Decrypted frame # {} of key id {key_id}",
-            media_frame.counter()
+            "[receiver] Decrypted frame # {} of key id {}",
+            media_frame.counter(),
+            KeyId::from(key_id)
         );
-        let payload = media_frame.payload();
 
-        // Remove stale KIDs to avoid memory growth (assuming in order packet delivery).
-        // Only once a frame of the new KID decrypted, an unauthenticated header must not
-        // drop the window of the previous one.
-        if let Some(key_id) = ratcheted_away_from {
-            self.frame_validation.remove(key_id);
-        }
-
-        Ok(Some(payload))
+        Ok(Some(media_frame.payload()))
     }
 
     /// Tries to expand (HKDF) the necessary encryptions key for a Key Generation using the given
@@ -116,13 +116,12 @@ impl Receiver {
     where
         M: AsRef<[u8]>,
     {
-        self.keys
-            .insert(self.cipher_suite, generation, key_material)
-    }
+        // a Key Generation starts at Ratchet Step 0
+        let key_id = RatchetingKeyId::try_new(generation, self.n_ratchet_bits)?;
+        let key = RatchetingDecryptionKey::derive_from(self.cipher_suite, key_id, key_material)?;
+        self.keys.insert(key);
 
-    /// The Key Generation a key id belongs to, all its Ratchet Steps share one stored key
-    fn generation_of(&self, key_id: KeyId) -> Generation {
-        RatchetingKeyId::from_key_id(key_id, self.keys.n_ratchet_bits()).generation()
+        Ok(())
     }
 
     /// creates a [Receiver] with the given cipher suite variant and the default parameters
@@ -141,13 +140,34 @@ impl Receiver {
     /// returns `true` if a key was present
     pub fn remove_encryption_key(&mut self, generation: Generation) -> bool {
         // A whole key generation of KIDs is dropped here
-        let n_ratchet_bits = self.keys.n_ratchet_bits();
+        let n_ratchet_bits = self.n_ratchet_bits;
         self.frame_validation.retain(|tracked| {
             RatchetingKeyId::from_key_id(tracked, n_ratchet_bits).generation() != generation
         });
 
         self.keys.remove(generation)
     }
+}
+
+/// Screens the frame, decrypts it into the buffer, and only once it authenticated records it and
+/// drops the replay window which a ratchet step left behind - an unauthenticated header must not
+/// evict either.
+/// A [`MediaFrameView`] gives access to the payload, meta data and counter of the frame.
+fn decrypt_and_record<'obuf>(
+    encrypted_frame: &EncryptedFrameView,
+    key: &RatchetingDecryptionKey,
+    buffer: &'obuf mut Vec<u8>,
+    frame_validation: &mut ReplayAttackProtectionStore,
+) -> Result<MediaFrameView<'obuf>> {
+    let media_frame = encrypted_frame.validated_decrypt_into(key, buffer, frame_validation)?;
+
+    // the Ratchet Step the key was ratcheted away from leaves a stale replay window behind,
+    // dropping it avoids memory growth, assuming in order packet delivery
+    if let Some(stale_key_id) = key.ratcheted_from() {
+        frame_validation.remove(KeyId::from(stale_key_id));
+    }
+
+    Ok(media_frame)
 }
 
 /// Drops a frame which the validator rejected as a replay, on a lossy transport a duplicated
@@ -177,8 +197,9 @@ impl From<ReceiverOptions> for Receiver {
         Self {
             frame_validation: options.frame_validation,
             cipher_suite: options.cipher_suite,
-            keys: RatchetingKeyStore::new(options.n_ratchet_bits),
+            keys: RatchetingKeyStore::new(options.max_ratchet_steps),
             buffer: Default::default(),
+            n_ratchet_bits: options.n_ratchet_bits,
         }
     }
 }

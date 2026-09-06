@@ -23,7 +23,7 @@ use sender::{Sender, SenderOptions};
 use sframe::{
     CipherSuite,
     header::SframeHeader,
-    ratchet::{Generation, RatchetBits, RatchetingBaseKey, RatchetingKeyId},
+    ratchet::{Generation, RatchetBits},
 };
 
 fn main() {
@@ -50,10 +50,6 @@ fn main() {
     println!("- Using {n_ratchet_bits} bits for the ratcheting step");
     let n_ratchet_bits = RatchetBits::new(n_ratchet_bits);
     let generation = Generation::from(generation);
-    let ratcheting_key_id = RatchetingKeyId::new(generation, n_ratchet_bits);
-    let mut base_key =
-        RatchetingBaseKey::ratchet_forward(ratcheting_key_id, secret.as_bytes(), cipher_suite)
-            .unwrap();
 
     let sender_options = SenderOptions {
         generation,
@@ -107,14 +103,11 @@ fn main() {
 
     lines.for_each(|line| {
         // just to demonstrate the functionality, ratcheting should only take place if a new receiver joins
-        let (new_key_id, key_material) = base_key.next_base_key().unwrap();
+        sender.ratchet_encryption_key().unwrap();
         println!(
             "- Ratcheting sender key, ratcheting step: {}",
-            new_key_id.ratchet_step()
+            sender.key_id().ratchet_step()
         );
-        sender
-            .ratchet_encryption_key(new_key_id, &key_material)
-            .unwrap();
 
         println!("- Encrypting {}", bin2string(line.as_bytes()));
         let encrypted = sender.encrypt(line, 0).unwrap();

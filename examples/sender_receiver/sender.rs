@@ -4,8 +4,7 @@ use sframe::{
     error::{Result, SframeError},
     frame::MediaFrameView,
     header::Counter,
-    key::EncryptionKey,
-    ratchet::{Generation, RatchetBits, RatchetingKeyId},
+    ratchet::{Generation, RatchetBits, RatchetingEncryptionKey, RatchetingKeyId},
 };
 
 use crate::N_RATCHET_BITS;
@@ -52,7 +51,7 @@ pub struct Sender {
     counter: MonotonicCounter,
     key_id: RatchetingKeyId,
     cipher_suite: CipherSuite,
-    enc_key: Option<EncryptionKey>,
+    enc_key: Option<RatchetingEncryptionKey>,
     buffer: Vec<u8>,
 }
 
@@ -84,6 +83,7 @@ impl Sender {
         F: AsRef<[u8]>,
     {
         if let Some(enc_key) = &self.enc_key {
+            let enc_key = enc_key.as_ref();
             let unencrypted_frame = unencrypted_frame.as_ref();
 
             let payload = &unencrypted_frame[skip..];
@@ -100,14 +100,15 @@ impl Sender {
     }
 
     /// Tries to create an encryption key for this sender, by expanding the given key material
-    /// , which is stored internally for encryption.
+    /// , which is stored internally for encryption. It starts at Ratchet Step 0 of the
+    /// senders Key Generation.
     /// May fail with:
     /// - [`SframeError::KeyDerivation`]
     pub fn set_encryption_key<M>(&mut self, key_material: M) -> Result<()>
     where
         M: AsRef<[u8]>,
     {
-        self.enc_key = Some(EncryptionKey::derive_from(
+        self.enc_key = Some(RatchetingEncryptionKey::derive_from(
             self.cipher_suite,
             self.key_id,
             key_material,
@@ -115,19 +116,26 @@ impl Sender {
         Ok(())
     }
 
-    /// To rachtet sets the key id of the next Ratchet Step and tries to create a new encryption
-    /// key for this sender, by expanding the given key material.
+    /// returns the key id the next frame is encrypted with
+    pub fn key_id(&self) -> RatchetingKeyId {
+        self.enc_key
+            .as_ref()
+            .map_or(self.key_id, RatchetingEncryptionKey::key_id)
+    }
+
+    /// Ratchets the encryption key forward, so the next frame is encrypted with the key of the
+    /// next Ratchet Step.
     /// May fail with:
-    pub fn ratchet_encryption_key<M>(
-        &mut self,
-        key_id: RatchetingKeyId,
-        key_material: M,
-    ) -> Result<()>
-    where
-        M: AsRef<[u8]>,
-    {
-        self.key_id = key_id;
-        self.set_encryption_key(key_material)
+    /// - [`SframeError::EncryptionFailure`] if no key material was set yet
+    /// - [`SframeError::KeyDerivation`]
+    pub fn ratchet_encryption_key(&mut self) -> Result<()> {
+        self.enc_key = Some(
+            self.enc_key
+                .as_ref()
+                .ok_or(SframeError::EncryptionFailure)?
+                .ratchet()?,
+        );
+        Ok(())
     }
 }
 
