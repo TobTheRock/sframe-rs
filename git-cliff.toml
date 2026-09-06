@@ -13,6 +13,7 @@ body = """
     ### {{ group | upper_first }}
     {% for commit in commits %}
         - {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message | upper_first }}\
+        {% for footer in commit.footers | filter(attribute="token", value="Refs") %} ({{ footer.value }}){% endfor %}\
         {% for footer in commit.footers | filter(attribute="breaking", value=true) %}\n\n  > **{{ footer.token }}:** {{ footer.value | trim | replace(from="\n", to="\n  > ") }}{% endfor %}\
     {% endfor %}
 {% endfor %}\n
@@ -35,6 +36,8 @@ commit_parsers = [
 filter_commits = true
 commit_preprocessors = [
     { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "([#${2}](https://github.com/TobTheRock/sframe-rs/issues/${2}))" },
+    # the issue is referenced in a `Refs: #N` footer, the subject form above is the older style
+    { pattern = 'Refs: #([0-9]+)', replace = "Refs: [#${1}](https://github.com/TobTheRock/sframe-rs/issues/${1})" },
 ]
 protect_breaking_commits = true
 tag_pattern = "v[0-9]*"
