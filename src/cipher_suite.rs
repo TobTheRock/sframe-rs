@@ -1,8 +1,12 @@
 /// Depicts which AEAD algorithm is used for encryption
 /// and which hashing function is used for the key expansion,
 /// see [RFC 9605 4.4](https://www.rfc-editor.org/rfc/rfc9605.html#name-cipher-suites)
+///
+/// Which variants exist depends on the crypto backend in use, and further ones may be added as
+/// `SFrame` registers them, so a `match` on a cipher suite needs a catch-all arm.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(u16)]
+#[non_exhaustive]
 pub enum CipherSuite {
     // /// counter mode is [not implemented in ring](https://github.com/briansmith/ring/issues/656)
     #[cfg(aes_ctr)]
