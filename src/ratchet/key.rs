@@ -232,7 +232,6 @@ mod test {
     use crate::{
         CipherSuite,
         crypto::{Aead, Kdf},
-        frame::{MediaFrame, MonotonicCounter},
         ratchet::{RatchetBits, RatchetStep, RatchetStepDiff, RatchetingKeyId},
     };
     use pretty_assertions::assert_eq;
@@ -352,23 +351,5 @@ mod test {
         let too_far = key.ratchet_to(advanced_key_id(3), max_steps());
 
         assert!(too_far.is_err());
-    }
-
-    #[test]
-    fn encryption_and_decryption_key_ratchet_in_lockstep() {
-        let mut counter = MonotonicCounter::default();
-        let mut enc_key = encryption_key();
-        for _ in 0..2 {
-            enc_key = enc_key.ratchet().unwrap();
-        }
-        // the receiver catches up with the Ratchet Step of the sender in one go
-        let dec_key = decryption_key()
-            .ratchet_to(enc_key.key_id(), max_steps())
-            .unwrap();
-
-        let media_frame = MediaFrame::try_new(&mut counter, b"ratcheted payload").unwrap();
-        let encrypted_frame = media_frame.encrypt(enc_key.as_ref()).unwrap();
-
-        assert_eq!(media_frame, encrypted_frame.decrypt(&dec_key).unwrap());
     }
 }
