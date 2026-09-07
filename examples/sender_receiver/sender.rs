@@ -73,11 +73,9 @@ impl Sender {
         }
         .into()
     }
-    /// Tries to encrypt an incoming encrypted frame, returning a slice to the encrypted data on success.
-    /// The first `skip` bytes are not going to be encrypted (e.g. for another header), but are used as AAD for authentification
-    /// May fail with
-    /// - [`SframeError::EncryptionFailure`]
-    /// - [`SframeError::CounterCreationFailed`]
+    /// Encrypts a frame into the internal buffer, returning a slice to the encrypted data.
+    /// The first `skip` bytes are left unencrypted (e.g. for another header), a
+    /// [`MediaFrameView`] takes them as meta data, which is authenticated but not encrypted.
     pub fn encrypt<F>(&mut self, unencrypted_frame: F, skip: usize) -> Result<&[u8]>
     where
         F: AsRef<[u8]>,
@@ -99,11 +97,8 @@ impl Sender {
         }
     }
 
-    /// Tries to create an encryption key for this sender, by expanding the given key material
-    /// , which is stored internally for encryption. It starts at Ratchet Step 0 of the
-    /// senders Key Generation.
-    /// May fail with:
-    /// - [`SframeError::KeyDerivation`]
+    /// Expands (HKDF) the key material into the encryption key of this sender, which is kept
+    /// for the frames to come. It starts at Ratchet Step 0 of the senders Key Generation.
     pub fn set_encryption_key<M>(&mut self, key_material: M) -> Result<()>
     where
         M: AsRef<[u8]>,
@@ -124,10 +119,8 @@ impl Sender {
     }
 
     /// Ratchets the encryption key forward, so the next frame is encrypted with the key of the
-    /// next Ratchet Step.
-    /// May fail with:
-    /// - [`SframeError::EncryptionFailure`] if no key material was set yet
-    /// - [`SframeError::KeyDerivation`]
+    /// next Ratchet Step - and the receivers of the previous ones cannot read it anymore.
+    /// The key carries its own key material, so no base key has to be kept next to it.
     pub fn ratchet_encryption_key(&mut self) -> Result<()> {
         self.enc_key = Some(
             self.enc_key

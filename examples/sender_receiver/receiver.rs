@@ -161,8 +161,11 @@ fn decrypt_and_record<'obuf>(
 ) -> Result<MediaFrameView<'obuf>> {
     let media_frame = encrypted_frame.validated_decrypt_into(key, buffer, frame_validation)?;
 
-    // the Ratchet Step the key was ratcheted away from leaves a stale replay window behind,
-    // dropping it avoids memory growth, assuming in order packet delivery
+    // The Ratchet Step the key was ratcheted away from leaves a replay window behind, dropping
+    // it avoids memory growth. Safe to do here, as this example ratchets on every frame and the
+    // store only ratchets forward: a frame the channel delayed past a Ratchet Step has no key
+    // anymore anyway. An application which ratchets rarely - only when a receiver joins e.g. -
+    // should keep the window while frames of that step may still arrive.
     if let Some(stale_key_id) = key.ratcheted_from() {
         frame_validation.remove(KeyId::from(stale_key_id));
     }
