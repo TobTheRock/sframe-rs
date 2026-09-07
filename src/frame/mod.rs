@@ -52,8 +52,6 @@ mod frame_buffer;
 mod frame_counter;
 mod media_frame;
 
-/// Screening frames before decryption and recording them after, e.g. to protect
-/// against replay attacks.
 pub mod validation;
 
 pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView};

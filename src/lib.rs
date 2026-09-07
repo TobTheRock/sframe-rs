@@ -61,18 +61,12 @@
 )]
 
 pub(crate) mod cipher_suite;
-/// Cryptographic primitives and traits for implementing custom crypto backends.
 pub mod crypto;
-/// error definitions
 pub mod error;
 pub mod frame;
-/// Sframe header definitions as of [RFC 9605 4.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-sframe-header)
 pub mod header;
-/// sframe key definitions as of [RFC 9605 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2)
 pub mod key;
-/// Sframe MLS definitions as of [RFC 9605 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#name-mls)
 pub mod mls;
-/// Ratchet support as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
 pub mod ratchet;
 
 mod util;

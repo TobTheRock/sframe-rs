@@ -1,3 +1,30 @@
+//! # Header
+//!
+//! The `SFrame` header as of [RFC 9605 Section 4.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-sframe-header),
+//! carrying the [`KeyId`] the frame was encrypted with and its [`Counter`]. Both fields are
+//! variable length, so a header is between 1 and 17 bytes long.
+//!
+//! The frame API reads and writes it for you - reach for [`SframeHeader`] directly only to
+//! inspect an incoming frame before decrypting it, e.g. to look up a key.
+//!
+//! ## Example
+//!
+//! ```rust
+//! use sframe::header::SframeHeader;
+//!
+//! # fn main() -> sframe::error::Result<()> {
+//! let header = SframeHeader::new(42, 1);
+//!
+//! let mut buffer = vec![0u8; header.len()];
+//! header.serialize(&mut buffer)?;
+//!
+//! let parsed = SframeHeader::deserialize(&buffer)?;
+//! assert_eq!(parsed.key_id(), 42);
+//! assert_eq!(parsed.counter(), 1);
+//! # Ok(())
+//! # }
+//! ```
+
 mod config_byte;
 mod header_field;
 mod util;

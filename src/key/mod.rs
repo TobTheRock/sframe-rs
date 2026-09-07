@@ -1,4 +1,43 @@
-//! SFrame key definitions as of [RFC 9605 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2)
+//! # Keys
+//!
+//! `SFrame` keys as of [RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2):
+//! derived from key material shared out of band, and carrying the Key ID that goes into the
+//! `SFrame` header.
+//!
+//! With one of the backend features enabled, use `EncryptionKey` and `DecryptionKey`. They are
+//! pinned to that backend, so the type parameters never have to be spelled out. Only when you
+//! bring your own crypto (see [`crate::crypto`]) do you reach for [`GenericEncryptionKey`] and
+//! [`GenericDecryptionKey`], which the two are aliases of.
+//!
+//! A receiver looks keys up through the [`KeyStore`] trait. A single decryption key implements
+//! it, so a call with one sender needs nothing else; a `HashMap<KeyId, DecryptionKey>` covers
+//! several senders.
+//!
+//! ## Example
+//!
+//! ```rust
+//! use std::collections::HashMap;
+//! use sframe::{
+//!     CipherSuite,
+//!     header::KeyId,
+//!     key::{DecryptionKey, EncryptionKey, KeyStore},
+//! };
+//!
+//! # fn main() -> sframe::error::Result<()> {
+//! const CIPHER_SUITE: CipherSuite = CipherSuite::AesGcm256Sha512;
+//!
+//! let enc_key = EncryptionKey::derive_from(CIPHER_SUITE, 42u64, "pw123")?;
+//!
+//! // a receiver tells the senders of a call apart by their Key ID
+//! let mut keys: HashMap<KeyId, DecryptionKey> = HashMap::new();
+//! keys.insert(42, DecryptionKey::derive_from(CIPHER_SUITE, 42u64, "pw123")?);
+//! keys.insert(43, DecryptionKey::derive_from(CIPHER_SUITE, 43u64, "pw456")?);
+//!
+//! assert!(keys.get_key(enc_key.key_id()).is_some());
+//! assert!(keys.get_key(44u64).is_none());
+//! # Ok(())
+//! # }
+//! ```
 
 pub(crate) mod generic;
 pub(crate) mod key_store;

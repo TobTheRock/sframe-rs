@@ -1,8 +1,26 @@
-//! Cryptographic primitives and traits for SFrame as defined in [RFC 9605](https://www.rfc-editor.org/rfc/rfc9605.html).
+//! # Crypto backends
 //!
-//! This module exposes the traits needed to implement custom crypto backends:
-//! - [`AeadEncrypt`](crate::crypto::AeadEncrypt) and [`AeadDecrypt`](crate::crypto::AeadDecrypt) for AEAD encryption/decryption ([Section 4.4.3/4.4.4](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.3))
-//! - [`KeyDerivation`](crate::crypto::KeyDerivation) for key derivation from base key material ([Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2))
+//! Only needed to bring your own crypto: with one of the `ring`, `openssl` or `rust-crypto`
+//! features enabled, the backend is already wired up and nothing here has to be named.
+//!
+//! Without a backend feature, implement these three traits and parameterize
+//! [`GenericEncryptionKey`](crate::key::GenericEncryptionKey) /
+//! [`GenericDecryptionKey`](crate::key::GenericDecryptionKey) with your types:
+//!
+//! - [`AeadEncrypt`] and [`AeadDecrypt`] - encrypting and decrypting a frame in place
+//!   ([RFC 9605 Section 4.4.3/4.4.4](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.3))
+//! - [`KeyDerivation`] - expanding base key material into a secret
+//!   ([RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2))
+//! - [`Ratcheting`] - additionally, to support [`crate::ratchet`]
+//!
+//! All three receive the [`CipherSuite`](crate::CipherSuite) the key was derived with and take
+//! their own associated secret type, so a backend is free to carry whatever its algorithm needs.
+//! `get_hkdf_key_expand_label`, `get_hkdf_salt_expand_label` and `get_hkdf_ratchet_expand_label`
+//! build the HKDF labels the RFC prescribes - use them to stay interoperable with other `SFrame`
+//! implementations.
+//!
+//! The `custom-crypto-backend` example implements a (deliberately insecure) Caesar cipher backend
+//! end to end.
 
 /// AEAD encryption and decryption traits ([RFC 9605 Section 4.4.3](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.3)).
 pub(crate) mod aead;
