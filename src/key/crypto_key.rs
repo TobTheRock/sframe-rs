@@ -170,12 +170,6 @@ where
     }
 
     #[cfg(all(test, crypto_backend))]
-    /// Returns a reference to the secret associated with this key (for testing).
-    pub(crate) fn secret(&self) -> &D::Secret {
-        &self.secret
-    }
-
-    #[cfg(all(test, crypto_backend))]
     /// Creates an `SFrame` key from a test vector for testing purposes.
     pub(crate) fn from_test_vector(
         cipher_suite: CipherSuite,

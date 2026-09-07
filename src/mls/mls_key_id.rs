@@ -1,9 +1,8 @@
 use crate::{
+    error::{Result, SframeError},
     header::KeyId,
-    util::{get_n_lsb_bits, limit_bit_len},
+    util::{fit_into, get_n_lsb_bits},
 };
-
-//
 
 /// Represents the bit range for an MLS Key ID as of [RFC 9605 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#name-mls)
 /// The bit range specifies the number of bits allocated for the epoch (E) and member index (S) components of the MLS Key ID,
@@ -14,28 +13,44 @@ pub struct MlsKeyIdBitRange {
 }
 
 impl MlsKeyIdBitRange {
-    /// Creates a new bit range from the given number of bits for the epoch (E) and the member index (S)
-    /// It is ensured that
-    /// - E < 63
-    /// - S < 64 - E
-    ///
-    /// so that the number of bits used for encoding the MLS Key ID does not exceed the maximum allowed limit and that for each field at least 1 bit is available
-    pub fn new<E, I>(n_epoch_bits: E, n_index_bits: I) -> Self
-    where
-        E: Into<u8>,
-        I: Into<u8>,
-    {
-        let n_epoch_bits = limit_bit_len("n_epoch_bits", n_epoch_bits.into(), u64::BITS as u8 - 2);
-        let n_index_bits = limit_bit_len(
-            "n_index_bits",
-            n_index_bits.into(),
-            (u64::BITS as u8) - n_epoch_bits - 1,
-        );
+    /// the maximum No. bits usable for the epoch (E) and the member index (S) together,
+    /// so that at least one bit is left for the context id
+    pub const MAX: u8 = u64::BITS as u8 - 1;
 
-        Self {
+    /// Creates a new bit range from the given number of bits for the epoch (E) and the member index (S).
+    ///
+    /// # Panics
+    /// If `E + S` is larger than [`MlsKeyIdBitRange::MAX`], use [`MlsKeyIdBitRange::try_new`] to
+    /// handle this as an error instead.
+    pub fn new(n_epoch_bits: u8, n_index_bits: u8) -> Self {
+        Self::try_new(n_epoch_bits, n_index_bits).unwrap()
+    }
+
+    /// Tries to create a new bit range from the given number of bits for the epoch (E) and the member index (S).
+    /// Fails with [`SframeError::OutOfRange`] if `E + S` is larger than
+    /// [`MlsKeyIdBitRange::MAX`], i.e. if no bit is left for the context id.
+    pub fn try_new(n_epoch_bits: u8, n_index_bits: u8) -> Result<Self> {
+        if n_epoch_bits > Self::MAX {
+            return Err(SframeError::OutOfRange {
+                name: "n_epoch_bits",
+                value: n_epoch_bits.into(),
+                max: Self::MAX.into(),
+            });
+        }
+
+        let max_index_bits = Self::MAX - n_epoch_bits;
+        if n_index_bits > max_index_bits {
+            return Err(SframeError::OutOfRange {
+                name: "n_index_bits",
+                value: n_index_bits.into(),
+                max: max_index_bits.into(),
+            });
+        }
+
+        Ok(Self {
             n_epoch_bits,
             n_index_bits,
-        }
+        })
     }
 
     fn len(&self) -> u8 {
@@ -64,29 +79,37 @@ pub struct MlsKeyId {
 }
 
 impl MlsKeyId {
-    /// Creates a new MLS specific Key ID with the given context, epoch and member index,
+    /// Tries to create a new MLS specific Key ID with the given context, epoch and member index,
     /// using the bit ranges configured for each of them.
-    pub fn new<C, E, M>(
+    /// Of the epoch only the E least significant bits are encoded, as of the RFC.
+    ///
+    /// Fails with [`SframeError::OutOfRange`] if the context id or the member index do not fit
+    /// into the bits configured for them.
+    pub fn try_new<C, E, M>(
         context_id: C,
         epoch_number: E,
         member_index: M,
         bit_range: MlsKeyIdBitRange,
-    ) -> Self
+    ) -> Result<Self>
     where
         C: Into<u64>,
         E: Into<u64>,
         M: Into<u64>,
     {
-        let context_id = context_id.into();
-
+        let context_id = fit_into(
+            "context_id",
+            context_id.into(),
+            u64::BITS - u32::from(bit_range.len()),
+        )?;
+        let member_index = fit_into("member_index", member_index.into(), bit_range.n_index_bits)?;
+        // as of the RFC only the least significant bits of the epoch are encoded
         let epoch_number = get_n_lsb_bits(epoch_number.into(), bit_range.n_epoch_bits);
-        let member_index = get_n_lsb_bits(member_index.into(), bit_range.n_index_bits);
 
         let value = (context_id << bit_range.len())
             | (member_index << bit_range.n_epoch_bits)
             | epoch_number;
 
-        Self { value, bit_range }
+        Ok(Self { value, bit_range })
     }
 
     /// Extracts an MLS specific Key ID from a general Key ID (e.g. from an [`crate::header::SframeHeader`]), assuming the given bit range
@@ -137,7 +160,8 @@ mod tests {
         let member_index: u64 = 6;
 
         let bit_range = MlsKeyIdBitRange::new(3u8, 4u8);
-        let mls_key_id = MlsKeyId::new(context_id, epoch_number, member_index, bit_range);
+        let mls_key_id =
+            MlsKeyId::try_new(context_id, epoch_number, member_index, bit_range).unwrap();
 
         assert_eq!(mls_key_id.context_id(), context_id);
         assert_eq!(mls_key_id.epoch_lsb(), epoch_number_lsb);
@@ -163,28 +187,32 @@ mod tests {
     }
 
     #[test]
-    fn test_exceeded_mls_bit_range() {
-        let bit_range = MlsKeyIdBitRange::new(100, 12);
-        assert_eq!(bit_range.n_epoch_bits, u64::BITS as u8 - 2);
-        assert_eq!(bit_range.n_index_bits, 1);
-
-        let n_epoch_bits = 10;
-        let bit_range = MlsKeyIdBitRange::new(n_epoch_bits, 60);
-        assert_eq!(bit_range.n_epoch_bits, n_epoch_bits);
-        assert_eq!(bit_range.n_index_bits, u64::BITS as u8 - n_epoch_bits - 1);
+    fn rejects_a_bit_range_leaving_no_context_id() {
+        assert!(MlsKeyIdBitRange::try_new(100, 12).is_err());
+        assert!(MlsKeyIdBitRange::try_new(10, 60).is_err());
+        // one bit is left for the context id
+        assert!(MlsKeyIdBitRange::try_new(10, MlsKeyIdBitRange::MAX - 10).is_ok());
     }
 
     #[test]
-    fn test_mls_key_id_creation_values_exceeding_bit_range() {
+    fn rejects_values_exceeding_the_bit_range() {
         let bit_range = MlsKeyIdBitRange::new(58, 3u8); // 3 bit for context id
-
-        let context_id: u64 = 0b111_101;
         let epoch_number: u64 = 1;
-        let member_index: u64 = 0b111_101;
 
-        let mls_key_id = MlsKeyId::new(context_id, epoch_number, member_index, bit_range);
+        let too_large: u64 = 0b1_000;
+        assert!(MlsKeyId::try_new(too_large, epoch_number, 0u64, bit_range).is_err());
+        assert!(MlsKeyId::try_new(0u64, epoch_number, too_large, bit_range).is_err());
 
-        assert_eq!(mls_key_id.context_id(), 5);
-        assert_eq!(mls_key_id.member_index(), 5);
+        let largest: u64 = 0b111;
+        assert!(MlsKeyId::try_new(largest, epoch_number, largest, bit_range).is_ok());
+    }
+
+    #[test]
+    fn encodes_only_the_least_significant_bits_of_the_epoch() {
+        let bit_range = MlsKeyIdBitRange::new(3u8, 4u8);
+
+        let mls_key_id = MlsKeyId::try_new(0u64, 0b11_101u64, 0u64, bit_range).unwrap();
+
+        assert_eq!(mls_key_id.epoch_lsb(), 0b101);
     }
 }
