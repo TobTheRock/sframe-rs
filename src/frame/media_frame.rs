@@ -6,7 +6,7 @@ use crate::{
     },
     error::{Result, SframeError},
     header::{Counter, SframeHeader},
-    key::crypto_key::EncryptionKey,
+    key::GenericEncryptionKey,
 };
 
 use super::{
@@ -126,7 +126,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
     /// Encrypts the media frame with the sframe key according to [RFC 9605 4.4.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-encryption). Dynamically allocates memory for the resulting [`EncryptedFrame`].
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails.
-    pub fn encrypt<A, D>(&self, key: &EncryptionKey<A, D>) -> Result<EncryptedFrame>
+    pub fn encrypt<A, D>(&self, key: &GenericEncryptionKey<A, D>) -> Result<EncryptedFrame>
     where
         A: AeadEncrypt<Secret = D::Secret>,
         D: KeyDerivation,
@@ -147,7 +147,7 @@ impl<'ibuf> MediaFrameView<'ibuf> {
     /// Returns an [`crate::error::SframeError`] when encryption fails.
     pub fn encrypt_into<'obuf, A, D>(
         &self,
-        key: &EncryptionKey<A, D>,
+        key: &GenericEncryptionKey<A, D>,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<EncryptedFrameView<'obuf>>
     where
@@ -314,7 +314,7 @@ impl MediaFrame {
     /// Dynamically allocates memory for the resulting [`EncryptedFrame`].
     /// The associated meta data is not encrypted but considered for the authentication tag.
     /// Returns an [`crate::error::SframeError`] when encryption fails
-    pub fn encrypt<A, D>(&self, key: &EncryptionKey<A, D>) -> Result<EncryptedFrame>
+    pub fn encrypt<A, D>(&self, key: &GenericEncryptionKey<A, D>) -> Result<EncryptedFrame>
     where
         A: AeadEncrypt<Secret = D::Secret>,
         D: KeyDerivation,
@@ -330,7 +330,7 @@ impl MediaFrame {
     /// Returns an [`crate::error::SframeError`] when encryption fails.
     pub fn encrypt_into<'obuf, A, D>(
         &self,
-        key: &EncryptionKey<A, D>,
+        key: &GenericEncryptionKey<A, D>,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<EncryptedFrameView<'obuf>>
     where

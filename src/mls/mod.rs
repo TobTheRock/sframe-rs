@@ -1,22 +1,19 @@
 use crate::{
     CipherSuite,
-    crypto::{
-        aead::{AeadDecrypt, AeadEncrypt},
-        key_derivation::KeyDerivation,
-    },
+    crypto::{AeadDecrypt, AeadEncrypt, KeyDerivation},
     error::SframeError,
-    key::crypto_key::{DecryptionKey, EncryptionKey},
+    key::{GenericDecryptionKey, GenericEncryptionKey},
 };
 use log::error;
 
 /// definitions of a key id according to [RFC 9605 Section 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.2)
-pub mod mls_key_id;
+mod mls_key_id;
 
 pub use mls_key_id::{MlsKeyId, MlsKeyIdBitRange};
 
 /// Trait abstraction for an MLS exporter defined in [RFC 9420](https://datatracker.ietf.org/doc/html/rfc9420#exporters).
 /// As of [RFC 9605 Section 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.2) this exporter
-/// can be used to derive an [`EncryptionKey`].
+/// can be used to derive the `SFrame` keys of [`crate::key`].
 pub trait MlsExporter {
     /// Type of the base key returned by the MLS exporter
     type BaseKey: AsRef<[u8]>;
@@ -58,8 +55,8 @@ macro_rules! mls_key {
     };
 }
 
-mls_key!(DecryptionKey, AeadDecrypt);
-mls_key!(EncryptionKey, AeadEncrypt);
+mls_key!(GenericDecryptionKey, AeadDecrypt);
+mls_key!(GenericEncryptionKey, AeadEncrypt);
 
 #[cfg(all(test, crypto_backend))]
 mod test {

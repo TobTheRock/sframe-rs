@@ -8,8 +8,6 @@
 pub(crate) mod aead;
 /// Buffer types for AEAD operations ([RFC 9605 Section 4.4](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4)).
 pub(crate) mod buffer;
-/// Cipher suite definitions and parameters ([RFC 9605 Section 4.5](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.5)).
-pub(crate) mod cipher_suite;
 /// Key derivation traits and HKDF label functions ([RFC 9605 Section 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2)).
 pub(crate) mod key_derivation;
 

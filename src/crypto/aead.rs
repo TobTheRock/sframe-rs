@@ -32,9 +32,9 @@ pub trait AeadDecrypt: TryFrom<CipherSuite, Error = SframeError> {
 #[cfg(all(test, crypto_backend))]
 mod test {
     use crate::{
-        crypto::{
-            buffer::{DecryptionBufferView, EncryptionBufferView, encryption::EncryptionBuffer},
-            cipher_suite::CipherSuite,
+        CipherSuite,
+        crypto::buffer::{
+            DecryptionBufferView, EncryptionBufferView, encryption::EncryptionBuffer,
         },
         error::SframeError,
         header::{KeyId, SframeHeader},

@@ -36,13 +36,15 @@ These cannot be enabled at the same time, thus on conflict `sframe` issues a com
 
 If none of the backend features is enabled, `sframe` exposes only the generic crypto traits and lets you
 plug in your own implementation. Implement [`AeadEncrypt`]/[`AeadDecrypt`] and [`KeyDerivation`] from the
-`crypto` module, then parameterize the generic `EncryptionKey<Aead, Kdf>` / `DecryptionKey<Aead, Kdf>` with
-your types. See the [caesar_cipher](https://github.com/TobTheRock/sframe-rs/blob/main/examples/caesar_cipher.rs)
+`crypto` module, then parameterize `key::GenericEncryptionKey` / `key::GenericDecryptionKey` with your
+types. With a backend feature enabled, `key::EncryptionKey` / `key::DecryptionKey` are aliases of those
+pinned to it, so the type parameters never have to be spelled out. See the
+[custom-crypto-backend](https://github.com/TobTheRock/sframe-rs/blob/main/examples/custom-crypto-backend)
 example for a full walkthrough.
 
-[`AeadEncrypt`]: https://docs.rs/sframe/latest/sframe/crypto/aead/trait.AeadEncrypt.html
-[`AeadDecrypt`]: https://docs.rs/sframe/latest/sframe/crypto/aead/trait.AeadDecrypt.html
-[`KeyDerivation`]: https://docs.rs/sframe/latest/sframe/crypto/key_derivation/trait.KeyDerivation.html
+[`AeadEncrypt`]: https://docs.rs/sframe/latest/sframe/crypto/trait.AeadEncrypt.html
+[`AeadDecrypt`]: https://docs.rs/sframe/latest/sframe/crypto/trait.AeadDecrypt.html
+[`KeyDerivation`]: https://docs.rs/sframe/latest/sframe/crypto/trait.KeyDerivation.html
 
 ## Usage
 
@@ -154,7 +156,7 @@ Runnable examples:
   - Demonstrates how to use the API with an arbitrary buffer implementation with the `FrameBuffer` trait.
 - [generate_headers](https://github.com/TobTheRock/sframe-rs/blob/main/examples/generate_headers.rs)
   - Serialize/Deserialize the plain SFrame headers.
-- [caesar_cipher](https://github.com/TobTheRock/sframe-rs/blob/main/examples/caesar_cipher.rs)
+- [custom-crypto-backend](https://github.com/TobTheRock/sframe-rs/blob/main/examples/custom-crypto-backend)
   - Demonstrates how to plug in a custom crypto backend by implementing the `AeadEncrypt`, `AeadDecrypt`, and `KeyDerivation` traits.
 - [wasm-webrtc](https://github.com/TobTheRock/sframe-rs/blob/main/examples/wasm-webrtc)
   - End-to-end encrypted video in the browser, encrypts VP8 frames in a WebRTC Encoded Transform.

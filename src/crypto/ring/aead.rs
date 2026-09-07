@@ -2,10 +2,10 @@
 
 use super::Aead;
 use crate::{
+    CipherSuite,
     crypto::{
         aead::{AeadDecrypt, AeadEncrypt},
         buffer::{DecryptionBufferView, EncryptionBufferView},
-        cipher_suite::CipherSuite,
         secret::Secret,
     },
     error::{Result, SframeError},

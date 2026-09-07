@@ -1,29 +1,38 @@
 //! Ratcheting keys and key store as of [RFC 9605 Section 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
 
-/// Generic ratcheting key implementations, usable with any crypto backend.
-pub mod key;
-mod key_id;
-/// Generic ratcheting key material implementation, usable with any crypto backend.
-pub mod key_material;
-/// Generic ratcheting key store implementation, usable with any crypto backend.
-pub mod key_store;
-pub use key_id::{Generation, RatchetBits, RatchetStep, RatchetStepDiff, RatchetingKeyId};
+pub(crate) mod key;
+pub(crate) mod key_id;
+pub(crate) mod key_material;
+pub(crate) mod key_store;
 
-// Default-backend aliases. When no backend feature is enabled only the generic types in the
-// submodules are exposed, so a custom crypto backend can be plugged in.
+pub use key::{GenericRatchetingDecryptionKey, GenericRatchetingEncryptionKey};
+pub use key_id::{Generation, RatchetBits, RatchetStep, RatchetStepDiff, RatchetingKeyId};
+pub use key_material::GenericRatchetingKeyMaterial;
+pub use key_store::GenericRatchetingKeyStore;
+
+// With a backend feature enabled the generic ratcheting types are additionally exposed as aliases
+// pinned to that backend, so callers never spell out the type parameters.
 cfg_if::cfg_if! {
     if #[cfg(crypto_backend)] {
         /// Ratcheting key store using the crypto backend selected via feature flags.
+        ///
+        /// An alias of [`GenericRatchetingKeyStore`], which documents the methods.
         pub type RatchetingKeyStore =
-            key_store::RatchetingKeyStore<crate::crypto::Aead, crate::crypto::Kdf>;
+            GenericRatchetingKeyStore<crate::crypto::Aead, crate::crypto::Kdf>;
         /// Ratcheting encryption key using the crypto backend selected via feature flags.
+        ///
+        /// An alias of [`GenericRatchetingEncryptionKey`], which documents the methods.
         pub type RatchetingEncryptionKey =
-            key::RatchetingEncryptionKey<crate::crypto::Aead, crate::crypto::Kdf>;
+            GenericRatchetingEncryptionKey<crate::crypto::Aead, crate::crypto::Kdf>;
         /// Ratcheting decryption key using the crypto backend selected via feature flags.
+        ///
+        /// An alias of [`GenericRatchetingDecryptionKey`], which documents the methods.
         pub type RatchetingDecryptionKey =
-            key::RatchetingDecryptionKey<crate::crypto::Aead, crate::crypto::Kdf>;
+            GenericRatchetingDecryptionKey<crate::crypto::Aead, crate::crypto::Kdf>;
         /// Ratcheting key material using the crypto backend selected via feature flags.
-        pub type RatchetingKeyMaterial = key_material::RatchetingKeyMaterial<crate::crypto::Kdf>;
+        ///
+        /// An alias of [`GenericRatchetingKeyMaterial`], which documents the methods.
+        pub type RatchetingKeyMaterial = GenericRatchetingKeyMaterial<crate::crypto::Kdf>;
     }
 }
 

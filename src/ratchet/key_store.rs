@@ -7,12 +7,12 @@ use crate::{
     },
     error::{Result, SframeError},
     ratchet::{
-        key::RatchetingDecryptionKey,
+        key::GenericRatchetingDecryptionKey,
         key_id::{Generation, RatchetStepDiff, RatchetingKeyId},
     },
 };
 
-/// Utility class to store one [`RatchetingDecryptionKey`] per Key Generation ([`Generation`]).
+/// Utility class to store one [`GenericRatchetingDecryptionKey`] per Key Generation ([`Generation`]).
 /// A [`RatchetingKeyId`] selects the key by its Key Generation alone, its Ratchet Step says how
 /// far the stored key has to be ratcheted forward.
 ///
@@ -20,27 +20,27 @@ use crate::{
 ///
 /// As the Ratchet Step is taken from an unauthenticated header, catching up with it lets an
 /// attacker trigger key derivations with a single forged frame, which is why the No. steps to
-/// catch up with is bounded, see [`RatchetingKeyStore::new`].
-pub struct RatchetingKeyStore<A, D>
+/// catch up with is bounded, see [`GenericRatchetingKeyStore::new`].
+pub struct GenericRatchetingKeyStore<A, D>
 where
     A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
-    keys: HashMap<Generation, RatchetingDecryptionKey<A, D>>,
+    keys: HashMap<Generation, GenericRatchetingDecryptionKey<A, D>>,
     max_ratchet_steps: RatchetStepDiff,
 }
 
-impl<A, D> RatchetingKeyStore<A, D>
+impl<A, D> GenericRatchetingKeyStore<A, D>
 where
     A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
-    /// Creates an empty [`RatchetingKeyStore`] which catches up with at most `max_ratchet_steps`
-    /// per frame in [`RatchetingKeyStore::with_ratcheted_key`] - pick it to match the loss and
+    /// Creates an empty [`GenericRatchetingKeyStore`] which catches up with at most `max_ratchet_steps`
+    /// per frame in [`GenericRatchetingKeyStore::with_ratcheted_key`] - pick it to match the loss and
     /// re-ordering to be expected, as each step costs a key derivation an attacker can trigger.
     ///
     /// Always capped at
-    /// [`RatchetBits::max_distinguishable_steps`](super::RatchetBits::max_distinguishable_steps),
+    /// [`RatchetBits::max_distinguishable_steps`](crate::ratchet::RatchetBits::max_distinguishable_steps),
     /// so a step which was already passed is never mistaken for a jump forward.
     pub fn new(max_ratchet_steps: RatchetStepDiff) -> Self {
         Self {
@@ -51,7 +51,7 @@ where
 
     /// stores a key for its Key Generation, replacing the key stored for it.
     /// Returns `true` if a key was replaced.
-    pub fn insert(&mut self, key: RatchetingDecryptionKey<A, D>) -> bool {
+    pub fn insert(&mut self, key: GenericRatchetingDecryptionKey<A, D>) -> bool {
         self.keys.insert(key.key_id().generation(), key).is_some()
     }
 
@@ -61,7 +61,7 @@ where
     }
 
     /// returns the key stored for a Key Generation, at the Ratchet Step it was ratcheted to
-    pub fn get(&self, generation: Generation) -> Option<&RatchetingDecryptionKey<A, D>> {
+    pub fn get(&self, generation: Generation) -> Option<&GenericRatchetingDecryptionKey<A, D>> {
         self.keys.get(&generation)
     }
 
@@ -77,7 +77,7 @@ where
     /// passed or is too far ahead to be caught up with.
     pub fn with_ratcheted_key<T, F>(&mut self, key_id: RatchetingKeyId, operation: F) -> Result<T>
     where
-        F: FnOnce(&RatchetingDecryptionKey<A, D>) -> Result<T>,
+        F: FnOnce(&GenericRatchetingDecryptionKey<A, D>) -> Result<T>,
         A: Clone,
         D::Secret: Clone,
     {
@@ -112,14 +112,14 @@ mod test {
         crypto::{Aead, Kdf},
         error::{Result, SframeError},
         header::KeyId,
-        key::crypto_key::DecryptionKey,
+        key::GenericDecryptionKey,
         ratchet::{Generation, RatchetBits, RatchetStepDiff, RatchetingKeyId},
     };
     use pretty_assertions::assert_eq;
 
     // Exercise the generic key store with the default crypto backend.
-    type RatchetingKeyStore = super::RatchetingKeyStore<Aead, Kdf>;
-    type RatchetingDecryptionKey = super::RatchetingDecryptionKey<Aead, Kdf>;
+    type RatchetingKeyStore = super::GenericRatchetingKeyStore<Aead, Kdf>;
+    type RatchetingDecryptionKey = super::GenericRatchetingDecryptionKey<Aead, Kdf>;
 
     const KEY_MATERIAL: &[u8] = b"SuperSecret";
     const CIPHER_SUITE: CipherSuite = CipherSuite::AesGcm256Sha512;
@@ -157,7 +157,7 @@ mod test {
         key_store
     }
 
-    fn stored_key(key_store: &RatchetingKeyStore) -> DecryptionKey<Aead, Kdf> {
+    fn stored_key(key_store: &RatchetingKeyStore) -> GenericDecryptionKey<Aead, Kdf> {
         key_store.get(generation()).unwrap().as_ref().clone()
     }
 

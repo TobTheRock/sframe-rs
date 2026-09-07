@@ -88,7 +88,7 @@ impl std::fmt::Debug for Secret {
 #[cfg(test)]
 mod test {
     use crate::test_vectors::get_sframe_test_vector;
-    use crate::{crypto::cipher_suite::CipherSuite, util::test::assert_bytes_eq};
+    use crate::{CipherSuite, util::test::assert_bytes_eq};
 
     use super::Secret;
     use test_case::test_case;

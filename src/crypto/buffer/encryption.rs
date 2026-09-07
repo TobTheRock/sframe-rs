@@ -1,4 +1,4 @@
-use crate::{crypto::cipher_suite::CipherSuite, error::Result, frame::FrameBuffer};
+use crate::{CipherSuite, error::Result, frame::FrameBuffer};
 
 use super::{AadData, EncryptionBufferView};
 

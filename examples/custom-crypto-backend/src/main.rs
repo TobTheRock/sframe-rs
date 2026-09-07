@@ -1,11 +1,12 @@
-//! Example demonstrating a custom crypto backend using a Caesar cipher implementation.
+//! To implement a custom crypto backend, depend on `sframe` with `default-features = false` so
+//! that no built-in backend is compiled in, then implement `AeadEncrypt`, `AeadDecrypt` and
+//! `KeyDerivation` together with the secret type they pass between each other. Parameterize
+//! `GenericEncryptionKey`/`GenericDecryptionKey` with your types and the rest of the API follows.
 //!
-//! This example shows how users can implement their own crypto backend by implementing
-//! the `AeadEncrypt`, `AeadDecrypt`, and `KeyDerivation` traits, including a backend-specific
-//! secret type (the built-in `Secret` is private to the crate).
+//! That dependency is why this is a crate of its own instead of `cargo run --example`.
 //!
-//! **Note**: Caesar cipher is NOT cryptographically secure - this is purely for demonstration
-//! of the pluggable backend API. The cipher shifts each byte by a derived offset.
+//! **Note**: the Caesar cipher used here is NOT cryptographically secure, it only keeps the
+//! example short enough to read in one go.
 
 use sframe::{
     CipherSuite,
@@ -13,7 +14,7 @@ use sframe::{
     error::{Result, SframeError},
     frame::{MediaFrame, MonotonicCounter},
     header::{Counter, KeyId},
-    key::crypto_key::{DecryptionKey, EncryptionKey},
+    key::{GenericDecryptionKey, GenericEncryptionKey},
 };
 
 /// The secret material produced by [`CaesarKdf`] and consumed by [`CaesarAead`].
@@ -132,11 +133,11 @@ fn main() -> Result<()> {
     let key_id = 42u64;
     let key_material = b"my-secret-key-material";
 
-    let enc_key: EncryptionKey<CaesarAead, CaesarKdf> =
-        EncryptionKey::derive_from(cipher_suite, key_id, key_material)?;
+    let enc_key: GenericEncryptionKey<CaesarAead, CaesarKdf> =
+        GenericEncryptionKey::derive_from(cipher_suite, key_id, key_material)?;
 
-    let dec_key: DecryptionKey<CaesarAead, CaesarKdf> =
-        DecryptionKey::derive_from(cipher_suite, key_id, key_material)?;
+    let dec_key: GenericDecryptionKey<CaesarAead, CaesarKdf> =
+        GenericDecryptionKey::derive_from(cipher_suite, key_id, key_material)?;
 
     println!("Key ID: {}", enc_key.key_id());
     println!("Cipher Suite: {:?}\n", enc_key.cipher_suite());

@@ -92,7 +92,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     }
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store.
-    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::GenericDecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// Dynamically allocates memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
@@ -113,7 +113,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
 
     /// Tries to validate the encrypted frame with the provided [`FrameValidation`] and to decrypt
     /// it with a key from the provided key store.
-    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::GenericDecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// Dynamically allocates memory for the resulting [`MediaFrame`]
     ///
     /// The frame is screened BEFORE it is decrypted and only recorded once decryption
@@ -137,7 +137,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store and stores the result
     /// into the provided buffer. On success an [`MediaFrameView`] on the buffer is returned.
-    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::GenericDecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf, A, D>(
@@ -175,7 +175,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     /// Tries to validate the encrypted frame with the provided [`FrameValidation`] and to decrypt
     /// it with a key from the provided key store, storing the result into the provided buffer.
     /// On success an [`MediaFrameView`] on the buffer is returned.
-    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::GenericDecryptionKey`] implements [`KeyStore`] this can also be a single key.
     ///
     /// The frame is screened BEFORE it is decrypted and only recorded once decryption
     /// authenticated it, see [`FrameValidation`] on why this is split in two steps.
@@ -318,7 +318,7 @@ impl EncryptedFrame {
     }
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store.
-    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::GenericDecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// Dynamically allocats memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
@@ -333,7 +333,7 @@ impl EncryptedFrame {
 
     /// Tries to validate the encrypted frame with the provided [`FrameValidation`] and to decrypt
     /// it with a key from the provided key store.
-    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::GenericDecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// Dynamically allocates memory for the resulting [`MediaFrame`]
     ///
     /// The frame is screened BEFORE it is decrypted and only recorded once decryption
@@ -358,7 +358,7 @@ impl EncryptedFrame {
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store and stores the result
     /// into the provided buffer. On success an [`MediaFrameView`] on the buffer is returned.
-    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::GenericDecryptionKey`] implements [`KeyStore`] this can also be a single key.
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf, A, D>(
@@ -377,7 +377,7 @@ impl EncryptedFrame {
     /// Tries to validate the encrypted frame with the provided [`FrameValidation`] and to decrypt
     /// it with a key from the provided key store, storing the result into the provided buffer.
     /// On success an [`MediaFrameView`] on the buffer is returned.
-    /// As [`crate::key::DecryptionKey`] implements [`KeyStore`] this can also be a single key.
+    /// As [`crate::key::GenericDecryptionKey`] implements [`KeyStore`] this can also be a single key.
     ///
     /// The frame is screened BEFORE it is decrypted and only recorded once decryption
     /// authenticated it, see [`FrameValidation`] on why this is split in two steps.
