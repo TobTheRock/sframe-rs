@@ -1,0 +1,14 @@
+[package]
+edition = "2024"
+name = "sframe-custom-crypto-backend"
+publish = false
+version = "0.0.0"
+
+[[bin]]
+name = "custom-crypto-backend"
+path = "src/main.rs"
+
+# A custom backend is only possible without a built-in one: with a backend feature enabled,
+# `sframe::key::EncryptionKey` is an alias pinned to that backend rather than the generic type.
+[dependencies]
+sframe = { path = "../..", default-features = false }

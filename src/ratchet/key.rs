@@ -5,25 +5,27 @@ use crate::{
     header::KeyId,
     key::{
         KeyStore,
-        crypto_key::{DecryptionKey, EncryptionKey},
+        generic::{GenericDecryptionKey, GenericEncryptionKey},
     },
-    ratchet::{RatchetingKeyId, key_id::RatchetStepDiff, key_material::RatchetingKeyMaterial},
+    ratchet::{
+        RatchetingKeyId, key_id::RatchetStepDiff, key_material::GenericRatchetingKeyMaterial,
+    },
 };
 
-/// An [`EncryptionKey`] which can be ratcheted forward as of
+/// An [`GenericEncryptionKey`] which can be ratcheted forward as of
 /// [RFC 9605 Section 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1),
-pub struct RatchetingEncryptionKey<A, D>
+pub struct GenericRatchetingEncryptionKey<A, D>
 where
     A: AeadEncrypt,
     D: KeyDerivation + Ratcheting,
 {
     key_id: RatchetingKeyId,
-    material: RatchetingKeyMaterial<D>,
-    enc_key: EncryptionKey<A, D>,
+    material: GenericRatchetingKeyMaterial<D>,
+    enc_key: GenericEncryptionKey<A, D>,
     ratcheted_from: Option<RatchetingKeyId>,
 }
 
-impl<A, D> RatchetingEncryptionKey<A, D>
+impl<A, D> GenericRatchetingEncryptionKey<A, D>
 where
     A: AeadEncrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
@@ -37,8 +39,9 @@ where
         M: AsRef<[u8]>,
     {
         let key_id = key_id.into();
-        let enc_key = EncryptionKey::<A, D>::derive_from(cipher_suite, key_id, &key_material)?;
-        let material = RatchetingKeyMaterial::derive_from(cipher_suite, key_material)?;
+        let enc_key =
+            GenericEncryptionKey::<A, D>::derive_from(cipher_suite, key_id, &key_material)?;
+        let material = GenericRatchetingKeyMaterial::derive_from(cipher_suite, key_material)?;
 
         Ok(Self {
             key_id,
@@ -49,7 +52,7 @@ where
     }
 
     /// the key material of the current Ratchet Step, which the next one is ratcheted from
-    pub fn key_material(&self) -> &RatchetingKeyMaterial<D> {
+    pub fn key_material(&self) -> &GenericRatchetingKeyMaterial<D> {
         &self.material
     }
 
@@ -58,7 +61,7 @@ where
     pub fn ratchet(&self) -> Result<Self> {
         let key_id = self.key_id.inc_ratchet_step();
         let enc_key =
-            EncryptionKey::derive_from(self.enc_key.cipher_suite(), key_id, &self.material)?;
+            GenericEncryptionKey::derive_from(self.enc_key.cipher_suite(), key_id, &self.material)?;
         let material = self.material.ratchet()?;
 
         Ok(Self {
@@ -81,33 +84,33 @@ where
     }
 }
 
-impl<A, D> AsRef<EncryptionKey<A, D>> for RatchetingEncryptionKey<A, D>
+impl<A, D> AsRef<GenericEncryptionKey<A, D>> for GenericRatchetingEncryptionKey<A, D>
 where
     A: AeadEncrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
-    fn as_ref(&self) -> &EncryptionKey<A, D> {
+    fn as_ref(&self) -> &GenericEncryptionKey<A, D> {
         &self.enc_key
     }
 }
 
-/// A [`DecryptionKey`] which can be ratcheted forward as of
+/// A [`GenericDecryptionKey`] which can be ratcheted forward as of
 /// [RFC 9605 Section 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1), to catch up
 /// with the Ratchet Step a sender encrypted a frame with.
-pub struct RatchetingDecryptionKey<A, D>
+pub struct GenericRatchetingDecryptionKey<A, D>
 where
     A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
     /// provides key material used for ratcheting
-    material: RatchetingKeyMaterial<D>,
+    material: GenericRatchetingKeyMaterial<D>,
     /// secrets used for decryption
-    dec_key: DecryptionKey<A, D>,
+    dec_key: GenericDecryptionKey<A, D>,
     key_id: RatchetingKeyId,
     ratcheted_from: Option<RatchetingKeyId>,
 }
 
-impl<A, D> RatchetingDecryptionKey<A, D>
+impl<A, D> GenericRatchetingDecryptionKey<A, D>
 where
     A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
@@ -121,8 +124,8 @@ where
         M: AsRef<[u8]>,
     {
         let key_id = key_id.into();
-        let dec_key = DecryptionKey::derive_from(cipher_suite, key_id, &key_material)?;
-        let material = RatchetingKeyMaterial::derive_from(cipher_suite, key_material)?;
+        let dec_key = GenericDecryptionKey::derive_from(cipher_suite, key_id, &key_material)?;
+        let material = GenericRatchetingKeyMaterial::derive_from(cipher_suite, key_material)?;
         Ok(Self {
             dec_key,
             key_id,
@@ -132,7 +135,7 @@ where
     }
 
     /// the key material of the current Ratchet Step, which the next one is ratcheted from
-    pub fn key_material(&self) -> &RatchetingKeyMaterial<D> {
+    pub fn key_material(&self) -> &GenericRatchetingKeyMaterial<D> {
         &self.material
     }
 
@@ -182,7 +185,8 @@ where
 
         for _ in 0..u64::from(steps) {
             key_id = key_id.inc_ratchet_step();
-            dec_key = DecryptionKey::derive_from(self.dec_key.cipher_suite(), key_id, &material)?;
+            dec_key =
+                GenericDecryptionKey::derive_from(self.dec_key.cipher_suite(), key_id, &material)?;
             material = material.ratchet()?;
         }
 
@@ -202,24 +206,24 @@ where
     }
 }
 
-impl<A, D> AsRef<DecryptionKey<A, D>> for RatchetingDecryptionKey<A, D>
+impl<A, D> AsRef<GenericDecryptionKey<A, D>> for GenericRatchetingDecryptionKey<A, D>
 where
     A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
-    fn as_ref(&self) -> &DecryptionKey<A, D> {
+    fn as_ref(&self) -> &GenericDecryptionKey<A, D> {
         &self.dec_key
     }
 }
 
 /// A ratcheting key holds the key of its current Ratchet Step, so it can be handed to
 /// decryption directly - as long as the frame carries the key id of that step.
-impl<A, D> KeyStore<A, D> for RatchetingDecryptionKey<A, D>
+impl<A, D> KeyStore<A, D> for GenericRatchetingDecryptionKey<A, D>
 where
     A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
-    fn get_key<K>(&self, key_id: K) -> Option<&DecryptionKey<A, D>>
+    fn get_key<K>(&self, key_id: K) -> Option<&GenericDecryptionKey<A, D>>
     where
         K: Into<KeyId>,
     {
@@ -237,8 +241,8 @@ mod test {
     use pretty_assertions::assert_eq;
 
     // Exercise the generic key with the default crypto backend.
-    type RatchetingEncryptionKey = super::RatchetingEncryptionKey<Aead, Kdf>;
-    type RatchetingDecryptionKey = super::RatchetingDecryptionKey<Aead, Kdf>;
+    type RatchetingEncryptionKey = super::GenericRatchetingEncryptionKey<Aead, Kdf>;
+    type RatchetingDecryptionKey = super::GenericRatchetingDecryptionKey<Aead, Kdf>;
 
     const SECRET: &[u8] = b"SuperSecret";
     const CIPHER_SUITE: CipherSuite = CipherSuite::AesGcm128Sha256;

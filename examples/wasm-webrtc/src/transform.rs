@@ -43,7 +43,9 @@ pub fn encrypt_vp8<'a>(sender: &'a mut Sender, frame: &[u8]) -> Result<&'a [u8]>
 }
 
 /// Decrypts a VP8 frame which was encrypted by [`encrypt_vp8`].
-pub fn decrypt_vp8<'a>(receiver: &'a mut Receiver, frame: &[u8]) -> Result<&'a [u8]> {
+///
+/// Returns [`None`] if the receiver dropped the frame as a replay.
+pub fn decrypt_vp8<'a>(receiver: &'a mut Receiver, frame: &[u8]) -> Result<Option<&'a [u8]>> {
     let skip = vp8_header_len(frame)?;
     receiver.decrypt(frame, skip)
 }

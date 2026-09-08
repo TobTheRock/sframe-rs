@@ -19,7 +19,7 @@ use crate::{
 ///
 /// The stored secret has the type produced by `D` ([`KeyDerivation::Secret`]); the matching
 /// AEAD implementation `A` must consume the same type (`A::Secret == D::Secret`).
-pub struct EncryptionKey<A, D>
+pub struct GenericEncryptionKey<A, D>
 where
     A: AeadEncrypt,
     D: KeyDerivation,
@@ -31,7 +31,7 @@ where
     _derivation: PhantomData<D>,
 }
 
-impl<A, D> EncryptionKey<A, D>
+impl<A, D> GenericEncryptionKey<A, D>
 where
     A: AeadEncrypt<Secret = D::Secret>,
     D: KeyDerivation,
@@ -111,7 +111,7 @@ where
 ///
 /// The stored secret has the type produced by `D` ([`KeyDerivation::Secret`]); the matching
 /// AEAD implementation `A` must consume the same type (`A::Secret == D::Secret`).
-pub struct DecryptionKey<A, D>
+pub struct GenericDecryptionKey<A, D>
 where
     A: AeadDecrypt,
     D: KeyDerivation,
@@ -123,7 +123,7 @@ where
     _derivation: PhantomData<D>,
 }
 
-impl<A, D> DecryptionKey<A, D>
+impl<A, D> GenericDecryptionKey<A, D>
 where
     A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation,
@@ -257,5 +257,5 @@ macro_rules! impl_key_traits {
     };
 }
 
-impl_key_traits!(EncryptionKey, AeadEncrypt);
-impl_key_traits!(DecryptionKey, AeadDecrypt);
+impl_key_traits!(GenericEncryptionKey, AeadEncrypt);
+impl_key_traits!(GenericDecryptionKey, AeadDecrypt);

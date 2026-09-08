@@ -9,7 +9,7 @@ use crate::{CipherSuite, crypto::key_derivation::Ratcheting, error::Result};
 ///
 /// The original key material is not stored for security reasons.
 #[derive(ZeroizeOnDrop)]
-pub struct RatchetingKeyMaterial<D>
+pub struct GenericRatchetingKeyMaterial<D>
 where
     D: Ratcheting,
 {
@@ -20,11 +20,11 @@ where
     _ratcheting: PhantomData<D>,
 }
 
-impl<D> RatchetingKeyMaterial<D>
+impl<D> GenericRatchetingKeyMaterial<D>
 where
     D: Ratcheting,
 {
-    /// creates a [`RatchetingKeyMaterial`] from the given key material.
+    /// creates a [`GenericRatchetingKeyMaterial`] from the given key material.
     /// The cipher suite is used when ratcheting forward.
     /// Initially ratchets once to not store the original key material
     pub fn derive_from<M>(cipher_suite: CipherSuite, key_material: M) -> Result<Self>
@@ -53,7 +53,7 @@ where
     }
 }
 
-impl<D> Clone for RatchetingKeyMaterial<D>
+impl<D> Clone for GenericRatchetingKeyMaterial<D>
 where
     D: Ratcheting,
 {
@@ -66,7 +66,7 @@ where
     }
 }
 
-impl<D> AsRef<[u8]> for RatchetingKeyMaterial<D>
+impl<D> AsRef<[u8]> for GenericRatchetingKeyMaterial<D>
 where
     D: Ratcheting,
 {
@@ -81,7 +81,7 @@ mod test {
     use crate::crypto::Kdf;
 
     // Exercise the generic key material with the default crypto backend.
-    type RatchetingKeyMaterial = super::RatchetingKeyMaterial<Kdf>;
+    type RatchetingKeyMaterial = super::GenericRatchetingKeyMaterial<Kdf>;
 
     const SECRET: &[u8] = b"SuperSecret";
 

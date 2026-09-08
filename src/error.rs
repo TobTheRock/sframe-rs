@@ -1,3 +1,12 @@
+//! # Errors
+//!
+//! [`SframeError`] is what every fallible operation in this crate returns, through the crate's
+//! own [`Result`] alias.
+//!
+//! Errors raised by something you plugged in - a [`FrameValidation`](crate::frame::validation::FrameValidation)
+//! rejecting a frame, a custom crypto backend failing - are boxed as the source of a variant.
+//! Use [`SframeError::source_as`] to name the concrete type again and react to it.
+
 use crate::header::KeyId;
 
 /// Represents either success(T) or an failure ([`SframeError`])

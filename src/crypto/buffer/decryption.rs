@@ -1,5 +1,5 @@
 use crate::{
-    crypto::cipher_suite::CipherSuite,
+    CipherSuite,
     error::Result,
     frame::{FrameBuffer, Truncate},
 };

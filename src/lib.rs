@@ -16,8 +16,30 @@
 //!
 //! If none of these features is enabled, only the generic crypto traits in [`crypto`] are exposed and a
 //! custom crypto backend has to be provided by implementing [`crypto::AeadEncrypt`], [`crypto::AeadDecrypt`]
-//! and [`crypto::KeyDerivation`], then parameterizing [`key::crypto_key::EncryptionKey`] /
-//! [`key::crypto_key::DecryptionKey`] with those types. See the `caesar_cipher` example for a walkthrough.
+//! and [`crypto::KeyDerivation`], then parameterizing [`key::GenericEncryptionKey`] /
+//! [`key::GenericDecryptionKey`] with your types. See the `custom-crypto-backend` example for a
+//! walkthrough.
+//!
+//! With a backend feature enabled, `key::EncryptionKey` and `key::DecryptionKey` are aliases
+//! of those pinned to it, so the type parameters never have to be spelled out.
+//!
+//! # Module layout
+//!
+//! - [`frame`] — encrypting and decrypting media frames. The main API: [`frame::MediaFrameView`]
+//!   and [`frame::EncryptedFrameView`] borrow a caller supplied buffer, [`frame::MediaFrame`] and
+//!   [`frame::EncryptedFrame`] own one. Also the counters feeding the `SFrame` header and the
+//!   [`frame::FrameBuffer`] trait to encrypt into a buffer of your own.
+//! - [`frame::validation`] — screening incoming frames before decryption and recording them after,
+//!   e.g. [`frame::validation::ReplayAttackProtectionStore`] against replay attacks.
+//! - [`key`] — `EncryptionKey` and `DecryptionKey`, derived from shared key material,
+//!   plus the [`key::KeyStore`] trait the decryption side looks keys up through.
+//! - [`ratchet`] — the same keys, ratcheted forward per key generation, and the key ids encoding it.
+//! - [`mls`] — deriving keys from an MLS group, and the key ids encoding epoch and member.
+//! - [`header`] — the `SFrame` header on the wire, if you need to inspect or build one yourself.
+//! - [`error`] — [`error::SframeError`] and the crate's [`error::Result`].
+//! - [`crypto`] — only needed to bring your own crypto backend, see above.
+//!
+//! [`CipherSuite`] is at the crate root, every key derivation and crypto backend takes one.
 
 #![deny(clippy::missing_panics_doc)]
 #![deny(
@@ -38,23 +60,18 @@
     clippy::match_same_arms
 )]
 
-/// Cryptographic primitives and traits for implementing custom crypto backends.
+pub(crate) mod cipher_suite;
 pub mod crypto;
-mod util;
-
-/// error definitions
 pub mod error;
 pub mod frame;
-/// Sframe header definitions as of [RFC 9605 4.3](https://www.rfc-editor.org/rfc/rfc9605.html#name-sframe-header)
 pub mod header;
-/// sframe key definitions as of [RFC 9605 4.4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.4.2)
 pub mod key;
-/// Sframe MLS definitions as of [RFC 9605 5.2](https://www.rfc-editor.org/rfc/rfc9605.html#name-mls)
 pub mod mls;
-/// Ratchet support as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1)
 pub mod ratchet;
 
-pub use crypto::cipher_suite::CipherSuite;
+mod util;
+
+pub use cipher_suite::CipherSuite;
 
 #[cfg(test)]
 #[allow(clippy::all)]

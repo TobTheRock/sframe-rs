@@ -1,3 +1,29 @@
+//! # Frame validation
+//!
+//! Screening incoming frames before they are decrypted and recording them once they were, so a
+//! frame an attacker captured off the wire cannot be replayed into the session.
+//!
+//! Pass a validator to
+//! [`EncryptedFrameView::validated_decrypt_into`](crate::frame::EncryptedFrameView::validated_decrypt_into),
+//! which drives both steps:
+//!
+//! ```text
+//! screen(frame)? -> Token -> decrypt()? -> record(token)
+//! ```
+//!
+//! Ready to use:
+//! - [`ReplayAttackProtection`] - a sliding window of counters for a single Key ID
+//! - [`ReplayAttackProtectionStore`] - one such window per Key ID, for a call with several senders
+//! - [`NoValidation`] - accepts everything, to switch validation off without a second code path
+//!
+//! Implement [`FrameValidation`] for anything else a deployment needs to screen on.
+//!
+//! A rejected frame is normal traffic on a lossy transport, not a session failure. The validator
+//! reports why through an error type of its own choice, which
+//! [`SframeError`](crate::error::SframeError) boxes - name it again with
+//! [`source_as`](crate::error::SframeError::source_as) to tell a duplicate apart from a frame
+//! which failed to decrypt.
+
 use crate::header::SframeHeader;
 
 mod replay_attack_protection;

@@ -2,8 +2,8 @@
 
 use super::Kdf;
 use crate::{
+    CipherSuite,
     crypto::{
-        cipher_suite::CipherSuite,
         common::key_derivation::expand_subsecret,
         key_derivation::{
             KeyDerivation, Ratcheting, get_hkdf_key_expand_label, get_hkdf_ratchet_expand_label,
