@@ -1,6 +1,49 @@
 //! # Secure Frame (`SFrame`)
 //! This library is an implementation of [SFrame (RFC 9605)](https://www.rfc-editor.org/rfc/rfc9605.html).
 //!
+//! # Usage
+//!
+//! [`frame`] is the main API. It encrypts and decrypts whole media frames with a key from
+//! [`key`], writing and parsing the `SFrame` header on the way:
+//!
+//! ```rust
+//! use sframe::{
+//!     CipherSuite,
+//!     frame::{MediaFrame, MonotonicCounter},
+//!     key::{DecryptionKey, EncryptionKey},
+//! };
+//!
+//! # fn main() -> sframe::error::Result<()> {
+//! const CIPHER_SUITE: CipherSuite = CipherSuite::AesGcm256Sha512;
+//! let key_id = 42u64;
+//!
+//! // both sides derive their key from key material shared out of band
+//! let enc_key = EncryptionKey::derive_from(CIPHER_SUITE, key_id, "pw123")?;
+//! let dec_key = DecryptionKey::derive_from(CIPHER_SUITE, key_id, "pw123")?;
+//!
+//! let mut counter = MonotonicCounter::default();
+//! let media_frame = MediaFrame::try_new(&mut counter, "Something secret")?;
+//! let encrypted_frame = media_frame.encrypt(&enc_key)?;
+//!
+//! assert_eq!(encrypted_frame.decrypt(&dec_key)?, media_frame);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! [`frame::MediaFrame`] and [`frame::EncryptedFrame`] own their buffer. The [`frame`] module
+//! additionally offers:
+//! - the **view API**, [`frame::MediaFrameView`] and [`frame::EncryptedFrameView`], which read
+//!   from a buffer you hold and write into one you supply through [`frame::FrameBuffer`], so no
+//!   copy is needed
+//! - **meta data**, which stays unencrypted so a packetizer downstream can still read it, but is
+//!   authenticated with the frame, so it cannot be tampered with
+//!
+//! Beyond a single key:
+//! - [`key::KeyStore`] looks a decryption key up per Key ID, for a call with several senders
+//! - [`frame::validation`] screens incoming frames before decryption, e.g. against replays
+//! - [`ratchet`] ratchets a key forward instead of distributing a new one
+//! - [`mls`] derives keys from an MLS group
+//!
 //! # Optional features
 //!
 //! Using optional features `sframe` allows to configure different crypto libraries.
@@ -22,24 +65,6 @@
 //!
 //! With a backend feature enabled, `key::EncryptionKey` and `key::DecryptionKey` are aliases
 //! of those pinned to it, so the type parameters never have to be spelled out.
-//!
-//! # Module layout
-//!
-//! - [`frame`] — encrypting and decrypting media frames. The main API: [`frame::MediaFrameView`]
-//!   and [`frame::EncryptedFrameView`] borrow a caller supplied buffer, [`frame::MediaFrame`] and
-//!   [`frame::EncryptedFrame`] own one. Also the counters feeding the `SFrame` header and the
-//!   [`frame::FrameBuffer`] trait to encrypt into a buffer of your own.
-//! - [`frame::validation`] — screening incoming frames before decryption and recording them after,
-//!   e.g. [`frame::validation::ReplayAttackProtectionStore`] against replay attacks.
-//! - [`key`] — `EncryptionKey` and `DecryptionKey`, derived from shared key material,
-//!   plus the [`key::KeyStore`] trait the decryption side looks keys up through.
-//! - [`ratchet`] — the same keys, ratcheted forward per key generation, and the key ids encoding it.
-//! - [`mls`] — deriving keys from an MLS group, and the key ids encoding epoch and member.
-//! - [`header`] — the `SFrame` header on the wire, if you need to inspect or build one yourself.
-//! - [`error`] — [`error::SframeError`] and the crate's [`error::Result`].
-//! - [`crypto`] — only needed to bring your own crypto backend, see above.
-//!
-//! [`CipherSuite`] is at the crate root, every key derivation and crypto backend takes one.
 
 #![deny(clippy::missing_panics_doc)]
 #![deny(
