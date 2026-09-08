@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use js_sys::{Object, Reflect, Uint8Array};
+use sframe::ratchet::Generation;
 use sframe_wasm_webrtc::transform::{Receiver, Sender, decrypt_vp8, encrypt_vp8};
 use wasm_bindgen::prelude::*;
 use web_sys::{
@@ -54,9 +55,9 @@ fn main() {
     on_message.forget();
 }
 
-/// Either direction of the frame codec, plus the key id needed to re-derive it.
+/// Either direction of the frame codec, plus the Key Generation needed to re-derive it.
 struct KeyedCodec {
-    key_id: u64,
+    generation: Generation,
     codec: Codec,
 }
 
@@ -66,10 +67,11 @@ enum Codec {
 }
 
 impl Codec {
-    fn process(&mut self, frame: &[u8]) -> sframe::error::Result<Vec<u8>> {
+    /// [`None`] if the receiver dropped the frame as a replay.
+    fn process(&mut self, frame: &[u8]) -> sframe::error::Result<Option<Vec<u8>>> {
         match self {
-            Codec::Encrypt(sender) => encrypt_vp8(sender, frame).map(<[u8]>::to_vec),
-            Codec::Decrypt(receiver) => decrypt_vp8(receiver, frame).map(<[u8]>::to_vec),
+            Codec::Encrypt(sender) => encrypt_vp8(sender, frame).map(|f| Some(f.to_vec())),
+            Codec::Decrypt(receiver) => decrypt_vp8(receiver, frame).map(|f| f.map(<[u8]>::to_vec)),
         }
     }
 }
@@ -88,7 +90,7 @@ fn rekey(operation: &str, passphrase: &str) {
         };
         let result = match &mut entry.codec {
             Codec::Encrypt(sender) => sender.set_encryption_key(passphrase),
-            Codec::Decrypt(receiver) => receiver.set_encryption_key(entry.key_id, passphrase),
+            Codec::Decrypt(receiver) => receiver.set_encryption_key(entry.generation, passphrase),
         };
         match result {
             Ok(()) => log::info!("[{}] re-keyed", role_of(operation)),
@@ -100,7 +102,7 @@ fn rekey(operation: &str, passphrase: &str) {
 /// The transform's setup, parsed out of the JS options object.
 struct TransformConfig {
     operation: String,
-    key_id: u64,
+    generation: Generation,
     passphrase: String,
 }
 
@@ -114,21 +116,21 @@ fn wire_up(event: RtcTransformEvent) -> Result<(), JsValue> {
     CODECS.with(|codecs| {
         codecs.borrow_mut().insert(
             config.operation.clone(),
-            KeyedCodec { key_id: config.key_id, codec },
+            KeyedCodec { generation: config.generation, codec },
         )
     });
-    log::info!("[{role}] wired up (keyId {}, {} char key)", config.key_id, config.passphrase.len());
+    log::info!("[{role}] wired up (generation {}, {} char key)", u64::from(config.generation), config.passphrase.len());
 
     pipe_frames(&transformer, config.operation, role)
 }
 
-/// Reads the transform's `{ operation, keyId, passphrase }` options.
+/// Reads the transform's `{ operation, generation, passphrase }` options.
 fn read_config(options: &JsValue) -> Result<TransformConfig, JsValue> {
     Ok(TransformConfig {
         operation: string_field(options, "operation")?,
-        key_id: Reflect::get(options, &"keyId".into())?
+        generation: Generation::from(Reflect::get(options, &"generation".into())?
             .as_f64()
-            .ok_or("keyId missing")? as u64,
+            .ok_or("generation missing")? as u64),
         passphrase: string_field(options, "passphrase")?,
     })
 }
@@ -137,14 +139,14 @@ fn read_config(options: &JsValue) -> Result<TransformConfig, JsValue> {
 fn build_codec(config: &TransformConfig) -> Result<Codec, JsValue> {
     match config.operation.as_str() {
         "encrypt" => {
-            let mut sender = Sender::new(config.key_id);
+            let mut sender = Sender::new(config.generation);
             sender.set_encryption_key(&config.passphrase).map_err(to_js)?;
             Ok(Codec::Encrypt(sender))
         }
         "decrypt" => {
             let mut receiver = Receiver::default();
             receiver
-                .set_encryption_key(config.key_id, &config.passphrase)
+                .set_encryption_key(config.generation, &config.passphrase)
                 .map_err(to_js)?;
             Ok(Codec::Decrypt(receiver))
         }
@@ -201,11 +203,13 @@ fn transform_frame(
             .map(|entry| entry.codec.process(&data))
     });
     match outcome {
-        Some(Ok(out)) => {
+        Some(Ok(Some(out))) => {
             log_frame(role, frame_no, &data, &out);
             set_frame_bytes(frame, &out);
             let _ = controller.enqueue_with_chunk(frame.as_ref());
         }
+        // Replayed or outdated: normal traffic on a lossy transport, not an error.
+        Some(Ok(None)) => log::debug!("[{role}] frame #{frame_no} dropped as a replay"),
         // Wrong key or a tampered frame: the frame is dropped, so the
         // remote video stays blank. Log why so it can be debugged.
         Some(Err(err)) => {

@@ -11,5 +11,9 @@
 pub mod transform;
 pub mod webrtc;
 
-/// Key id shared by both sides of the demo. A real app would negotiate this.
-pub const KEY_ID: sframe::header::KeyId = 42;
+/// Key Generation shared by both sides of the demo. A real app would negotiate this.
+pub const GENERATION: u64 = 42;
+
+/// No. bits of the key id which carry the Ratchet Step, as in the `sender_receiver` example
+/// whose `Sender`/`Receiver` this crate reuses.
+pub const N_RATCHET_BITS: u8 = 4;

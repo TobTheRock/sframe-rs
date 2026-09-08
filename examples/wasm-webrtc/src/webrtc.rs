@@ -12,7 +12,7 @@ use web_sys::{
     RtcRtpTransceiverInit, RtcSessionDescriptionInit, RtcTrackEvent, Worker,
 };
 
-use crate::KEY_ID;
+use crate::GENERATION;
 
 /// A running loopback call. Keep it alive for the call to continue; drop or
 /// [`stop`](Session::stop) it to tear the call down.
@@ -171,7 +171,7 @@ fn prefer_vp8(transceiver: &web_sys::RtcRtpTransceiver) -> Result<(), JsValue> {
 fn transform_options(operation: &str, passphrase: &str) -> Object {
     let options = Object::new();
     let _ = Reflect::set(&options, &"operation".into(), &operation.into());
-    let _ = Reflect::set(&options, &"keyId".into(), &JsValue::from_f64(KEY_ID as f64));
+    let _ = Reflect::set(&options, &"generation".into(), &JsValue::from_f64(GENERATION as f64));
     let _ = Reflect::set(&options, &"passphrase".into(), &passphrase.into());
     options
 }

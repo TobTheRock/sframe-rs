@@ -65,8 +65,7 @@ jobs:
       - name: clippy
         run: cargo clippy --lib --tests --no-default-features -- -Dwarnings
 
-  # The examples which are crates of their own, so `cargo check --all-targets` does not see them.
-  # The wasm-webrtc example belongs here too once it compiles again.
+  # The examples which are crates of their own, so `cargo check --all-targets` does not see them
   build-examples:
     name: build standalone examples
     runs-on: ubuntu-latest
@@ -76,11 +75,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          target: wasm32-unknown-unknown
 
       # needs sframe without a crypto backend
       - name: run custom crypto backend example
         working-directory: examples/custom-crypto-backend
         run: cargo run
+
+      # needs the wasm32 target and the unstable web-sys APIs its .cargo/config.toml enables
+      - name: build wasm webrtc example
+        working-directory: examples/wasm-webrtc
+        run: cargo build --target wasm32-unknown-unknown
 
   build-wasm:
     name: build wasm32
