@@ -1,8 +1,7 @@
 use crate::header;
 
 use super::{
-    FrameValidation, ReplayToken, UnvalidatedFrame, sliding_window::SlidingWindow,
-    util::assert_tolerance,
+    FrameValidation, ReplayToken, Tolerance, UnvalidatedFrame, sliding_window::SlidingWindow,
 };
 
 /// This implementation allows to detect replay attacks by omitting frames with
@@ -19,14 +18,10 @@ pub struct ReplayAttackProtection {
 
 impl ReplayAttackProtection {
     /// Creates a [`ReplayAttackProtection`] for the sender `key_id`, with a given
-    /// tolerance for the frame count.
-    ///
-    /// # Panics
-    /// Panics if `tolerance` is `0` or exceeds `header::Counter::MAX / 2`.
-    pub fn new(key_id: header::KeyId, tolerance: usize) -> Self {
-        assert_tolerance(tolerance);
+    /// [`Tolerance`] for the frame count.
+    pub fn new(key_id: header::KeyId, tolerance: Tolerance) -> Self {
         ReplayAttackProtection {
-            window: Window::new(tolerance),
+            window: Window::new(tolerance.into()),
             key_id,
         }
     }
@@ -208,7 +203,7 @@ mod test {
     const OTHER_KID: header::KeyId = KID + 1;
 
     fn validator() -> Fixture {
-        Fixture(ReplayAttackProtection::new(KID, TOLERANCE))
+        Fixture(ReplayAttackProtection::new(KID, Tolerance::new(TOLERANCE)))
     }
 
     struct Fixture(ReplayAttackProtection);
@@ -285,14 +280,14 @@ mod test {
 
     #[test]
     fn accepts_the_associated_key_id() {
-        let mut validator = ReplayAttackProtection::new(KID, TOLERANCE);
+        let mut validator = ReplayAttackProtection::new(KID, Tolerance::new(TOLERANCE));
 
         assert!(screen_and_record(&mut validator, KID, NEWEST).is_ok());
     }
 
     #[test]
     fn rejects_another_key_id() {
-        let validator = ReplayAttackProtection::new(KID, TOLERANCE);
+        let validator = ReplayAttackProtection::new(KID, Tolerance::new(TOLERANCE));
 
         assert_eq!(
             screen(&validator, OTHER_KID, NEWEST),
@@ -305,7 +300,7 @@ mod test {
 
     #[test]
     fn another_key_id_does_not_record_the_counter() {
-        let mut validator = ReplayAttackProtection::new(KID, TOLERANCE);
+        let mut validator = ReplayAttackProtection::new(KID, Tolerance::new(TOLERANCE));
 
         let _ = screen(&validator, OTHER_KID, NEWEST);
 

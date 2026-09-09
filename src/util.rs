@@ -29,7 +29,12 @@ where
     };
 
     if value > max {
-        return Err(SframeError::OutOfRange { name, value, max });
+        return Err(SframeError::OutOfRange {
+            name,
+            value,
+            min: 0,
+            max,
+        });
     }
 
     Ok(value)
@@ -71,6 +76,7 @@ pub mod test {
             SframeError::OutOfRange {
                 name: "value",
                 value: 0x100,
+                min: 0,
                 max: 0xFF
             }
         ));

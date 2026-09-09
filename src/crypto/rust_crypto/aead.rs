@@ -13,7 +13,7 @@ use crate::{
 };
 use aes_gcm::{AeadCore, AeadInOut, Aes128Gcm, Aes256Gcm, aead, aes::Aes128};
 use cipher::{
-    IvSizeUser, KeyInit, KeyIvInit, StreamCipher,
+    InvalidLength, IvSizeUser, KeyInit, KeyIvInit, StreamCipher,
     array::{Array, ArraySize, typenum::Unsigned},
     consts::{U4, U8, U10},
 };
@@ -167,6 +167,15 @@ where
     const IV_LEN: usize = <A::NonceSize as Unsigned>::USIZE;
 }
 
+// The derived key always matches the cipher suite the AEAD was chosen for, so this only fires
+// if the two disagree. Keep the cause, the variant alone does not say which length was wrong.
+impl From<InvalidLength> for SframeError {
+    fn from(error: InvalidLength) -> Self {
+        log::error!("Cannot use the derived key with this AEAD: {error}");
+        SframeError::KeyDerivationFailure
+    }
+}
+
 trait InitFromSecret<'a> {
     fn from_secret(secret: &'a Secret) -> Result<Self>
     where
@@ -179,7 +188,7 @@ where
 {
     fn from_secret(secret: &'a Secret) -> Result<Self> {
         let key = secret.key();
-        let algo = A::new_from_slice(key).map_err(|err| SframeError::Other(err.to_string()))?;
+        let algo = A::new_from_slice(key)?;
         Ok(algo)
     }
 }

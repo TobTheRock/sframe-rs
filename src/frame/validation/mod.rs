@@ -16,6 +16,9 @@
 //! - [`ReplayAttackProtectionStore`] - one such window per Key ID, for a call with several senders
 //! - [`NoValidation`] - accepts everything, to switch validation off without a second code path
 //!
+//! Both replay validators take a [`Tolerance`]: how far behind the newest frame a counter may
+//! lag before it is rejected as too old.
+//!
 //! Implement [`FrameValidation`] for anything else a deployment needs to screen on.
 //!
 //! A rejected frame is normal traffic on a lossy transport, not a session failure. The validator
@@ -30,11 +33,13 @@ mod replay_attack_protection;
 mod replay_attack_protection_store;
 mod replay_token;
 mod sliding_window;
+mod tolerance;
 mod util;
 
 pub use replay_attack_protection::{ReplayAttackProtection, ReplayAttackProtectionError};
 pub use replay_attack_protection_store::{ReplayAttackProtectionStore, ReplayStoreToken};
 pub use replay_token::ReplayToken;
+pub use tolerance::Tolerance;
 
 /// Screens frames before decryption, records them after.
 ///

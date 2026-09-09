@@ -3,7 +3,7 @@ use sframe::{
     error::{Result, SframeError},
     frame::{
         EncryptedFrameView, MediaFrameView,
-        validation::{ReplayAttackProtectionError, ReplayAttackProtectionStore},
+        validation::{ReplayAttackProtectionError, ReplayAttackProtectionStore, Tolerance},
     },
     header::KeyId,
     ratchet::{
@@ -23,7 +23,7 @@ pub struct ReceiverOptions {
     pub cipher_suite: CipherSuite,
     /// replay protection, screening frames before and recording them after decryption
     ///
-    /// default: [`ReplayAttackProtectionStore`] with tolerance `128`
+    /// default: [`ReplayAttackProtectionStore`] with a [`Tolerance`] of `128`
     pub frame_validation: ReplayAttackProtectionStore,
     /// ratcheting as of [RFC 9605 5.1](https://www.rfc-editor.org/rfc/rfc9605.html#section-5.1),
     /// using `n_ratchet_bits` to depict the Ratchet Step
@@ -41,7 +41,7 @@ impl Default for ReceiverOptions {
     fn default() -> Self {
         Self {
             cipher_suite: CipherSuite::AesGcm256Sha512,
-            frame_validation: ReplayAttackProtectionStore::new(128),
+            frame_validation: ReplayAttackProtectionStore::new(Tolerance::new(128)),
             n_ratchet_bits: RatchetBits::new(N_RATCHET_BITS),
             max_ratchet_steps: RatchetStepDiff::from(2),
         }

@@ -1,12 +1,12 @@
 use bbqueue::{
     nicknames::Churrasco,
     prod_cons::framed::{FramedConsumer, FramedGrantW, FramedProducer},
+    traits::coordination::WriteGrantError,
 };
 use cgisf_lib::{SentenceConfigBuilder, gen_sentence};
 use rand::{RngExt, rng};
 use sframe::{
     CipherSuite,
-    error::SframeError,
     frame::{EncryptedFrameView, FrameBuffer, MediaFrameView, PanickingMonotonicCounter, Truncate},
     key::{DecryptionKey, EncryptionKey},
 };
@@ -18,6 +18,19 @@ static BIP_BUFFER: Churrasco<BUF_SIZE> = Churrasco::new();
 const SECRET: &[u8] = b"SUPER SECRET PW";
 const KEY_ID: u64 = 42;
 const CIPHER_SUITE: CipherSuite = CipherSuite::AesGcm256Sha512;
+
+/// Why the bip buffer could not hand out memory for a frame.
+///
+/// A [`FrameBuffer`] of your own names its error type, sframe boxes it into
+/// [`SframeError::BufferAllocationFailed`]. It comes back out of `encrypt_into` unchanged,
+/// see [`producer_task`].
+#[derive(Debug, thiserror::Error)]
+#[error("could not acquire a grant of {size} bytes: {cause:?}")]
+struct GrantFailed {
+    size: usize,
+    cause: WriteGrantError,
+}
+
 struct ProducerBuffer<'a> {
     producer: FramedProducer<&'a Churrasco<BUF_SIZE>>,
     samples_to_commit: usize,
@@ -26,12 +39,13 @@ struct ProducerBuffer<'a> {
 
 impl FrameBuffer for ProducerBuffer<'_> {
     type BufferSlice = Self;
+    type Error = GrantFailed;
 
-    fn allocate(&mut self, size: usize) -> sframe::error::Result<&mut Self::BufferSlice> {
+    fn allocate(&mut self, size: usize) -> Result<&mut Self::BufferSlice, Self::Error> {
         let grant = self
             .producer
             .grant(size as u16)
-            .map_err(|err| SframeError::Other(format!("Could not acquire grant {err:?}")))?;
+            .map_err(|cause| GrantFailed { size, cause })?;
         self.grant = Some(grant);
         self.samples_to_commit = size;
 
@@ -99,11 +113,22 @@ fn producer_task(producer: FramedProducer<&'static Churrasco<BUF_SIZE>>) {
         let media_frame = MediaFrameView::new(&mut counter, &payload);
 
         if let Err(err) = media_frame.encrypt_into(&key, &mut buffer) {
-            println!(
-                "[Producer] Failed to encrypt frame # {} due to {}",
-                counter.current(),
-                err
-            );
+            // The buffer's own error survives the trip through sframe: name the type again to
+            // tell "the consumer has not caught up" apart from a real encryption failure.
+            match err.source_as::<GrantFailed>() {
+                Some(GrantFailed {
+                    cause: WriteGrantError::InsufficientSize,
+                    size,
+                }) => println!(
+                    "[Producer] Buffer full, dropping frame # {} ({size} bytes)",
+                    counter.current()
+                ),
+                _ => println!(
+                    "[Producer] Failed to encrypt frame # {} due to {}",
+                    counter.current(),
+                    err
+                ),
+            }
         }
 
         buffer.commit();

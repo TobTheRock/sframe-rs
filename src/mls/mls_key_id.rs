@@ -34,6 +34,7 @@ impl MlsKeyIdBitRange {
             return Err(SframeError::OutOfRange {
                 name: "n_epoch_bits",
                 value: n_epoch_bits.into(),
+                min: 0,
                 max: Self::MAX.into(),
             });
         }
@@ -43,6 +44,7 @@ impl MlsKeyIdBitRange {
             return Err(SframeError::OutOfRange {
                 name: "n_index_bits",
                 value: n_index_bits.into(),
+                min: 0,
                 max: max_index_bits.into(),
             });
         }
