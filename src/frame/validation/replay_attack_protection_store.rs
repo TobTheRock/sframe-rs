@@ -2,8 +2,8 @@ use crate::header;
 use std::collections::HashMap;
 
 use super::{
-    FrameValidation, ReplayAttackProtection, ReplayAttackProtectionError, ReplayToken,
-    UnvalidatedFrame, util::assert_tolerance,
+    FrameValidation, ReplayAttackProtection, ReplayAttackProtectionError, ReplayToken, Tolerance,
+    UnvalidatedFrame,
 };
 
 /// Tracks replay protection per key id, keeping a [`ReplayAttackProtection`] for
@@ -14,19 +14,13 @@ use super::{
 /// note that a sender may use a set of key ids, e.g. when ratcheting.
 pub struct ReplayAttackProtectionStore {
     validators: HashMap<header::KeyId, ReplayAttackProtection>,
-    tolerance: usize,
+    tolerance: Tolerance,
 }
 
 impl ReplayAttackProtectionStore {
-    /// Creates a store, tracking each key id with the given tolerance for the
+    /// Creates a store, tracking each key id with the given [`Tolerance`] for the
     /// frame count.
-    ///
-    /// # Panics
-    /// Panics if `tolerance` is `0` or exceeds `header::Counter::MAX / 2`.
-    pub fn new(tolerance: usize) -> Self {
-        // Up front, so a bad tolerance does not panic on the first recorded frame.
-        assert_tolerance(tolerance);
-
+    pub fn new(tolerance: Tolerance) -> Self {
         ReplayAttackProtectionStore {
             validators: HashMap::new(),
             tolerance,
@@ -116,7 +110,7 @@ mod test {
     const COUNTER: header::Counter = 2480;
 
     fn store() -> ReplayAttackProtectionStore {
-        ReplayAttackProtectionStore::new(TOLERANCE)
+        ReplayAttackProtectionStore::new(Tolerance::new(TOLERANCE))
     }
 
     #[test]

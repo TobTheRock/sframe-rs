@@ -109,6 +109,7 @@ impl RatchetBits {
             return Err(SframeError::OutOfRange {
                 name: "n_ratchet_bits",
                 value: n_bits.into(),
+                min: 0,
                 max: Self::MAX.into(),
             });
         }

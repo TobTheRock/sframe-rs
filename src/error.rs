@@ -56,13 +56,15 @@ pub enum SframeError {
 
     /// a value does not fit into the range available for it, e.g. too many ratcheting bits
     /// or a key generation which is too large for the remaining bits of a [`KeyId`]
-    #[error("{name} of {value} exceeds the maximum of {max}")]
+    #[error("{name} of {value} is outside {min}..={max}")]
     OutOfRange {
         /// Name of the parameter which does not fit, as it is called by the API which rejected
         /// it. For diagnostics only, do not match on it.
         name: &'static str,
         /// the value which does not fit
         value: u64,
+        /// the smallest value which fits
+        min: u64,
         /// the largest value which fits
         max: u64,
     },
