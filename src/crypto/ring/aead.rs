@@ -70,8 +70,6 @@ impl AeadEncrypt for Aead {
 
         buffer_view.tag.copy_from_slice(auth_tag.as_ref());
 
-        // TODO implement auth tag shortening, see 4.4.1
-
         Ok(())
     }
 }
