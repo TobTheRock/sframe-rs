@@ -5,7 +5,7 @@ use crate::{
         key_derivation::KeyDerivation,
     },
     error::{Result, SframeError},
-    header::SframeHeader,
+    header::{KeyId, SframeHeader},
     key::KeyStore,
 };
 
@@ -96,7 +96,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     /// Dynamically allocates memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
-    pub fn decrypt<A, D>(&self, key_store: &impl KeyStore<A, D>) -> Result<MediaFrame>
+    pub fn decrypt<A, D>(&self, key_store: impl KeyStore<A, D>) -> Result<MediaFrame>
     where
         A: AeadDecrypt<Secret = D::Secret>,
         D: KeyDerivation,
@@ -124,7 +124,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     /// the frame, or the errors of [`decrypt`](Self::decrypt) if the decryption has failed.
     pub fn validated_decrypt<A, D, V>(
         &self,
-        key_store: &impl KeyStore<A, D>,
+        key_store: impl KeyStore<A, D>,
         validator: &mut V,
     ) -> Result<MediaFrame>
     where
@@ -142,7 +142,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf, A, D>(
         &self,
-        key_store: &impl KeyStore<A, D>,
+        mut key_store: impl KeyStore<A, D>,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<MediaFrameView<'obuf>>
     where
@@ -154,16 +154,18 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
 
         log::trace!("Trying to decrypt EncryptedFrame # {counter} with KeyId {key_id}");
 
-        let key = key_store
-            .get_key(key_id)
-            .ok_or(SframeError::MissingDecryptionKey(key_id))?;
+        let key = key_store.lookup(key_id).map_err(missing_key(key_id))?;
+        let dec_key = key.as_ref();
 
         let mut decryption_buffer = DecryptionBuffer::try_allocate(buffer, self, self.cipher_text)?;
 
-        key.decrypt(&mut decryption_buffer, counter)?;
+        dec_key.decrypt(&mut decryption_buffer, counter)?;
 
         let meta_len = self.meta_data.len();
-        decryption_buffer.truncate(key.cipher_suite(), meta_len);
+        decryption_buffer.truncate(dec_key.cipher_suite(), meta_len);
+
+        // the frame authenticated, so the store may keep the key it handed out
+        key_store.record(key);
 
         let buffer_slice: &mut [u8] = decryption_buffer.into();
         let (meta_data, payload) = buffer_slice.split_at(meta_len);
@@ -185,7 +187,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     /// the frame, or the errors of [`decrypt_into`](Self::decrypt_into) if the decryption has failed.
     pub fn validated_decrypt_into<'obuf, A, D, V>(
         &self,
-        key_store: &impl KeyStore<A, D>,
+        key_store: impl KeyStore<A, D>,
         buffer: &'obuf mut impl FrameBuffer,
         validator: &mut V,
     ) -> Result<MediaFrameView<'obuf>>
@@ -322,7 +324,7 @@ impl EncryptedFrame {
     /// Dynamically allocats memory for the resulting [`MediaFrame`]
     /// returns an [`crate::error::SframeError`] if no matching key with the key id in this [`SframeHeader`] is available
     /// or if decryption has failed in general.
-    pub fn decrypt<A, D>(&self, key_store: &impl KeyStore<A, D>) -> Result<MediaFrame>
+    pub fn decrypt<A, D>(&self, key_store: impl KeyStore<A, D>) -> Result<MediaFrame>
     where
         A: AeadDecrypt<Secret = D::Secret>,
         D: KeyDerivation,
@@ -344,7 +346,7 @@ impl EncryptedFrame {
     /// the frame, or the errors of [`decrypt`](Self::decrypt) if the decryption has failed.
     pub fn validated_decrypt<A, D, V>(
         &self,
-        key_store: &impl KeyStore<A, D>,
+        key_store: impl KeyStore<A, D>,
         validator: &mut V,
     ) -> Result<MediaFrame>
     where
@@ -363,7 +365,7 @@ impl EncryptedFrame {
     /// or if decryption has failed in general.
     pub fn decrypt_into<'obuf, A, D>(
         &self,
-        key_store: &impl KeyStore<A, D>,
+        key_store: impl KeyStore<A, D>,
         buffer: &'obuf mut impl FrameBuffer,
     ) -> Result<MediaFrameView<'obuf>>
     where
@@ -387,7 +389,7 @@ impl EncryptedFrame {
     /// the frame, or the errors of [`decrypt_into`](Self::decrypt_into) if the decryption has failed.
     pub fn validated_decrypt_into<'obuf, A, D, V>(
         &self,
-        key_store: &impl KeyStore<A, D>,
+        key_store: impl KeyStore<A, D>,
         buffer: &'obuf mut impl FrameBuffer,
         validator: &mut V,
     ) -> Result<MediaFrameView<'obuf>>
@@ -438,6 +440,16 @@ where
     E: std::error::Error + Send + Sync + 'static,
 {
     SframeError::FrameValidationFailed(Box::new(err))
+}
+
+fn missing_key<E>(key_id: KeyId) -> impl FnOnce(E) -> SframeError
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    move |err| SframeError::MissingDecryptionKey {
+        key_id,
+        source: Box::new(err),
+    }
 }
 
 #[cfg(test)]

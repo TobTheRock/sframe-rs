@@ -195,6 +195,16 @@ where
     }
 }
 
+impl<A, D> AsRef<GenericDecryptionKey<A, D>> for GenericDecryptionKey<A, D>
+where
+    A: AeadDecrypt<Secret = D::Secret>,
+    D: KeyDerivation,
+{
+    fn as_ref(&self) -> &GenericDecryptionKey<A, D> {
+        self
+    }
+}
+
 // The keys store `D::Secret`, an associated type that `#[derive]` can't reason about, so the
 // standard trait impls are generated here with the right bounds (note `D` itself need not be
 // `Clone`/`Eq`/... since it is only a `PhantomData` marker).

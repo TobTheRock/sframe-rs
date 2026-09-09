@@ -9,9 +9,10 @@
 //! bring your own crypto (see [`crate::crypto`]) do you reach for [`GenericEncryptionKey`] and
 //! [`GenericDecryptionKey`], which the two are aliases of.
 //!
-//! A receiver looks keys up through the [`KeyStore`] trait. A single decryption key implements
-//! it, so a call with one sender needs nothing else; a `HashMap<KeyId, DecryptionKey>` covers
-//! several senders.
+//! A receiver provides its keys to the frame API through the [`KeyStore`] trait, which every
+//! shared reference to a [`KeyLookup`] is. For convenience [`KeyLookup`] is implemented for a
+//! decryption key itself, so a call with a single sender needs nothing else, and for a
+//! `HashMap<KeyId, DecryptionKey>`, which tells the senders of a call apart by their Key ID.
 //!
 //! ## Example
 //!
@@ -20,7 +21,7 @@
 //! use sframe::{
 //!     CipherSuite,
 //!     header::KeyId,
-//!     key::{DecryptionKey, EncryptionKey, KeyStore},
+//!     key::{DecryptionKey, EncryptionKey, KeyLookup},
 //! };
 //!
 //! # fn main() -> sframe::error::Result<()> {
@@ -42,7 +43,7 @@
 pub(crate) mod generic;
 pub(crate) mod key_store;
 
-pub use key_store::KeyStore;
+pub use key_store::{KeyLookup, KeyNotFound, KeyStore};
 
 pub use generic::{GenericDecryptionKey, GenericEncryptionKey};
 

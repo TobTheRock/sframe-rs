@@ -6,6 +6,7 @@ use crate::{
         key_derivation::{KeyDerivation, Ratcheting},
     },
     error::{Result, SframeError},
+    key::KeyNotFound,
     ratchet::{
         key::GenericRatchetingDecryptionKey,
         key_id::{Generation, RatchetStepDiff, RatchetingKeyId},
@@ -81,10 +82,13 @@ where
         A: Clone,
         D::Secret: Clone,
     {
-        let stored = self
-            .keys
-            .get(&key_id.generation())
-            .ok_or(SframeError::MissingDecryptionKey(key_id.into()))?;
+        let stored =
+            self.keys
+                .get(&key_id.generation())
+                .ok_or(SframeError::MissingDecryptionKey {
+                    key_id: key_id.into(),
+                    source: Box::new(KeyNotFound),
+                })?;
 
         // the steady state between two Ratchet Steps: there is nothing to ratchet or to commit
         if stored.key_id() == key_id {
@@ -270,7 +274,8 @@ mod test {
 
         assert!(matches!(
             result,
-            Err(SframeError::MissingDecryptionKey(missing)) if missing == KeyId::from(key_id(0))
+            Err(SframeError::MissingDecryptionKey { key_id: missing, .. })
+                if missing == KeyId::from(key_id(0))
         ));
     }
 

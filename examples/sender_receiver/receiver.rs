@@ -247,7 +247,7 @@ mod test {
 
         assert!(matches!(
             decrypted,
-            Err(SframeError::MissingDecryptionKey(key_id)) if key_id == KeyId::from(6u8)
+            Err(SframeError::MissingDecryptionKey { key_id, .. }) if key_id == KeyId::from(6u8)
         ));
     }
 }

@@ -4,7 +4,8 @@
 //! own [`Result`] alias.
 //!
 //! Errors raised by something you plugged in - a [`FrameValidation`](crate::frame::validation::FrameValidation)
-//! rejecting a frame, a custom crypto backend failing - are boxed as the source of a variant.
+//! rejecting a frame, a [`KeyStore`](crate::key::KeyStore) handing out no key, a custom crypto
+//! backend failing - are boxed as the source of a variant.
 //! Use [`SframeError::source_as`] to name the concrete type again and react to it.
 
 use crate::header::KeyId;
@@ -20,7 +21,13 @@ pub type Result<T> = std::result::Result<T, SframeError>;
 pub enum SframeError {
     /// no valid decryption key has been found
     #[error("No DecryptionKey has been found")]
-    MissingDecryptionKey(KeyId),
+    MissingDecryptionKey {
+        /// the Key ID of the frame no key was found for
+        key_id: KeyId,
+        /// why the key store handed out no key, as it reported it
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
 
     /// Failed to decrypt a frame with AEAD
     #[error("Failed to Decrypt")]
@@ -83,7 +90,7 @@ impl SframeError {
     ///
     /// ```ignore
     /// let error = encrypted
-    ///     .validated_decrypt_into(&mut dec_key, &mut buffer, &mut validator)
+    ///     .validated_decrypt_into(&dec_key, &mut buffer, &mut validator)
     ///     .unwrap_err();
     ///
     /// if let Some(ReplayAttackProtectionError::DuplicatedFrame { .. }) =
