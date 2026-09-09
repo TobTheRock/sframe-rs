@@ -5,11 +5,12 @@ use crate::{
         aead::AeadDecrypt,
         key_derivation::{KeyDerivation, Ratcheting},
     },
-    error::{Result, SframeError},
-    key::KeyNotFound,
+    error::SframeError,
+    header::KeyId,
+    key::KeyStore,
     ratchet::{
         key::GenericRatchetingDecryptionKey,
-        key_id::{Generation, RatchetStepDiff, RatchetingKeyId},
+        key_id::{Generation, RatchetBits, RatchetStepDiff, RatchetingKeyId},
     },
 };
 
@@ -28,6 +29,7 @@ where
     D: KeyDerivation + Ratcheting,
 {
     keys: HashMap<Generation, GenericRatchetingDecryptionKey<A, D>>,
+    n_ratchet_bits: RatchetBits,
     max_ratchet_steps: RatchetStepDiff,
 }
 
@@ -36,16 +38,18 @@ where
     A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,
 {
-    /// Creates an empty [`GenericRatchetingKeyStore`] which catches up with at most `max_ratchet_steps`
-    /// per frame in [`GenericRatchetingKeyStore::with_ratcheted_key`] - pick it to match the loss and
-    /// re-ordering to be expected, as each step costs a key derivation an attacker can trigger.
+    /// Creates an empty [`GenericRatchetingKeyStore`] for a session which depicts the Ratchet Step
+    /// in `n_ratchet_bits` of the Key ID, and which catches up with at most `max_ratchet_steps`
+    /// per frame - pick it to match the loss and re-ordering to be expected, as each step costs a
+    /// key derivation an attacker can trigger.
     ///
     /// Always capped at
     /// [`RatchetBits::max_distinguishable_steps`](crate::ratchet::RatchetBits::max_distinguishable_steps),
     /// so a step which was already passed is never mistaken for a jump forward.
-    pub fn new(max_ratchet_steps: RatchetStepDiff) -> Self {
+    pub fn new(n_ratchet_bits: RatchetBits, max_ratchet_steps: RatchetStepDiff) -> Self {
         Self {
             keys: HashMap::default(),
+            n_ratchet_bits,
             max_ratchet_steps,
         }
     }
@@ -66,51 +70,74 @@ where
         self.keys.get(&generation)
     }
 
-    /// Runs `operation` with the decryption key of the Ratchet Step which `key_id` denotes,
-    /// ratcheting the key stored for its Key Generation forward to reach that step.
-    ///
-    /// The ratcheted key replaces the stored one only if `operation` succeeded. As the Ratchet
-    /// Step is taken from an unauthenticated header, a forged frame can thus not evict a valid
-    /// key: it fails to decrypt, and the store is left untouched.
-    ///
-    /// Fails with [`SframeError::MissingDecryptionKey`] if no key is stored for the Key
-    /// Generation, or with [`SframeError::RatchetingFailure`] if the Ratchet Step was already
-    /// passed or is too far ahead to be caught up with.
-    pub fn with_ratcheted_key<T, F>(&mut self, key_id: RatchetingKeyId, operation: F) -> Result<T>
+    /// The key of the Ratchet Step which `key_id` denotes, ratcheted forward from the key stored
+    /// for its Key Generation. The store is left untouched, the key is only kept once it is
+    /// recorded.
+    fn ratcheted_key(
+        &self,
+        key_id: RatchetingKeyId,
+    ) -> Result<GenericRatchetingDecryptionKey<A, D>, RatchetingKeyStoreError>
     where
-        F: FnOnce(&GenericRatchetingDecryptionKey<A, D>) -> Result<T>,
         A: Clone,
         D::Secret: Clone,
     {
-        let stored =
-            self.keys
-                .get(&key_id.generation())
-                .ok_or(SframeError::MissingDecryptionKey {
-                    key_id: key_id.into(),
-                    source: Box::new(KeyNotFound),
-                })?;
-
-        // the steady state between two Ratchet Steps: there is nothing to ratchet or to commit
-        if stored.key_id() == key_id {
-            return operation(stored);
-        }
+        let stored = self.keys.get(&key_id.generation()).ok_or(
+            RatchetingKeyStoreError::UnknownGeneration(key_id.generation()),
+        )?;
 
         // A single step is followed even where none is provably forward, which is the case for
         // `R = 1`: the ratcheted key is only kept if the frame decrypts, so a frame of the step
         // before costs one derivation and leaves the store untouched.
-        let can_be_told_apart = key_id
-            .n_ratchet_bits()
+        let can_be_told_apart = self
+            .n_ratchet_bits
             .max_distinguishable_steps()
             .max(RatchetStepDiff::ONE);
         let max_ratchet_steps = self.max_ratchet_steps.min(can_be_told_apart);
-        let ratcheted = stored.ratchet_to(key_id, max_ratchet_steps)?;
 
-        // committing only after the operation succeeded is what keeps an unauthenticated
-        // Ratchet Step from evicting a valid key
-        let result = operation(&ratcheted)?;
-        self.keys.insert(key_id.generation(), ratcheted);
+        stored
+            .ratchet_to(key_id, max_ratchet_steps)
+            .map_err(RatchetingKeyStoreError::RatchetingFailed)
+    }
+}
 
-        Ok(result)
+/// Why a [`GenericRatchetingKeyStore`] handed out no key. The Key Generation is the
+/// unauthenticated one of the frame's header, it only identifies the frame which was rejected.
+#[derive(Debug, thiserror::Error)]
+pub enum RatchetingKeyStoreError {
+    /// No key is stored for the Key Generation of the frame.
+    #[error("No key is stored for Key Generation {0}")]
+    UnknownGeneration(Generation),
+
+    /// The Ratchet Step of the frame was already passed, is too far ahead to be caught up with,
+    /// or its key could not be derived.
+    #[error("{0}")]
+    RatchetingFailed(#[source] SframeError),
+}
+
+/// A ratcheting store is a key store through a mutable reference: it ratchets the stored key
+/// forward to the Ratchet Step of the frame's Key ID on lookup, and keeps that key only once the
+/// frame authenticated it, so a forged Key ID cannot evict a valid key.
+impl<A, D> KeyStore<A, D> for &mut GenericRatchetingKeyStore<A, D>
+where
+    A: AeadDecrypt<Secret = D::Secret> + Clone,
+    D: KeyDerivation + Ratcheting,
+    D::Secret: Clone,
+{
+    type Key = GenericRatchetingDecryptionKey<A, D>;
+    type Error = RatchetingKeyStoreError;
+
+    /// Fails with [`RatchetingKeyStoreError::UnknownGeneration`] if no key is stored for the Key
+    /// Generation of `key_id`, or with [`RatchetingKeyStoreError::RatchetingFailed`] if its
+    /// Ratchet Step was already passed or is too far ahead to be caught up with.
+    ///
+    /// The key is ratcheted forward on every lookup, which costs a clone of the stored key where
+    /// there is no step to take.
+    fn lookup(&self, key_id: KeyId) -> Result<Self::Key, Self::Error> {
+        self.ratcheted_key(RatchetingKeyId::from_key_id(key_id, self.n_ratchet_bits))
+    }
+
+    fn record(&mut self, key: Self::Key) {
+        self.insert(key);
     }
 }
 
@@ -119,12 +146,13 @@ mod test {
     use crate::{
         CipherSuite,
         crypto::{Aead, Kdf},
-        error::{Result, SframeError},
         header::KeyId,
-        key::GenericDecryptionKey,
+        key::{GenericDecryptionKey, KeyStore},
         ratchet::{Generation, RatchetBits, RatchetStepDiff, RatchetingKeyId},
     };
     use pretty_assertions::assert_eq;
+
+    use super::RatchetingKeyStoreError;
 
     // Exercise the generic key store with the default crypto backend.
     type RatchetingKeyStore = super::GenericRatchetingKeyStore<Aead, Kdf>;
@@ -158,7 +186,7 @@ mod test {
     }
 
     fn key_store_with_max_steps(max_ratchet_steps: RatchetStepDiff) -> RatchetingKeyStore {
-        let mut key_store = RatchetingKeyStore::new(max_ratchet_steps);
+        let mut key_store = RatchetingKeyStore::new(n_ratchet_bits(), max_ratchet_steps);
         let key =
             RatchetingDecryptionKey::derive_from(CIPHER_SUITE, key_id(0), KEY_MATERIAL).unwrap();
         key_store.insert(key);
@@ -168,6 +196,26 @@ mod test {
 
     fn stored_key(key_store: &RatchetingKeyStore) -> GenericDecryptionKey<Aead, Kdf> {
         key_store.get(generation()).unwrap().as_ref().clone()
+    }
+
+    /// what the frame API does before it decrypts
+    fn lookup(
+        key_store: &mut RatchetingKeyStore,
+        key_id: RatchetingKeyId,
+    ) -> Result<RatchetingDecryptionKey, RatchetingKeyStoreError> {
+        key_store.lookup(KeyId::from(key_id))
+    }
+
+    /// what it does once the frame authenticated
+    fn lookup_and_record(
+        mut key_store: &mut RatchetingKeyStore,
+        key_id: RatchetingKeyId,
+    ) -> Result<GenericDecryptionKey<Aead, Kdf>, RatchetingKeyStoreError> {
+        let key = key_store.lookup(KeyId::from(key_id))?;
+        let used = key.as_ref().clone();
+        key_store.record(key);
+
+        Ok(used)
     }
 
     #[test]
@@ -207,15 +255,13 @@ mod test {
     }
 
     #[test]
-    fn runs_the_operation_with_the_stored_key() {
+    fn looks_the_stored_key_up() {
         let mut key_store = key_store();
         let stored = stored_key(&key_store);
 
-        let used = key_store
-            .with_ratcheted_key(key_id(0), |key| Ok(key.as_ref().clone()))
-            .unwrap();
+        let looked_up = lookup(&mut key_store, key_id(0)).unwrap();
 
-        assert_eq!(stored, used);
+        assert_eq!(stored, *looked_up.as_ref());
     }
 
     #[test]
@@ -224,15 +270,13 @@ mod test {
         // followed, otherwise ratcheting would not work at all
         let n_ratchet_bits = RatchetBits::new(1);
         let key_id = RatchetingKeyId::new(generation(), n_ratchet_bits);
-        let mut key_store = RatchetingKeyStore::new(RatchetStepDiff::ONE);
+        let mut key_store = RatchetingKeyStore::new(n_ratchet_bits, RatchetStepDiff::ONE);
         key_store.insert(
             RatchetingDecryptionKey::derive_from(CIPHER_SUITE, key_id, KEY_MATERIAL).unwrap(),
         );
         let stored = stored_key(&key_store);
 
-        let used = key_store
-            .with_ratcheted_key(key_id.inc_ratchet_step(), |key| Ok(key.as_ref().clone()))
-            .unwrap();
+        let used = lookup_and_record(&mut key_store, key_id.inc_ratchet_step()).unwrap();
 
         assert_ne!(stored, used);
     }
@@ -242,51 +286,47 @@ mod test {
         let mut key_store = key_store();
         let stored = stored_key(&key_store);
 
-        let used = key_store
-            .with_ratcheted_key(key_id(2), |key| Ok(key.as_ref().clone()))
-            .unwrap();
+        let used = lookup_and_record(&mut key_store, key_id(2)).unwrap();
 
         assert_eq!(KeyId::from(key_id(2)), used.key_id());
         assert_ne!(stored, used);
-        // the ratcheted key is kept for the next frame
+        // the recorded key is kept for the next frame
         assert_eq!(used, stored_key(&key_store));
     }
 
     #[test]
-    fn does_not_commit_a_key_if_the_operation_failed() {
+    fn does_not_keep_a_key_which_was_not_recorded() {
         let mut key_store = key_store();
         let stored = stored_key(&key_store);
 
-        let result = key_store.with_ratcheted_key(key_id(2), |_| -> Result<()> {
-            Err(SframeError::DecryptionFailure)
-        });
+        // a frame which does not decrypt drops its key instead of recording it
+        let ratcheted = lookup(&mut key_store, key_id(2)).unwrap();
+        drop(ratcheted);
 
-        assert!(result.is_err());
         // a forged header must not evict a valid key
         assert_eq!(stored, stored_key(&key_store));
     }
 
     #[test]
     fn fails_for_an_unknown_generation() {
-        let mut key_store = RatchetingKeyStore::new(RatchetStepDiff::NONE);
+        let mut key_store = RatchetingKeyStore::new(n_ratchet_bits(), RatchetStepDiff::NONE);
 
-        let result = key_store.with_ratcheted_key(key_id(0), |_| Ok(()));
+        let result = lookup(&mut key_store, key_id(0));
 
         assert!(matches!(
             result,
-            Err(SframeError::MissingDecryptionKey { key_id: missing, .. })
-                if missing == KeyId::from(key_id(0))
+            Err(RatchetingKeyStoreError::UnknownGeneration(missing)) if missing == generation()
         ));
     }
 
     #[test]
     fn rejects_a_ratchet_step_which_was_already_passed() {
         let mut key_store = key_store();
-        key_store.with_ratcheted_key(key_id(2), |_| Ok(())).unwrap();
+        lookup_and_record(&mut key_store, key_id(2)).unwrap();
         let ratcheted = stored_key(&key_store);
 
         // a re-ordered frame carrying a step we are already past
-        let result = key_store.with_ratcheted_key(key_id(1), |_| Ok(()));
+        let result = lookup(&mut key_store, key_id(1));
 
         assert!(result.is_err());
         assert_eq!(ratcheted, stored_key(&key_store));
@@ -297,7 +337,7 @@ mod test {
         let mut key_store = key_store_with_max_steps(RatchetStepDiff::ONE);
         let stored = stored_key(&key_store);
 
-        let result = key_store.with_ratcheted_key(key_id(2), |_| Ok(()));
+        let result = lookup(&mut key_store, key_id(2));
 
         assert!(result.is_err());
         assert_eq!(stored, stored_key(&key_store));
@@ -309,7 +349,7 @@ mod test {
         let mut key_store = key_store_with_max_steps(RatchetStepDiff::from(too_many));
         let stored = stored_key(&key_store);
 
-        let result = key_store.with_ratcheted_key(key_id(too_many), |_| Ok(()));
+        let result = lookup(&mut key_store, key_id(too_many));
 
         assert!(result.is_err());
         assert_eq!(stored, stored_key(&key_store));
@@ -323,7 +363,7 @@ mod test {
         // cannot be told apart from a step which was already passed
         let ambiguous = distinguishable_steps() + 1;
 
-        let result = key_store.with_ratcheted_key(key_id(ambiguous), |_| Ok(()));
+        let result = lookup(&mut key_store, key_id(ambiguous));
 
         assert!(result.is_err());
         assert_eq!(stored, stored_key(&key_store));

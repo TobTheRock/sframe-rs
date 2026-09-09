@@ -23,7 +23,8 @@
 //! Receivers keep one key per Key Generation in a `RatchetingKeyStore` and catch up with the
 //! Ratchet Step of an incoming frame. That step comes from an unauthenticated header, so the
 //! store bounds how far it will catch up per frame and only keeps the ratcheted key once the
-//! frame decrypted - see `with_ratcheted_key` on [`GenericRatchetingKeyStore`].
+//! frame decrypted. It is a [`KeyStore`](crate::key::KeyStore) like any other, so the frame API
+//! takes it directly - mutably, as it ratchets.
 //!
 //! ## Example
 //!
@@ -46,7 +47,7 @@
 //! let enc_key = RatchetingEncryptionKey::derive_from(CIPHER_SUITE, key_id, "pw123")?;
 //!
 //! // the receiver stores the key of the Key Generation, catching up at most 2 steps per frame
-//! let mut keys = RatchetingKeyStore::new(RatchetStepDiff::from(2));
+//! let mut keys = RatchetingKeyStore::new(n_ratchet_bits, RatchetStepDiff::from(2));
 //! keys.insert(RatchetingDecryptionKey::derive_from(CIPHER_SUITE, key_id, "pw123")?);
 //!
 //! // a member leaves: the sender ratchets forward and encrypts with the new key
@@ -56,9 +57,9 @@
 //! let media_frame = MediaFrame::try_new(&mut counter, "Something secret")?;
 //! let encrypted_frame = media_frame.encrypt(enc_key.as_ref())?;
 //!
-//! // the receiver reads the Ratchet Step off the header and lets the store catch up with it
-//! let key_id = RatchetingKeyId::from_key_id(encrypted_frame.header().key_id(), n_ratchet_bits);
-//! let decrypted = keys.with_ratcheted_key(key_id, |key| encrypted_frame.decrypt(key))?;
+//! // the store reads the Ratchet Step off the header and catches up with it, keeping the
+//! // ratcheted key only because the frame decrypted
+//! let decrypted = encrypted_frame.decrypt(&mut keys)?;
 //!
 //! assert_eq!(decrypted.payload(), b"Something secret");
 //! # Ok(())
@@ -80,7 +81,7 @@ pub(crate) mod key_store;
 pub use key::{GenericRatchetingDecryptionKey, GenericRatchetingEncryptionKey};
 pub use key_id::{Generation, RatchetBits, RatchetStep, RatchetStepDiff, RatchetingKeyId};
 pub use key_material::GenericRatchetingKeyMaterial;
-pub use key_store::GenericRatchetingKeyStore;
+pub use key_store::{GenericRatchetingKeyStore, RatchetingKeyStoreError};
 
 // With a backend feature enabled the generic ratcheting types are additionally exposed as aliases
 // pinned to that backend, so callers never spell out the type parameters.
@@ -115,7 +116,7 @@ mod test {
         frame::{MediaFrame, MonotonicCounter},
         ratchet::{
             RatchetBits, RatchetStepDiff, RatchetingDecryptionKey, RatchetingEncryptionKey,
-            RatchetingKeyId,
+            RatchetingKeyId, RatchetingKeyStore,
         },
     };
     use pretty_assertions::assert_eq;
@@ -124,8 +125,37 @@ mod test {
     const CIPHER_SUITE: CipherSuite = CipherSuite::AesGcm128Sha256;
     const N_RATCHET_STEPS: u64 = 2;
 
+    fn n_ratchet_bits() -> RatchetBits {
+        RatchetBits::new(4)
+    }
+
     fn key_id() -> RatchetingKeyId {
-        RatchetingKeyId::new(42u8, RatchetBits::new(4))
+        RatchetingKeyId::new(42u8, n_ratchet_bits())
+    }
+
+    #[test]
+    fn catches_up_with_the_senders_ratchet_step_and_keeps_that_key() {
+        let mut counter = MonotonicCounter::default();
+        let enc_key = RatchetingEncryptionKey::derive_from(CIPHER_SUITE, key_id(), SECRET)
+            .unwrap()
+            .ratchet()
+            .unwrap();
+        let mut keys = RatchetingKeyStore::new(n_ratchet_bits(), RatchetStepDiff::from(2));
+        keys.insert(RatchetingDecryptionKey::derive_from(CIPHER_SUITE, key_id(), SECRET).unwrap());
+
+        let media_frame = MediaFrame::try_new(&mut counter, b"ratcheted payload").unwrap();
+        let encrypted_frame = media_frame.encrypt(enc_key.as_ref()).unwrap();
+
+        // the sender is one Ratchet Step ahead of the stored key, which the store follows on
+        // its own to decrypt the frame
+        let decrypted = encrypted_frame.decrypt(&mut keys).unwrap();
+
+        assert_eq!(media_frame, decrypted);
+        // and it keeps the key it ratcheted forward to, for the frames to come
+        assert_eq!(
+            enc_key.key_id(),
+            keys.get(key_id().generation()).unwrap().key_id()
+        );
     }
 
     #[test]
