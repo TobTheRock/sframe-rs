@@ -91,9 +91,14 @@ where
             return operation(stored);
         }
 
-        let max_ratchet_steps = self
-            .max_ratchet_steps
-            .min(key_id.n_ratchet_bits().max_distinguishable_steps());
+        // A single step is followed even where none is provably forward, which is the case for
+        // `R = 1`: the ratcheted key is only kept if the frame decrypts, so a frame of the step
+        // before costs one derivation and leaves the store untouched.
+        let can_be_told_apart = key_id
+            .n_ratchet_bits()
+            .max_distinguishable_steps()
+            .max(RatchetStepDiff::ONE);
+        let max_ratchet_steps = self.max_ratchet_steps.min(can_be_told_apart);
         let ratcheted = stored.ratchet_to(key_id, max_ratchet_steps)?;
 
         // committing only after the operation succeeded is what keeps an unauthenticated
@@ -207,6 +212,25 @@ mod test {
             .unwrap();
 
         assert_eq!(stored, used);
+    }
+
+    #[test]
+    fn follows_a_single_step_with_one_ratchet_bit() {
+        // R = 1 leaves no step which is provably forward, but a flipped bit still has to be
+        // followed, otherwise ratcheting would not work at all
+        let n_ratchet_bits = RatchetBits::new(1);
+        let key_id = RatchetingKeyId::new(generation(), n_ratchet_bits);
+        let mut key_store = RatchetingKeyStore::new(RatchetStepDiff::ONE);
+        key_store.insert(
+            RatchetingDecryptionKey::derive_from(CIPHER_SUITE, key_id, KEY_MATERIAL).unwrap(),
+        );
+        let stored = stored_key(&key_store);
+
+        let used = key_store
+            .with_ratcheted_key(key_id.inc_ratchet_step(), |key| Ok(key.as_ref().clone()))
+            .unwrap();
+
+        assert_ne!(stored, used);
     }
 
     #[test]

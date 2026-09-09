@@ -85,31 +85,44 @@ impl Display for RatchetStepDiff {
 
 /// The No. bits (R) of a [`KeyId`] used for the Ratchet Step, see [`RatchetingKeyId`].
 ///
-/// At most [`RatchetBits::MAX`], so that at least one bit is left for the Key Generation.
+/// Between [`RatchetBits::MIN`] and [`RatchetBits::MAX`], so that the Ratchet Step shows up on
+/// the wire at all and at least one bit is left for the Key Generation.
+///
+/// With `R = 1` the step only alternates, so a flipped bit is always taken as one step forward
+/// and a frame from the step before cannot be told apart from a new one - it costs a key
+/// derivation and is then dropped, see
+/// [`max_distinguishable_steps`](RatchetBits::max_distinguishable_steps).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RatchetBits(u8);
 
 impl RatchetBits {
+    /// The smallest No. bits which lets a receiver follow a ratchet.
+    ///
+    /// Without a bit the Ratchet Step never changes, so a sender would ratchet its key material
+    /// with nothing on the wire to say so and its frames would stop decrypting.
+    pub const MIN: u8 = 1;
+
     /// the maximum No. bits usable for the Ratchet Step
     pub const MAX: u8 = u64::BITS as u8 - 1;
 
     /// Creates a [`RatchetBits`] from the given No. bits.
     ///
     /// # Panics
-    /// If `n_bits` is larger than [`RatchetBits::MAX`], use [`RatchetBits::try_new`] to handle
-    /// this as an error instead.
+    /// If `n_bits` is outside [`RatchetBits::MIN`]..=[`RatchetBits::MAX`], use
+    /// [`RatchetBits::try_new`] to handle this as an error instead.
     pub fn new(n_bits: u8) -> Self {
         Self::try_new(n_bits).unwrap()
     }
 
     /// Tries to create a [`RatchetBits`] from the given No. bits.
-    /// Fails with [`SframeError::OutOfRange`] if it is larger than [`RatchetBits::MAX`].
+    /// Fails with [`SframeError::OutOfRange`] if it is outside
+    /// [`RatchetBits::MIN`]..=[`RatchetBits::MAX`].
     pub fn try_new(n_bits: u8) -> Result<Self> {
-        if n_bits > Self::MAX {
+        if !(Self::MIN..=Self::MAX).contains(&n_bits) {
             return Err(SframeError::OutOfRange {
                 name: "n_ratchet_bits",
                 value: n_bits.into(),
-                min: 0,
+                min: Self::MIN.into(),
                 max: Self::MAX.into(),
             });
         }
@@ -293,6 +306,7 @@ impl From<RatchetingKeyId> for KeyId {
 #[cfg(test)]
 mod test {
     use crate::{
+        error::SframeError,
         header::KeyId,
         ratchet::key_id::{Generation, RatchetBits, RatchetStep, RatchetStepDiff, RatchetingKeyId},
     };
@@ -333,12 +347,16 @@ mod test {
     }
 
     #[test]
-    fn works_with_zero_ratcheting_bits() {
-        let key_id = key_id(RatchetBits::new(0));
-
-        assert_eq!(generation(GENERATION), key_id.generation());
-        assert_eq!(step(0), key_id.ratchet_step());
-        assert_eq!(GENERATION, key_id);
+    fn rejects_too_few_ratcheting_bits() {
+        // without a bit the step never changes, so the session would silently stop decrypting
+        // once the sender ratchets
+        for n_bits in 0..RatchetBits::MIN {
+            assert!(matches!(
+                RatchetBits::try_new(n_bits),
+                Err(SframeError::OutOfRange { value, min, .. })
+                    if value == u64::from(n_bits) && min == u64::from(RatchetBits::MIN)
+            ));
+        }
     }
 
     #[test]
@@ -395,21 +413,6 @@ mod test {
         let key_id = RatchetingKeyId::try_new(one_too_big, n_ratchet_bits);
 
         assert!(key_id.is_err());
-    }
-
-    #[test]
-    fn keeps_any_generation_without_ratcheting_bits() {
-        let key_id = RatchetingKeyId::new(u64::MAX, RatchetBits::new(0));
-
-        assert_eq!(generation(u64::MAX), key_id.generation());
-    }
-
-    #[test]
-    fn does_not_ratchet_without_ratcheting_bits() {
-        let key_id = advanced_by(key_id(RatchetBits::new(0)), 1);
-
-        assert_eq!(step(0), key_id.ratchet_step());
-        assert_eq!(generation(GENERATION), key_id.generation());
     }
 
     #[test]
@@ -486,14 +489,10 @@ mod test {
         // which cannot be told apart from a step which was already passed
         assert_eq!(diff(7), RatchetBits::new(4).max_distinguishable_steps());
         assert_eq!(diff(1), RatchetBits::new(2).max_distinguishable_steps());
-        // with a single bit any step is ambiguous, without one there is no step to take
+        // with a single bit any step is ambiguous, a flip is followed as one step forward anyway
         assert_eq!(
             RatchetStepDiff::NONE,
             RatchetBits::new(1).max_distinguishable_steps()
-        );
-        assert_eq!(
-            RatchetStepDiff::NONE,
-            RatchetBits::new(0).max_distinguishable_steps()
         );
     }
 }
