@@ -129,14 +129,18 @@ mls_key!(GenericEncryptionKey, AeadEncrypt);
 #[cfg(all(test, crypto_backend))]
 mod test {
     use super::{MlsExporter, MlsKeyId, MlsKeyIdBitRange};
-    use crate::{error::SframeError, key::EncryptionKey};
+    use crate::key::EncryptionKey;
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("the MLS group could not export a secret")]
+    struct ExportFailed;
 
     struct TestMlsExporter {
         fail: bool,
     }
     impl MlsExporter for TestMlsExporter {
         type BaseKey = &'static str;
-        type Error = SframeError;
+        type Error = ExportFailed;
 
         fn export_secret(
             &self,
@@ -145,7 +149,7 @@ mod test {
             _key_length: usize,
         ) -> Result<Self::BaseKey, Self::Error> {
             if self.fail {
-                Err(SframeError::Other("FAIL".to_owned()))
+                Err(ExportFailed)
             } else {
                 Ok("BASE_KEY")
             }

@@ -1,6 +1,6 @@
 use crate::{
     CipherSuite,
-    error::Result,
+    error::{Result, SframeError},
     frame::{FrameBuffer, Truncate},
 };
 
@@ -29,7 +29,9 @@ where
 
         let buffer_len_needed = cipher_text_len + aad_len;
         log::trace!("Trying to allocate buffer of size {buffer_len_needed}");
-        let io_buffer = buffer.allocate(buffer_len_needed)?;
+        let io_buffer = buffer
+            .allocate(buffer_len_needed)
+            .map_err(|err| SframeError::BufferAllocationFailed(Box::new(err)))?;
         let mut decryption_buffer = Self {
             io_buffer,
             aad_len,

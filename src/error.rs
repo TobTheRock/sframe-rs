@@ -69,9 +69,9 @@ pub enum SframeError {
         max: u64,
     },
 
-    /// any arbitrary error
+    /// a [`FrameBuffer`](crate::frame::FrameBuffer) could not hand out memory for a frame
     #[error("{0}")]
-    Other(String),
+    BufferAllocationFailed(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl SframeError {

@@ -1,13 +1,20 @@
-use crate::error::Result;
-
 /// Representation of a frame buffer which allows to allocate continuous slices of memory as bytes
 /// Already implemented for `Vec<u8>`
 pub trait FrameBuffer {
     /// The type representing a slice of the buffer.
     type BufferSlice: AsMut<[u8]> + AsRef<[u8]> + Truncate;
+
+    /// Why the buffer could not hand out memory. Use [`std::convert::Infallible`] for a buffer
+    /// which cannot fail.
+    type Error: std::error::Error + Send + Sync + 'static;
+
     /// Tries to allocate a continuous slice of memory in the buffer.
-    /// If allocation fails an [`crate::error::SframeError`] is returned.
-    fn allocate(&mut self, size: usize) -> Result<&mut Self::BufferSlice>;
+    ///
+    /// A failure is boxed into
+    /// [`SframeError::BufferAllocationFailed`](crate::error::SframeError::BufferAllocationFailed),
+    /// name the type again with
+    /// [`source_as`](crate::error::SframeError::source_as) to react to it.
+    fn allocate(&mut self, size: usize) -> Result<&mut Self::BufferSlice, Self::Error>;
 }
 
 /// During decryption a larger buffer is temporarily needed than the size of resulting decrypted payload.
@@ -23,7 +30,9 @@ pub trait Truncate {
 
 impl FrameBuffer for Vec<u8> {
     type BufferSlice = Self;
-    fn allocate(&mut self, size: usize) -> Result<&mut Self::BufferSlice> {
+    type Error = std::convert::Infallible;
+
+    fn allocate(&mut self, size: usize) -> Result<&mut Self::BufferSlice, Self::Error> {
         log::trace!("Allocating buffer of size {size}");
         self.resize(size, 0);
         Ok(self)
