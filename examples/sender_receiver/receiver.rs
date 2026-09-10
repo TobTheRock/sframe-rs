@@ -2,7 +2,7 @@ use sframe::{
     CipherSuite,
     error::{Result, SframeError},
     frame::{
-        EncryptedFrameView, MediaFrameView,
+        EncryptedFrameView,
         validation::{ReplayAttackProtectionError, ReplayAttackProtectionStore, Tolerance},
     },
     header::KeyId,
@@ -85,19 +85,32 @@ impl Receiver {
         let key_id =
             RatchetingKeyId::from_key_id(encrypted_frame.header().key_id(), self.n_ratchet_bits);
 
-        // The store ratchets the key forward to the Ratchet Step of the key id, but keeps it
-        // only if the frame decrypted - a forged header must not evict a valid key.
-        let media_frame = match self.keys.with_ratcheted_key(key_id, |key| {
-            decrypt_and_record(
-                &encrypted_frame,
-                key,
-                &mut self.buffer,
-                &mut self.frame_validation,
-            )
-        }) {
+        // The store is a key store like any other, it is only passed mutably: it ratchets the
+        // key forward to the Ratchet Step of the key id, and keeps it only if the frame
+        // decrypted - a forged header must not evict a valid key. The frame is screened before
+        // decryption and recorded once it authenticated.
+        let media_frame = match encrypted_frame.validated_decrypt_into(
+            &mut self.keys,
+            &mut self.buffer,
+            &mut self.frame_validation,
+        ) {
             Ok(media_frame) => media_frame,
             Err(error) => return drop_if_replayed(error),
         };
+
+        // The Ratchet Step the key was ratcheted away from leaves a replay window behind,
+        // dropping it avoids memory growth. Safe to do here, as this example ratchets on every
+        // frame and the store only ratchets forward: a frame the channel delayed past a Ratchet
+        // Step has no key anymore anyway. An application which ratchets rarely - only when a
+        // receiver joins e.g. - should keep the window while frames of that step may still
+        // arrive.
+        let stale_key_id = self
+            .keys
+            .get(key_id.generation())
+            .and_then(|key| key.ratcheted_from());
+        if let Some(stale_key_id) = stale_key_id {
+            self.frame_validation.remove(KeyId::from(stale_key_id));
+        }
 
         log::debug!(
             "[receiver] Decrypted frame # {} of key id {}",
@@ -149,30 +162,6 @@ impl Receiver {
     }
 }
 
-/// Screens the frame, decrypts it into the buffer, and only once it authenticated records it and
-/// drops the replay window which a ratchet step left behind - an unauthenticated header must not
-/// evict either.
-/// A [`MediaFrameView`] gives access to the payload, meta data and counter of the frame.
-fn decrypt_and_record<'obuf>(
-    encrypted_frame: &EncryptedFrameView,
-    key: &RatchetingDecryptionKey,
-    buffer: &'obuf mut Vec<u8>,
-    frame_validation: &mut ReplayAttackProtectionStore,
-) -> Result<MediaFrameView<'obuf>> {
-    let media_frame = encrypted_frame.validated_decrypt_into(key, buffer, frame_validation)?;
-
-    // The Ratchet Step the key was ratcheted away from leaves a replay window behind, dropping
-    // it avoids memory growth. Safe to do here, as this example ratchets on every frame and the
-    // store only ratchets forward: a frame the channel delayed past a Ratchet Step has no key
-    // anymore anyway. An application which ratchets rarely - only when a receiver joins e.g. -
-    // should keep the window while frames of that step may still arrive.
-    if let Some(stale_key_id) = key.ratcheted_from() {
-        frame_validation.remove(KeyId::from(stale_key_id));
-    }
-
-    Ok(media_frame)
-}
-
 /// Drops a frame which the validator rejected as a replay, on a lossy transport a duplicated
 /// or an outdated frame is normal traffic and no reason to fail the session.
 ///
@@ -200,7 +189,7 @@ impl From<ReceiverOptions> for Receiver {
         Self {
             frame_validation: options.frame_validation,
             cipher_suite: options.cipher_suite,
-            keys: RatchetingKeyStore::new(options.max_ratchet_steps),
+            keys: RatchetingKeyStore::new(options.n_ratchet_bits, options.max_ratchet_steps),
             buffer: Default::default(),
             n_ratchet_bits: options.n_ratchet_bits,
         }
@@ -247,7 +236,7 @@ mod test {
 
         assert!(matches!(
             decrypted,
-            Err(SframeError::MissingDecryptionKey(key_id)) if key_id == KeyId::from(6u8)
+            Err(SframeError::MissingDecryptionKey { key_id, .. }) if key_id == KeyId::from(6u8)
         ));
     }
 }

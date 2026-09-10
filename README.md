@@ -138,9 +138,9 @@ let media_frame = MediaFrameView::try_new(&mut counter, payload).unwrap();
 
 let encrypted_frame = media_frame.encrypt_into(&enc_key, &mut encrypt_buffer).unwrap();
 
-let mut dec_key = DecryptionKey::derive_from(CipherSuite::AesGcm256Sha512, key_id, "pw123").unwrap();
+let dec_key = DecryptionKey::derive_from(CipherSuite::AesGcm256Sha512, key_id, "pw123").unwrap();
 let decrypted_media_frame = encrypted_frame
-    .decrypt_into(&mut dec_key, &mut decrypt_buffer)
+    .decrypt_into(&dec_key, &mut decrypt_buffer)
     .unwrap();
 
 assert_eq!(decrypted_media_frame, media_frame);

@@ -4,7 +4,7 @@ use crate::{
     error::{Result, SframeError},
     header::KeyId,
     key::{
-        KeyStore,
+        KeyLookup,
         generic::{GenericDecryptionKey, GenericEncryptionKey},
     },
     ratchet::{
@@ -218,7 +218,7 @@ where
 
 /// A ratcheting key holds the key of its current Ratchet Step, so it can be handed to
 /// decryption directly - as long as the frame carries the key id of that step.
-impl<A, D> KeyStore<A, D> for GenericRatchetingDecryptionKey<A, D>
+impl<A, D> KeyLookup<A, D> for GenericRatchetingDecryptionKey<A, D>
 where
     A: AeadDecrypt<Secret = D::Secret>,
     D: KeyDerivation + Ratcheting,

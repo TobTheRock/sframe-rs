@@ -39,7 +39,7 @@
 //!   authenticated with the frame, so it cannot be tampered with
 //!
 //! Beyond a single key:
-//! - [`key::KeyStore`] looks a decryption key up per Key ID, for a call with several senders
+//! - [`key::KeyStore`] provides a decryption key per Key ID, for a call with several senders
 //! - [`frame::validation`] screens incoming frames before decryption, e.g. against replays
 //! - [`ratchet`] ratchets a key forward instead of distributing a new one
 //! - [`mls`] derives keys from an MLS group
