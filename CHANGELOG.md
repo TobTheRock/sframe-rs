@@ -2,6 +2,122 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-09-10
+
+### Bug Fixes
+
+- Make the wasm-webrtc example compile again ([#114](https://github.com/TobTheRock/sframe-rs/issues/114))
+
+### Features
+
+- [**breaking**] Mark SframeError as non exhaustive
+
+> **BREAKING CHANGE:** `match` on `SframeError` no longer compiles without a
+> wildcard arm. Add `_ => ...` to any exhaustive match over the enum.
+> Struct-like construction from outside the crate is unaffected, all
+> variants stay public.
+- [**breaking**] Box any error type in FrameValidationFailed
+
+> **BREAKING CHANGE:** `SframeError` no longer implements `PartialEq`/`Eq`.
+> Replace `assert_eq!(err, SframeError::X)` with
+> `assert!(matches!(err, SframeError::X))`.
+> `FrameValidationFailed` now holds `Box<dyn Error + Send + Sync>` instead
+> of `String`: construct it with `format!(..).into()` or
+- [**breaking**] Screen frames before decryption, record them after (https://github.com/TobTheRock/sframe-rs/issues/95)
+
+> **BREAKING CHANGE:** `FrameValidation::validate` is replaced by `screen` and
+> `record`, along with the associated types `Token` and `Error`. Implement
+> `fn screen(&self, UnvalidatedFrame<'_>) -> Result<Self::Token, Self::Error>`
+> and `fn record(&mut self, Self::Token)`, reading the header via
+- [**breaking**] Protect a single KID per ReplayAttackProtection
+- Recover a custom component error from SframeError
+- [**breaking**] Let the frame counter fail ([#96](https://github.com/TobTheRock/sframe-rs/issues/96))
+
+> **BREAKING CHANGE:** `FrameCounter::next` is replaced by `try_next` returning
+> a `Result`. `MediaFrame::new`, `MediaFrameView::new` and their
+> `with_meta_data` variants now require a counter which cannot fail, use
+> `try_new`/`try_with_meta_data` or a `PanickingMonotonicCounter` instead.
+- [**breaking**] Type the key id bit ranges ([#100](https://github.com/TobTheRock/sframe-rs/issues/100))
+
+> **BREAKING CHANGE:** `RatchetingKeyId::new`, `RatchetingKeyId::from_key_id`
+> and `RatchetingKeyStore::new` take a `RatchetBits` instead of a `u8`.
+- [**breaking**] Address ratcheting keys by their generation ([#100](https://github.com/TobTheRock/sframe-rs/issues/100))
+
+> **BREAKING CHANGE:** `RatchetingKeyStore::insert`, `remove` and `get` take a
+> `Generation` instead of a key id. `insert` derives its key at Ratchet
+> Step 0 and fails with `SframeError::OutOfRange` if the generation does
+> not fit the configured ratchet bits.
+- [**breaking**] Ratchet the sframe keys themselves ([#100](https://github.com/TobTheRock/sframe-rs/issues/100))
+
+> **BREAKING CHANGE:** RatchetingBaseKey is gone, and the ratcheting key store neither
+> derives keys nor knows the No. ratchet bits anymore.
+> 
+> To migrate:
+> - senders: hold a RatchetingEncryptionKey (derive_from once, then ratchet() per
+>   step) instead of feeding ratchet_encryption_key with the key id and key
+>   material of a RatchetingBaseKey
+> - receivers: insert a RatchetingDecryptionKey you derived, and replace
+>   try_ratchet(key_id) plus the get_key lookup with
+>   with_ratcheted_key(key_id, |key| ..decrypt..)
+> - the store is addressed by a RatchetingKeyId now, parse the header key id with
+>   RatchetingKeyId::from_key_id(key_id, n_ratchet_bits) and keep the No. ratchet
+>   bits of your session yourself
+> - RatchetingKeyStore::new(max_ratchet_steps) takes the No. Ratchet Steps a
+>   single frame may catch up with, it is mandatory instead of
+>   with_max_ratchet_steps. It stays capped at
+>   RatchetBits::max_distinguishable_steps, which no longer counts the diff of
+>   exactly half the steps - as many steps forward as back, so it never could be
+>   told apart from a step which was already passed
+> - the distance between two Ratchet Steps is a RatchetStepDiff now, as returned
+>   by steps_between, max_distinguishable_steps and RatchetingKeyId::steps_to.
+>   Catch a decryption key up with ratchet_to(key_id, max_steps), or ratchet() to
+>   take a single step
+- [**breaking**] Mark CipherSuite non exhaustive ([#114](https://github.com/TobTheRock/sframe-rs/issues/114))
+
+> **BREAKING CHANGE:** a `match` on `CipherSuite` outside this crate now needs a
+> catch-all arm.
+- [**breaking**] Reject an invalid replay tolerance instead of panicking
+
+> **BREAKING CHANGE:** `ReplayAttackProtection::new` and
+- [**breaking**] Let a FrameBuffer report an error of its own
+
+> **BREAKING CHANGE:** `FrameBuffer` has an associated `Error` type and `allocate`
+> returns `Result<&mut Self::BufferSlice, Self::Error>` rather than the crate's
+> `Result`. `SframeError::Other` is removed; buffer failures arrive as
+- [**breaking**] Reject a key id without ratcheting bits
+
+> **BREAKING CHANGE:** `RatchetBits::new` panics and `RatchetBits::try_new` fails with
+- [**breaking**] Let a key store record the key it handed out ([#119](https://github.com/TobTheRock/sframe-rs/issues/119))
+
+> **BREAKING CHANGE:** `KeyStore::get_key` moved to the new `KeyLookup` trait, which
+> is what a store providing keys per Key ID implements now. The frame API takes
+> the key store by value, so a key passed as `&mut dec_key` has to be `&dec_key`.
+- [**breaking**] Decrypt against a ratcheting key store directly ([#119](https://github.com/TobTheRock/sframe-rs/issues/119))
+
+> **BREAKING CHANGE:** `GenericRatchetingKeyStore::with_ratcheted_key` is gone, use
+> the key store API (`lookup`/`record`) or hand the store to the frame API.
+
+### Refactor
+
+- [**breaking**] Remove FrameValidationBox
+
+> **BREAKING CHANGE:** `FrameValidationBox` is gone. Replace it with
+> `Box<dyn FrameValidation>` and pass it as `frame.validate(&*boxed)`.
+- Anchor the replay window with an Option
+- [**breaking**] Keep the validation types in their own namespace
+- Keep the public frame fns on top
+- [**breaking**] Key the ratcheting store by generation ([#100](https://github.com/TobTheRock/sframe-rs/issues/100))
+
+> **BREAKING CHANGE:** `RatchetingKeyId::generation` returns a `Generation`,
+> `ratchet_step` a `RatchetStep`, both convertible to `u64`. Equality on
+> `RatchetingKeyId` covers the whole key id including the Ratchet Step,
+> compare `.generation()` for the previous behaviour. It is no longer
+> hashable.
+- [**breaking**] Reach every sframe type through a single module path ([#114](https://github.com/TobTheRock/sframe-rs/issues/114))
+
+> **BREAKING CHANGE:** the backend generic types moved and gained a `Generic` prefix.
+
+
 ## [1.4.3] - 2026-08-23
 
 ### Bug Fixes
