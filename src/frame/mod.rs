@@ -64,12 +64,13 @@ mod test {
     use super::media_frame::MediaFrameView;
     use crate::{
         CipherSuite,
+        crypto::{Aead, Kdf},
         frame::{
             MonotonicCounter, encrypted_frame::EncryptedFrameView, media_frame::MediaFrame,
             validation::NoValidation,
         },
         header::KeyId,
-        key::{DecryptionKey, EncryptionKey},
+        key::{DecryptionKey, EncryptionKey, KeyStore},
         util::test::assert_bytes_eq,
     };
     use pretty_assertions::assert_eq;
@@ -160,6 +161,45 @@ mod test {
 
         assert_eq!(decrypted, media_frame);
         assert_eq!(other_decrypted, other_media_frame);
+    }
+
+    struct TestKeyStore {
+        recorded: bool,
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("burn")]
+    struct KeyNotAvailable;
+
+    impl KeyStore<Aead, Kdf> for &mut TestKeyStore {
+        type Key = DecryptionKey;
+        type Error = KeyNotAvailable;
+
+        fn lookup(&self, _key_id: KeyId) -> Result<Self::Key, Self::Error> {
+            Err(KeyNotAvailable)
+        }
+
+        fn record(&mut self, _key: Self::Key) {
+            self.recorded = true;
+        }
+    }
+
+    #[test]
+    fn passes_on_why_a_key_store_had_no_key() {
+        let (enc_key, _) = keys_of_sender(KEY_ID);
+        let mut encrypt_buffer = Vec::new();
+        let mut decrypt_buffer = Vec::new();
+        let (_, encrypted_frame) = encrypt_once_as_view(PAYLOAD, &enc_key, &mut encrypt_buffer);
+        let mut store = TestKeyStore { recorded: false };
+
+        let error = encrypted_frame
+            .decrypt_into(&mut store, &mut decrypt_buffer)
+            .unwrap_err();
+
+        // the store's own error survives decryption, to be named again by the receiver
+        assert!(error.source_as::<KeyNotAvailable>().is_some());
+        // a lookup which failed leaves nothing to record
+        assert!(!store.recorded);
     }
 
     #[test]
