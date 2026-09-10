@@ -59,6 +59,8 @@ pub use media_frame::{MediaFrame, MediaFrameView};
 
 #[cfg(all(test, crypto_backend))]
 mod test {
+    use std::collections::HashMap;
+
     use super::media_frame::MediaFrameView;
     use crate::{
         CipherSuite,
@@ -66,6 +68,7 @@ mod test {
             MonotonicCounter, encrypted_frame::EncryptedFrameView, media_frame::MediaFrame,
             validation::NoValidation,
         },
+        header::KeyId,
         key::{DecryptionKey, EncryptionKey},
         util::test::assert_bytes_eq,
     };
@@ -100,6 +103,71 @@ mod test {
             .unwrap();
 
         assert_eq!(decrypted_media_frame, media_frame);
+    }
+
+    #[test]
+    fn decrypts_with_a_key_store_holding_a_single_key() {
+        let (enc_key, dec_key) = expand_keys();
+        // a store which only looks keys up is never borrowed mutably, it is passed shared
+        let keys = HashMap::from([(KeyId::from(KEY_ID), dec_key)]);
+        let mut encrypt_buffer = Vec::new();
+        let mut decrypt_buffer = Vec::new();
+        let mut counter = MonotonicCounter::default();
+
+        let media_frame = MediaFrameView::try_new(&mut counter, PAYLOAD).unwrap();
+        media_frame
+            .encrypt_into(&enc_key, &mut encrypt_buffer)
+            .unwrap();
+
+        let encrypted_frame = EncryptedFrameView::try_new(&encrypt_buffer).unwrap();
+        let decrypted_media_frame = encrypted_frame
+            .decrypt_into(&keys, &mut decrypt_buffer)
+            .unwrap();
+
+        assert_eq!(decrypted_media_frame, media_frame);
+    }
+
+    #[test]
+    fn decrypts_the_frames_of_two_senders_with_a_shared_key_store() {
+        let mut counter = MonotonicCounter::default();
+        let (enc_key, dec_key) = expand_keys();
+        let other_key_id = KEY_ID + 1;
+        let other_enc_key =
+            EncryptionKey::derive_from(CipherSuite::AesGcm256Sha512, other_key_id, "OTHER")
+                .unwrap();
+        let other_dec_key =
+            DecryptionKey::derive_from(CipherSuite::AesGcm256Sha512, other_key_id, "OTHER")
+                .unwrap();
+        // the store is passed shared for both frames, it is still there for the second
+        let keys = HashMap::from([
+            (KeyId::from(KEY_ID), dec_key),
+            (KeyId::from(other_key_id), other_dec_key),
+        ]);
+
+        let mut encrypt_buffer = Vec::new();
+        let mut other_encrypt_buffer = Vec::new();
+        let media_frame = MediaFrameView::try_new(&mut counter, PAYLOAD).unwrap();
+        let other_media_frame = MediaFrameView::try_new(&mut counter, META_DATA).unwrap();
+        media_frame
+            .encrypt_into(&enc_key, &mut encrypt_buffer)
+            .unwrap();
+        other_media_frame
+            .encrypt_into(&other_enc_key, &mut other_encrypt_buffer)
+            .unwrap();
+
+        let mut decrypt_buffer = Vec::new();
+        let decrypted = EncryptedFrameView::try_new(&encrypt_buffer)
+            .unwrap()
+            .decrypt_into(&keys, &mut decrypt_buffer)
+            .unwrap();
+        assert_eq!(decrypted, media_frame);
+
+        let mut other_decrypt_buffer = Vec::new();
+        let other_decrypted = EncryptedFrameView::try_new(&other_encrypt_buffer)
+            .unwrap()
+            .decrypt_into(&keys, &mut other_decrypt_buffer)
+            .unwrap();
+        assert_eq!(other_decrypted, other_media_frame);
     }
 
     #[test]
