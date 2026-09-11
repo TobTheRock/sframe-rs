@@ -49,3 +49,4 @@ pub fn decrypt_vp8<'a>(receiver: &'a mut Receiver, frame: &[u8]) -> Result<Optio
     let skip = vp8_header_len(frame)?;
     receiver.decrypt(frame, skip)
 }
+
