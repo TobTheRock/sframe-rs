@@ -43,3 +43,12 @@ pub fn encrypt_once(payload: &[u8], key: &EncryptionKey) -> (MediaFrame, Encrypt
 
     (media_frame, encrypted_frame)
 }
+
+/// Flips a bit of the auth tag, so the frame no longer decrypts while its header - and with it
+/// the counter and Key ID a receiver screens on - stays exactly as the sender wrote it.
+pub fn tamper_with(frame: &EncryptedFrame) -> EncryptedFrame {
+    let mut tampered = frame.as_ref().to_vec();
+    *tampered.last_mut().unwrap() ^= 0x01;
+
+    EncryptedFrame::try_new(tampered).unwrap()
+}

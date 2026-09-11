@@ -1,5 +1,6 @@
-//! Covers ratcheting: a sender and a receiver stepping forward in lockstep, and a key store which
-//! catches up on its own with a sender that ratcheted ahead.
+//! Covers ratcheting: a sender and a receiver stepping forward in lockstep, a key store which
+//! catches up on its own with a sender that ratcheted ahead - and which does not keep the key it
+//! derived for a frame that did not decrypt.
 
 #![cfg(crypto_backend)]
 
@@ -66,4 +67,28 @@ fn catches_up_with_the_senders_ratchet_step_and_keeps_that_key() {
         enc_key.key_id(),
         keys.get(key_id().generation()).unwrap().key_id()
     );
+}
+
+#[test]
+fn a_frame_which_does_not_decrypt_leaves_the_stored_key_untouched() {
+    let mut counter = MonotonicCounter::default();
+    let mut keys = RatchetingKeyStore::new(n_ratchet_bits(), RatchetStepDiff::from(2));
+    keys.insert(RatchetingDecryptionKey::derive_from(CIPHER_SUITE, key_id(), SECRET).unwrap());
+
+    // a forged frame: its Key ID claims the next Ratchet Step, but it was encrypted with key
+    // material the receiver never shared
+    let forged_key = RatchetingEncryptionKey::derive_from(CIPHER_SUITE, key_id(), b"NotSecret")
+        .unwrap()
+        .ratchet()
+        .unwrap();
+    let forged_frame = MediaFrame::try_new(&mut counter, b"forged payload")
+        .unwrap()
+        .encrypt(forged_key.as_ref())
+        .unwrap();
+
+    assert!(forged_frame.decrypt(&mut keys).is_err());
+
+    // the store ratcheted a key forward to look the forged Key ID up, but did not keep it - the
+    // key of a genuine sender is still the one it was
+    assert_eq!(key_id(), keys.get(key_id().generation()).unwrap().key_id());
 }
