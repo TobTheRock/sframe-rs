@@ -1,5 +1,5 @@
-//! Leptos UI for the demo: two videos, two passphrases, start/stop and a live
-//! "update passphrases" button.
+//! Leptos UI for the demo: two videos, two passphrases, start/stop, a live
+//! "update passphrases" button and a "ratchet sender key" button.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -58,6 +58,12 @@ fn App() -> impl IntoView {
             else {
                 return;
             };
+            // the fields start empty, and an empty secret on both sides would "work" - keyed
+            // from nothing - which is not what anyone means to demo
+            if send_pass.is_empty() || recv_pass.is_empty() {
+                status.set("enter a passphrase on both sides".to_owned());
+                return;
+            }
             status.set(String::new());
             running.set(true);
 
@@ -97,17 +103,31 @@ fn App() -> impl IntoView {
         }
     };
 
+    let ratchet = {
+        let session = session.clone();
+        move |_| {
+            if let Some(call) = session.borrow().as_ref() {
+                match call.ratchet() {
+                    Ok(()) => status.set("sender ratcheted - the receiver follows".to_owned()),
+                    Err(err) => status.set(format!("{err:?}")),
+                }
+            }
+        }
+    };
+
     view! {
         <h1>"sframe WebRTC demo"</h1>
         <p>
             "One page, two peer connections in loopback. The sender encrypts every VP8 "
             "frame with sframe; the receiver decrypts it. Give the two sides different "
-            "passphrases (then Update, or Start) and the remote video stays blank."
+            "passphrases (then Update, or Start) and the remote video stays blank. "
+            "Ratchet the sender's key and the video keeps running: the receiver reads the "
+            "new Ratchet Step off every frame's Key ID and catches up on its own."
         </p>
 
         <div class="row">
-            <label>"Sender passphrase" <input node_ref=send_ref value="correct horse battery staple"/></label>
-            <label>"Receiver passphrase" <input node_ref=recv_ref value="correct horse battery staple"/></label>
+            <label>"Sender passphrase" <input node_ref=send_ref placeholder="shared secret"/></label>
+            <label>"Receiver passphrase" <input node_ref=recv_ref placeholder="shared secret"/></label>
         </div>
 
         <p>
@@ -115,7 +135,14 @@ fn App() -> impl IntoView {
             " "
             <button on:click=update disabled=move || !running.get()>"Update passphrases"</button>
             " "
+            <button on:click=ratchet disabled=move || !running.get()>"Ratchet sender key"</button>
+            " "
             <span class="status">{move || status.get()}</span>
+        </p>
+
+        <p class="hint">
+            "Both sides log every frame they encrypt, decrypt, drop or ratchet. Open the "
+            "browser console (F12, or Cmd+Option+I on macOS) to follow along."
         </p>
 
         <div class="row">

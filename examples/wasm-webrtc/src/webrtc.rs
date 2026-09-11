@@ -44,6 +44,14 @@ impl Session {
         Reflect::set(&message, &"recvPass".into(), &recv_pass.into())?;
         self.worker.post_message(&message)
     }
+
+    /// Ratchets the sender's key one Ratchet Step forward, live. The receiver follows on its
+    /// own - the Ratchet Step travels in the Key ID of every frame - so the video keeps running.
+    pub fn ratchet(&self) -> Result<(), JsValue> {
+        let message = Object::new();
+        Reflect::set(&message, &"ratchet".into(), &JsValue::TRUE)?;
+        self.worker.post_message(&message)
+    }
 }
 
 /// Starts a fresh loopback call. `send_pass`/`recv_pass` are the two passphrases;

@@ -56,6 +56,12 @@ That's the whole integration - see [`src/transform.rs`](src/transform.rs). A
 wrong key or a tampered header makes `decrypt` fail, the frame is dropped, and
 the remote video stays blank.
 
+Ratcheting needs one more call on the sender and nothing at all on the receiver:
+
+```rust
+sender.ratchet_encryption_key()?;   // next frame carries the next Ratchet Step
+```
+
 ## Run
 
 Inside the project's Nix dev shell (`nix develop` provides the wasm toolchain,
@@ -65,10 +71,15 @@ Trunk, and the clang needed to cross-compile `ring`):
 trunk serve --open
 ```
 
-Allow camera access and click **Start**. Then:
+Type the same passphrase into both fields, allow camera access and click **Start**.
+Both sides log every frame to the browser console (F12), which is worth having open. Then:
 
 - Change one passphrase and click **Update passphrases** - decryption breaks live
   and the remote goes blank. Match them again and it recovers.
+- Click **Ratchet sender key** and the video keeps running. The sender moves to the
+  next Ratchet Step, which travels in the Key ID of every frame, so the receiver's
+  key store derives the new key and catches up on its own - nothing is re-negotiated.
+  The worker log shows the step it moved to.
 - **Stop** tears the call down.
 
 Requires a browser with `RTCRtpScriptTransform` (Chrome/Edge, Firefox, Safari).

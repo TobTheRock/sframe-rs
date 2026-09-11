@@ -231,6 +231,34 @@ mod test {
         assert!(!receiver.remove_encryption_key(Generation::from(4711)));
     }
 
+    /// The wasm demo ratchets once on a button press and then keeps sending, unlike this
+    /// example which ratchets before every frame.
+    #[test]
+    fn keeps_decrypting_after_a_single_ratchet_mid_stream() {
+        const SECRET: &str = "correct horse battery staple";
+        let generation = Generation::from(42);
+        let mut sender = super::super::sender::Sender::new(generation);
+        sender.set_encryption_key(SECRET).unwrap();
+        let mut receiver = Receiver::default();
+        receiver.set_encryption_key(generation, SECRET).unwrap();
+
+        for round in 0..3 {
+            if round > 0 {
+                sender.ratchet_encryption_key().unwrap();
+            }
+            for frame in 0..50 {
+                let payload = format!("round {round} frame {frame}");
+                let encrypted = sender.encrypt(&payload, 0).unwrap().to_vec();
+                let decrypted = receiver
+                    .decrypt(&encrypted, 0)
+                    .unwrap_or_else(|error| panic!("{payload} failed: {error}"))
+                    .unwrap_or_else(|| panic!("{payload} was dropped as a replay"));
+
+                assert_eq!(decrypted, payload.as_bytes());
+            }
+        }
+    }
+
     #[test]
     fn fail_on_missing_key() {
         let mut receiver = Receiver::default();
