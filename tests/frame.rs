@@ -1,7 +1,7 @@
-//! Covers encrypting and decrypting through the frame API: the views which encrypt into a buffer
-//! of the caller, the owned frames which allocate it themselves, frames carrying meta data in the
-//! clear, and decryption against a key store - including that a store is only asked to keep a key
-//! once the frame it was looked up for authenticated.
+//! Covers encrypting and decrypting through the frame API, each round trip in both variants: the
+//! views, which encrypt into a buffer of the caller, and the owned frames, which allocate. Also
+//! frames carrying meta data in the clear, and decryption against a key store - including that a
+//! store is only asked to keep a key once the frame it was looked up for authenticated.
 
 #![cfg(crypto_backend)]
 
@@ -33,6 +33,16 @@ fn encrypt_decrypt_frame_view() {
     let decrypted_media_frame = encrypted_frame
         .decrypt_into(&dec_key, &mut decrypt_buffer)
         .unwrap();
+
+    assert_eq!(decrypted_media_frame, media_frame);
+}
+
+#[test]
+fn encrypt_decrypt_frame() {
+    let (enc_key, dec_key) = keys_of_sender(KEY_ID);
+    let (media_frame, encrypted_frame) = encrypt_once(PAYLOAD, &enc_key);
+
+    let decrypted_media_frame = encrypted_frame.decrypt(&dec_key).unwrap();
 
     assert_eq!(decrypted_media_frame, media_frame);
 }
@@ -88,6 +98,17 @@ fn decrypts_with_a_key_store_holding_a_single_key() {
     let decrypted_media_frame = encrypted_frame
         .decrypt_into(&keys, &mut decrypt_buffer)
         .unwrap();
+
+    assert_eq!(decrypted_media_frame, media_frame);
+}
+
+#[test]
+fn decrypts_an_owned_frame_with_a_key_store() {
+    let (enc_key, dec_key) = keys_of_sender(KEY_ID);
+    let keys = HashMap::from([(KeyId::from(KEY_ID), dec_key)]);
+    let (media_frame, encrypted_frame) = encrypt_once(PAYLOAD, &enc_key);
+
+    let decrypted_media_frame = encrypted_frame.decrypt(&keys).unwrap();
 
     assert_eq!(decrypted_media_frame, media_frame);
 }
