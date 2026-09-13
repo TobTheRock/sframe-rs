@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 
+use mockall::{Sequence, mock, predicate::eq};
 use pretty_assertions::assert_eq;
 use sframe::{
     crypto::{Aead, Kdf},
@@ -17,7 +18,8 @@ use sframe::{
 
 mod common;
 use common::{
-    KEY_ID, META_DATA, OTHER_PAYLOAD, PAYLOAD, encrypt_once, encrypt_once_as_view, keys_of_sender,
+    CIPHER_SUITE, KEY_ID, META_DATA, OTHER_PAYLOAD, PAYLOAD, SECRET, encrypt_once,
+    encrypt_once_as_view, keys_of_sender,
 };
 
 #[test]
@@ -110,37 +112,64 @@ fn decrypts_the_frames_of_two_senders_with_a_shared_key_store() {
     assert_eq!(other_decrypted, other_media_frame);
 }
 
-struct TestKeyStore {
-    recorded: bool,
+#[derive(Debug, thiserror::Error)]
+#[error("no key for {key_id}")]
+struct KeyNotAvailable {
+    key_id: KeyId,
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("burn")]
-struct KeyNotAvailable;
+mock! {
+    Keys {}
 
-impl KeyStore<Aead, Kdf> for &mut TestKeyStore {
-    type Key = DecryptionKey;
-    type Error = KeyNotAvailable;
+    impl KeyStore<Aead, Kdf> for Keys {
+        type Key = DecryptionKey;
+        type Error = KeyNotAvailable;
 
-    fn lookup(&self, _key_id: KeyId) -> Result<Self::Key, Self::Error> {
-        Err(KeyNotAvailable)
+        fn lookup(&self, key_id: KeyId) -> Result<DecryptionKey, KeyNotAvailable>;
+        fn record(&mut self, key: DecryptionKey);
     }
+}
 
-    fn record(&mut self, _key: Self::Key) {
-        self.recorded = true;
-    }
+#[test]
+fn looks_a_key_up_before_decryption_and_records_it_after() {
+    let (enc_key, _) = keys_of_sender(KEY_ID);
+    let (media_frame, encrypted_frame) = encrypt_once(PAYLOAD, &enc_key);
+
+    // a store which derives its key on lookup, as a ratcheting one does
+    let key_id = KeyId::from(KEY_ID);
+    let mut order = Sequence::new();
+    let mut keys = MockKeys::new();
+    keys.expect_lookup()
+        .once()
+        .in_sequence(&mut order)
+        .with(eq(key_id))
+        .returning(|key_id| Ok(DecryptionKey::derive_from(CIPHER_SUITE, key_id, SECRET).unwrap()));
+    // the key it handed out for the frame's Key ID is the one it is asked to keep
+    keys.expect_record()
+        .once()
+        .in_sequence(&mut order)
+        .withf(move |key| key.key_id() == key_id)
+        .return_const(());
+
+    let decrypted = encrypted_frame.decrypt(keys).unwrap();
+
+    assert_eq!(decrypted, media_frame);
 }
 
 #[test]
 fn passes_on_why_a_key_store_had_no_key() {
     let (enc_key, _) = keys_of_sender(KEY_ID);
     let (_, encrypted_frame) = encrypt_once(PAYLOAD, &enc_key);
-    let mut store = TestKeyStore { recorded: false };
 
-    let error = encrypted_frame.decrypt(&mut store).unwrap_err();
+    let mut keys = MockKeys::new();
+    keys.expect_lookup()
+        .once()
+        .returning(|key_id| Err(KeyNotAvailable { key_id }));
+    // a lookup which failed leaves nothing to record
+    keys.expect_record().never();
+
+    let error = encrypted_frame.decrypt(keys).unwrap_err();
 
     // the store's own error survives decryption, to be named again by the receiver
     assert!(error.source_as::<KeyNotAvailable>().is_some());
-    // a lookup which failed leaves nothing to record
-    assert!(!store.recorded);
 }
