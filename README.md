@@ -10,6 +10,10 @@
 This library is an implementation of [Sframe (RFC 9605)](https://www.rfc-editor.org/rfc/rfc9605.html) and provides an end-to-end encryption mechanism for media frames that is suited for WebRTC conferences.
 It was forked from the original [goto-opensource/secure-frame-rs](https://github.com/goto-opensource/secure-frame-rs) and is continued here.
 
+> **Migrating from 1.x?** 2.0 moves the ratcheting and validation state changes behind
+> authentication, and replaces the bare integers with types.
+> [`MIGRATION.md`](MIGRATION.md) walks through it module by module.
+
 ## Supported crypto libraries
 
 Three crypto libraries are supported out of the box, selectable via mutually exclusive features:

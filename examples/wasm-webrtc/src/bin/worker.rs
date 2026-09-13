@@ -5,7 +5,8 @@
 //! fires per attached transform (one encrypt, one decrypt in this demo).
 //!
 //! The codecs live in worker-global state keyed by operation so a `postMessage`
-//! from the app can re-derive their keys live (the "update passphrases" button).
+//! from the app can re-derive their keys live (the "update passphrases" button)
+//! or ratchet the sender's key forward (the "ratchet" button).
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -49,6 +50,9 @@ fn main() {
         }
         if let Ok(recv_pass) = string_field(&data, "recvPass") {
             rekey("decrypt", &recv_pass);
+        }
+        if Reflect::get(&data, &"ratchet".into()).is_ok_and(|value| value.is_truthy()) {
+            ratchet_sender();
         }
     });
     global.set_onmessage(Some(on_message.as_ref().unchecked_ref()));
@@ -95,6 +99,31 @@ fn rekey(operation: &str, passphrase: &str) {
         match result {
             Ok(()) => log::info!("[{}] re-keyed", role_of(operation)),
             Err(err) => log::warn!("[{}] re-key failed: {err}", role_of(operation)),
+        }
+    });
+}
+
+/// Ratchets the sender's key one Ratchet Step forward, so the frames to come are encrypted with
+/// a key the previous step cannot read.
+///
+/// The receiver is told nothing: the new Ratchet Step rides along in the Key ID of every frame,
+/// and its key store catches up on its own - the video keeps flowing.
+fn ratchet_sender() {
+    CODECS.with(|codecs| {
+        let mut codecs = codecs.borrow_mut();
+        let Some(KeyedCodec {
+            codec: Codec::Encrypt(sender),
+            ..
+        }) = codecs.get_mut("encrypt")
+        else {
+            return;
+        };
+        match sender.ratchet_encryption_key() {
+            Ok(()) => log::info!(
+                "[sender] ratcheted to Ratchet Step {}",
+                sender.key_id().ratchet_step()
+            ),
+            Err(err) => log::warn!("[sender] ratcheting failed: {err}"),
         }
     });
 }

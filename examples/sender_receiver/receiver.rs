@@ -63,8 +63,9 @@ pub struct Receiver {
 }
 
 impl Receiver {
-    /// Tries to decrypt an incoming encrypted frame, returning a slice to the decrypted data on success.
-    /// The first `skip` bytes are assumed to be not encrypted (e.g. another header) and are only used as AAD for authentification
+    /// Tries to decrypt an incoming encrypted frame, returning the restored frame on success:
+    /// the first `skip` bytes as they arrived, followed by the decrypted payload.
+    /// Those `skip` bytes are assumed to be not encrypted (e.g. another header) and are only used as AAD for authentification
     ///
     /// Returns [`None`] if the frame was dropped as a replay.
     /// May fail with
@@ -89,12 +90,12 @@ impl Receiver {
         // key forward to the Ratchet Step of the key id, and keeps it only if the frame
         // decrypted - a forged header must not evict a valid key. The frame is screened before
         // decryption and recorded once it authenticated.
-        let media_frame = match encrypted_frame.validated_decrypt_into(
+        let counter = match encrypted_frame.validated_decrypt_into(
             &mut self.keys,
             &mut self.buffer,
             &mut self.frame_validation,
         ) {
-            Ok(media_frame) => media_frame,
+            Ok(media_frame) => media_frame.counter(),
             Err(error) => return drop_if_replayed(error),
         };
 
@@ -113,12 +114,14 @@ impl Receiver {
         }
 
         log::debug!(
-            "[receiver] Decrypted frame # {} of key id {}",
-            media_frame.counter(),
+            "[receiver] Decrypted frame # {counter} of key id {}",
             KeyId::from(key_id)
         );
 
-        Ok(Some(media_frame.payload()))
+        // The frame as it was before encryption: the first `skip` bytes stayed in the clear as
+        // meta data, the decrypted payload follows them - so this is the inverse of
+        // `Sender::encrypt`, not just its payload.
+        Ok(Some(&self.buffer))
     }
 
     /// Tries to expand (HKDF) the necessary encryptions key for a Key Generation using the given
@@ -226,6 +229,34 @@ mod test {
 
         assert!(receiver.remove_encryption_key(Generation::from(4711)));
         assert!(!receiver.remove_encryption_key(Generation::from(4711)));
+    }
+
+    /// The wasm demo ratchets once on a button press and then keeps sending, unlike this
+    /// example which ratchets before every frame.
+    #[test]
+    fn keeps_decrypting_after_a_single_ratchet_mid_stream() {
+        const SECRET: &str = "correct horse battery staple";
+        let generation = Generation::from(42);
+        let mut sender = super::super::sender::Sender::new(generation);
+        sender.set_encryption_key(SECRET).unwrap();
+        let mut receiver = Receiver::default();
+        receiver.set_encryption_key(generation, SECRET).unwrap();
+
+        for round in 0..3 {
+            if round > 0 {
+                sender.ratchet_encryption_key().unwrap();
+            }
+            for frame in 0..50 {
+                let payload = format!("round {round} frame {frame}");
+                let encrypted = sender.encrypt(&payload, 0).unwrap().to_vec();
+                let decrypted = receiver
+                    .decrypt(&encrypted, 0)
+                    .unwrap_or_else(|error| panic!("{payload} failed: {error}"))
+                    .unwrap_or_else(|| panic!("{payload} was dropped as a replay"));
+
+                assert_eq!(decrypted, payload.as_bytes());
+            }
+        }
     }
 
     #[test]
