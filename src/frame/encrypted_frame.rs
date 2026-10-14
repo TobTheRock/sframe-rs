@@ -1,7 +1,7 @@
 use crate::{
     crypto::{
         aead::AeadDecrypt,
-        buffer::{AadData, decryption::DecryptionBuffer},
+        buffer::{DecryptionBufferView, decryption::DecryptionBuffer},
         key_derivation::KeyDerivation,
     },
     error::{Result, SframeError},
@@ -11,6 +11,7 @@ use crate::{
 
 use super::{
     FrameBuffer,
+    aad::Aad,
     media_frame::{MediaFrame, MediaFrameView},
     validation::{FrameValidation, UnvalidatedFrame},
 };
@@ -24,7 +25,6 @@ use super::{
 pub struct EncryptedFrameView<'buf> {
     header: SframeHeader,
     meta_data: &'buf [u8],
-    header_buf: &'buf [u8],
     cipher_text: &'buf [u8],
 }
 
@@ -49,11 +49,10 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let header = SframeHeader::deserialize(data)?;
         log::trace!("EncryptedFrame # {} with header {header}", header.counter());
 
-        let (header_buf, cipher_text) = data.as_ref().split_at(header.len());
+        let cipher_text = &data.as_ref()[header.len()..];
         Ok(Self {
             header,
             meta_data: meta_data.as_ref(),
-            header_buf,
             cipher_text,
         })
     }
@@ -67,11 +66,10 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         D: AsRef<[u8]> + ?Sized,
         M: AsRef<[u8]> + ?Sized,
     {
-        let (header_buf, cipher_text) = data.as_ref().split_at(header.len());
+        let cipher_text = &data.as_ref()[header.len()..];
         Self {
             header,
             meta_data: meta_data.as_ref(),
-            header_buf,
             cipher_text,
         }
     }
@@ -157,9 +155,11 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let key = key_store.lookup(key_id).map_err(missing_key(key_id))?;
         let dec_key = key.as_ref();
 
-        let mut decryption_buffer = DecryptionBuffer::try_allocate(buffer, self, self.cipher_text)?;
+        let aad = Aad::new(&self.header, self.meta_data);
+        let mut decryption_buffer = DecryptionBuffer::try_allocate(buffer, &aad, self.cipher_text)?;
 
         dec_key.decrypt(&mut decryption_buffer, counter)?;
+        aad.to_frame_layout(DecryptionBufferView::from(&mut decryption_buffer).aad);
 
         let meta_len = self.meta_data.len();
         decryption_buffer.truncate(dec_key.cipher_suite(), meta_len);
@@ -212,19 +212,6 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         validator.record(token);
 
         Ok(decrypted)
-    }
-}
-
-impl AadData for EncryptedFrameView<'_> {
-    fn len(&self) -> usize {
-        self.header.len() + self.meta_data.len()
-    }
-
-    fn serialize(&self, buffer: &mut [u8]) -> Result<()> {
-        let (meta_data, header) = buffer.split_at_mut(self.meta_data.len());
-        meta_data.copy_from_slice(self.meta_data);
-        header.copy_from_slice(self.header_buf);
-        Ok(())
     }
 }
 
