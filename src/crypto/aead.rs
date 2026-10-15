@@ -39,7 +39,6 @@ mod test {
         error::SframeError,
         header::{KeyId, SframeHeader},
         key::{DecryptionKey, EncryptionKey},
-        test_vectors::get_sframe_test_vector,
         util::test::assert_bytes_eq,
     };
 
@@ -71,68 +70,6 @@ mod test {
         enc_key
             .encrypt(&mut encryption_buffer, header.counter())
             .unwrap();
-    }
-
-    #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]
-    #[test_case(CipherSuite::AesGcm256Sha512; "AesGcm256Sha512")]
-    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
-    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
-    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
-    fn encrypt_test_vector(cipher_suite: CipherSuite) {
-        let test_vec = get_sframe_test_vector(&cipher_suite.to_string());
-
-        let enc_key = EncryptionKey::from_test_vector(cipher_suite, test_vec);
-
-        let header = SframeHeader::new(test_vec.key_id, test_vec.counter);
-        let header_buffer = Vec::from(&header);
-
-        let mut aad = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
-        assert_bytes_eq(&aad, &test_vec.aad);
-
-        let mut cipher_text = test_vec.plain_text.clone();
-        let mut tag = vec![0u8; enc_key.cipher_suite().auth_tag_len()];
-        let encryption_buffer = EncryptionBufferView {
-            aad: &mut aad,
-            data: &mut cipher_text,
-            tag: &mut tag,
-        };
-
-        enc_key
-            .encrypt(encryption_buffer, header.counter())
-            .unwrap();
-
-        let full_frame = [header_buffer, cipher_text, tag].concat().to_vec();
-        assert_bytes_eq(&full_frame, &test_vec.cipher_text);
-    }
-
-    #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]
-    #[test_case(CipherSuite::AesGcm256Sha512; "AesGcm256Sha512")]
-    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
-    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
-    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
-    fn decrypt_test_vector(cipher_suite: CipherSuite) {
-        let test_vec = get_sframe_test_vector(&cipher_suite.to_string());
-
-        let dec_key = DecryptionKey::from_test_vector(cipher_suite, test_vec);
-        let header: SframeHeader = SframeHeader::new(test_vec.key_id, test_vec.counter);
-        let header_buffer = Vec::from(&header);
-
-        let mut aad = [header_buffer.as_slice(), test_vec.metadata.as_slice()].concat();
-        assert_bytes_eq(&aad, &test_vec.aad);
-
-        let mut data = Vec::from(&test_vec.cipher_text[header.len()..]);
-
-        let decryption_buffer = DecryptionBufferView {
-            aad: &mut aad,
-            data: &mut data,
-        };
-
-        dec_key
-            .decrypt(decryption_buffer, header.counter())
-            .unwrap();
-        data.truncate(data.len() - dec_key.cipher_suite().auth_tag_len());
-
-        assert_bytes_eq(&data, &test_vec.plain_text);
     }
 
     #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]

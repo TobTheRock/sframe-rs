@@ -1,7 +1,7 @@
 use crate::{
     crypto::{
         aead::AeadEncrypt,
-        buffer::{AadData, encryption::EncryptionBuffer},
+        buffer::{EncryptionBufferView, encryption::EncryptionBuffer},
         key_derivation::KeyDerivation,
     },
     error::{Result, SframeError},
@@ -11,6 +11,7 @@ use crate::{
 
 use super::{
     FrameBuffer, FrameCounter,
+    aad::Aad,
     encrypted_frame::{EncryptedFrame, EncryptedFrameView},
 };
 use std::convert::Infallible;
@@ -164,15 +165,13 @@ impl<'ibuf> MediaFrameView<'ibuf> {
         let header = SframeHeader::new(key_id, self.counter);
         log::trace!("MediaFrame # {} using header {}", self.counter, header);
 
-        let aad = Aad {
-            meta_data: self.meta_data,
-            header: &header,
-        };
+        let aad = Aad::new(&header, self.meta_data);
         let mut crypto_buffer =
             EncryptionBuffer::try_allocate(buffer, key.cipher_suite(), &aad, self.payload)?;
 
         log::trace!("MediaFrame # {} trying to encrypt", self.counter);
         key.encrypt(&mut crypto_buffer, self.counter)?;
+        aad.to_frame_layout(EncryptionBufferView::from(&mut crypto_buffer).aad);
 
         let meta_len = self.meta_data().len();
         let buffer: &mut [u8] = crypto_buffer.into();
@@ -180,24 +179,6 @@ impl<'ibuf> MediaFrameView<'ibuf> {
             EncryptedFrameView::with_header(header, &buffer[meta_len..], &buffer[..meta_len]);
 
         Ok(encrypted)
-    }
-}
-
-struct Aad<'a> {
-    meta_data: &'a [u8],
-    header: &'a SframeHeader,
-}
-
-impl AadData for Aad<'_> {
-    fn len(&self) -> usize {
-        self.meta_data.len() + self.header.len()
-    }
-
-    fn serialize(&self, buffer: &mut [u8]) -> Result<()> {
-        let (meta_data, header) = buffer.split_at_mut(self.meta_data.len());
-        meta_data.copy_from_slice(self.meta_data);
-        self.header.serialize(header)?;
-        Ok(())
     }
 }
 

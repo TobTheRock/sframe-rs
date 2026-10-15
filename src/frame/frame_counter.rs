@@ -144,11 +144,59 @@ impl FrameCounter for PanickingMonotonicCounter {
     }
 }
 
+/// A counter which hands out a single, fixed value exactly once. Afterwards it fails with [`CounterUsed`].
+#[derive(Copy, Clone, Debug)]
+pub struct SingleUseCounter(Option<Counter>);
+
+impl SingleUseCounter {
+    /// Creates a new counter which returns `counter` once.
+    pub fn new(counter: Counter) -> Self {
+        Self(Some(counter))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("SingleUseCounter was already used")]
+/// The single counter value of a [`SingleUseCounter`] was already handed out
+pub struct CounterUsed;
+
+impl FrameCounter for SingleUseCounter {
+    type Error = CounterUsed;
+
+    fn try_next(&mut self) -> Result<Counter, Self::Error> {
+        self.0.take().ok_or(CounterUsed)
+    }
+}
+
+/// A [`SingleUseCounter`] which panics when it is used a second time
+///
+/// # Panics
+/// [`FrameCounter::try_next`] panics after the value was handed out once.
+#[derive(Copy, Clone, Debug)]
+pub struct PanickingSingleUseCounter(SingleUseCounter);
+
+impl PanickingSingleUseCounter {
+    /// Creates a new counter which returns `counter` once.
+    pub fn new(counter: Counter) -> Self {
+        Self(SingleUseCounter::new(counter))
+    }
+}
+
+impl FrameCounter for PanickingSingleUseCounter {
+    type Error = Infallible;
+
+    /// # Panics
+    /// If the value was already handed out.
+    fn try_next(&mut self) -> Result<Counter, Self::Error> {
+        Ok(self.0.try_next().unwrap_or_else(|err| panic!("{err}")))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::{frame::FrameCounter, header::Counter};
 
-    use super::MonotonicCounter;
+    use super::{MonotonicCounter, SingleUseCounter};
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -187,6 +235,14 @@ mod test {
         assert_eq!(counter.try_next().unwrap(), Counter::MAX - 1);
         assert_eq!(counter.try_next().unwrap(), Counter::MAX);
         assert!(counter.is_exhausted());
+        assert!(counter.try_next().is_err());
+    }
+
+    #[test]
+    fn single_use_counter_returns_its_value_once() {
+        let mut counter = SingleUseCounter::new(42);
+
+        assert_eq!(counter.try_next().unwrap(), 42);
         assert!(counter.try_next().is_err());
     }
 }

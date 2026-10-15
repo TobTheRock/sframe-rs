@@ -43,6 +43,7 @@
 //! you can check out the [bip_frame_buffer example](https://github.com/TobTheRock/sframe-rs/blob/main/examples/bip_frame_buffer.rs).
 //!
 
+mod aad;
 mod encrypted_frame;
 mod frame_buffer;
 mod frame_counter;
@@ -53,6 +54,54 @@ pub mod validation;
 pub use encrypted_frame::{EncryptedFrame, EncryptedFrameView};
 pub use frame_buffer::{FrameBuffer, Truncate};
 pub use frame_counter::{
-    CounterExhausted, FrameCounter, MonotonicCounter, PanickingMonotonicCounter,
+    CounterExhausted, CounterUsed, FrameCounter, MonotonicCounter, PanickingMonotonicCounter,
+    PanickingSingleUseCounter, SingleUseCounter,
 };
 pub use media_frame::{MediaFrame, MediaFrameView};
+
+#[cfg(all(test, crypto_backend))]
+mod test {
+    use super::{EncryptedFrame, MediaFrame, SingleUseCounter};
+    use crate::{
+        CipherSuite,
+        key::{DecryptionKey, EncryptionKey},
+        test_vectors::get_sframe_test_vector,
+        util::test::assert_bytes_eq,
+    };
+    use test_case::test_case;
+
+    #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]
+    #[test_case(CipherSuite::AesGcm256Sha512; "AesGcm256Sha512")]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
+    fn encrypt_test_vector(cipher_suite: CipherSuite) {
+        let test_vec = get_sframe_test_vector(&cipher_suite.to_string());
+        let enc_key = EncryptionKey::from_test_vector(cipher_suite, test_vec);
+        let mut counter = SingleUseCounter::new(test_vec.counter);
+
+        let media_frame =
+            MediaFrame::try_with_meta_data(&mut counter, &test_vec.plain_text, &test_vec.metadata)
+                .unwrap();
+        let encrypted_frame = media_frame.encrypt(&enc_key).unwrap();
+
+        let sframe = &encrypted_frame.as_ref()[test_vec.metadata.len()..];
+        assert_bytes_eq(sframe, &test_vec.cipher_text);
+    }
+
+    #[test_case(CipherSuite::AesGcm128Sha256; "AesGcm128Sha256")]
+    #[test_case(CipherSuite::AesGcm256Sha512; "AesGcm256Sha512")]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_80; "AesCtr128HmacSha256_80"))]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_64; "AesCtr128HmacSha256_64"))]
+    #[cfg_attr(aes_ctr, test_case(CipherSuite::AesCtr128HmacSha256_32; "AesCtr128HmacSha256_32"))]
+    fn decrypt_test_vector(cipher_suite: CipherSuite) {
+        let test_vec = get_sframe_test_vector(&cipher_suite.to_string());
+        let dec_key = DecryptionKey::from_test_vector(cipher_suite, test_vec);
+
+        let encrypted_frame =
+            EncryptedFrame::try_with_meta_data(&test_vec.cipher_text, &test_vec.metadata).unwrap();
+        let media_frame = encrypted_frame.decrypt(&dec_key).unwrap();
+
+        assert_bytes_eq(media_frame.payload(), &test_vec.plain_text);
+    }
+}
