@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-10-15
+
+### Bug Fixes
+
+- Authenticate the header before the meta data, as RFC 9605 requires ([#124](https://github.com/TobTheRock/sframe-rs/issues/124))
+
+### Features
+
+- SingleUseCounter for a single counter value
+- Add an sframe cipher text accessor
+
+
 ## [2.0.0] - 2026-09-13
 
 ### Bug Fixes
