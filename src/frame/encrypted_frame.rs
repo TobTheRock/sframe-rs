@@ -25,6 +25,7 @@ use super::{
 pub struct EncryptedFrameView<'buf> {
     header: SframeHeader,
     meta_data: &'buf [u8],
+    sframe_cipher_text: &'buf [u8],
     cipher_text: &'buf [u8],
 }
 
@@ -49,12 +50,7 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         let header = SframeHeader::deserialize(data)?;
         log::trace!("EncryptedFrame # {} with header {header}", header.counter());
 
-        let cipher_text = &data.as_ref()[header.len()..];
-        Ok(Self {
-            header,
-            meta_data: meta_data.as_ref(),
-            cipher_text,
-        })
+        Ok(Self::with_header(header, data, meta_data))
     }
 
     pub(super) fn with_header<D, M>(
@@ -66,11 +62,12 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
         D: AsRef<[u8]> + ?Sized,
         M: AsRef<[u8]> + ?Sized,
     {
-        let cipher_text = &data.as_ref()[header.len()..];
+        let sframe_cipher_text = data.as_ref();
         Self {
             header,
             meta_data: meta_data.as_ref(),
-            cipher_text,
+            sframe_cipher_text,
+            cipher_text: &sframe_cipher_text[header.len()..],
         }
     }
 
@@ -80,13 +77,21 @@ impl<'ibuf> EncryptedFrameView<'ibuf> {
     }
 
     /// the associated meta data of the encrypted frame
-    pub fn meta_data(&self) -> &[u8] {
+    pub fn meta_data(&self) -> &'ibuf [u8] {
         self.meta_data
     }
 
-    /// the cipher text (Sframe Header + Encrypted Data + Authentication Tag) of the encrypted frame
-    pub fn cipher_text(&self) -> &[u8] {
+    /// the cipher text (Encrypted Data + Authentication Tag) of the encrypted frame, without the
+    /// Sframe Header, see [`Self::header`]
+    pub fn cipher_text(&self) -> &'ibuf [u8] {
         self.cipher_text
+    }
+
+    /// the Sframe cipher text as of [RFC 9605 4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.2)
+    /// (Sframe Header + Encrypted Data + Authentication Tag) of the encrypted frame, without the
+    /// meta data
+    pub fn sframe_cipher_text(&self) -> &'ibuf [u8] {
+        self.sframe_cipher_text
     }
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store.
@@ -298,12 +303,20 @@ impl EncryptedFrame {
 
     /// the associated meta data of the encrypted frame
     pub fn meta_data(&self) -> &[u8] {
-        &self.buffer[..self.meta_len]
+        EncryptedFrameView::from(self).meta_data()
     }
 
-    /// the cipher text (Sframe Header + Encrypted Data + Authentication Tag) of the encrypted frame
+    /// the cipher text (Encrypted Data + Authentication Tag) of the encrypted frame, without the
+    /// Sframe Header, see [`Self::header`]
     pub fn cipher_text(&self) -> &[u8] {
-        &self.buffer[self.meta_len + self.header.len()..]
+        EncryptedFrameView::from(self).cipher_text()
+    }
+
+    /// the Sframe cipher text as of [RFC 9605 4.2](https://www.rfc-editor.org/rfc/rfc9605.html#section-4.2)
+    /// (Sframe Header + Encrypted Data + Authentication Tag) of the encrypted frame, without the
+    /// meta data
+    pub fn sframe_cipher_text(&self) -> &[u8] {
+        EncryptedFrameView::from(self).sframe_cipher_text()
     }
 
     /// Tries to decrypt the encrypted frame with a key from the provided key store.
@@ -395,7 +408,7 @@ impl<'buf> From<&'buf EncryptedFrame> for EncryptedFrameView<'buf> {
         EncryptedFrameView::with_header(
             frame.header,
             &frame.buffer[frame.meta_len..],
-            frame.meta_data(),
+            &frame.buffer[..frame.meta_len],
         )
     }
 }
@@ -457,6 +470,7 @@ mod test {
 
         assert_eq!(frame_view.header(), &header);
         assert_eq!(frame_view.cipher_text(), &cipher_text);
+        assert_eq!(frame_view.sframe_cipher_text(), &data);
         assert_eq!(frame_view.meta_data(), meta_data);
     }
 
@@ -468,10 +482,11 @@ mod test {
         let cipher_text = vec![6u8; 3];
         let data = [header_buf.clone(), cipher_text.clone()].concat();
 
-        let frame = EncryptedFrame::try_with_meta_data(data, meta_data).unwrap();
+        let frame = EncryptedFrame::try_with_meta_data(&data, meta_data).unwrap();
 
         assert_eq!(frame.header(), &header);
         assert_eq!(frame.cipher_text(), &cipher_text);
+        assert_eq!(frame.sframe_cipher_text(), &data);
         assert_eq!(frame.meta_data(), meta_data);
     }
 }
